@@ -8,14 +8,17 @@ import static spark.Spark.put;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.Serializable;
+import java.util.List;
 
 import javax.inject.Inject;
 
 import org.gamboni.cloudspill.domain.Item;
+import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;
+import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Restrictions;
 
 import com.google.inject.Guice;
 import com.google.inject.Injector;
@@ -71,6 +74,31 @@ public class CloudSpillServer {
         
         /* Download a file */
         get("/item/:id", (req, res) -> true);
+        
+        /* Get list of items whose id is larger than the given one. */
+        get("item/since/:id", (req, res) -> transacted(session -> {
+        	StringBuilder result = new StringBuilder();
+        	
+        	Criteria criteria = session.createCriteria(Item.class)
+        			.add(Restrictions.gt("id", Long.parseLong(req.params("id"))))
+        			.addOrder(Order.asc("id"));
+        	
+			@SuppressWarnings("unchecked")
+			List<Item> results = criteria.list();
+			
+			for (Item item : results) {
+				result.append(item.getId())
+				.append(";")
+				.append(item.getUser())
+				.append(";")
+				.append(item.getFolder())
+				.append(";")
+				.append(item.getPath())
+				.append("\n");
+			}
+        	
+        	return result.toString();
+        }));
         
         /* Upload a file */
         put("/item/:folder/*", (req, res) -> transacted(session -> {
