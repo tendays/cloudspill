@@ -23,6 +23,10 @@ android {
     }
 }
 
+repositories {
+    mavenCentral() // for Glide
+}
+
 dependencies {
     compile fileTree(include: ['*.jar'], dir: 'libs')
     androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
@@ -35,5 +39,9 @@ dependencies {
     compile 'com.android.support:leanback-v17:23.1.0'
     compile 'com.android.support.constraint:constraint-layout:1.0.2'
     compile 'com.android.volley:volley:1.0.0'
+    compile 'com.github.bumptech.glide:glide:4.0.0-RC1'
+    compile 'com.android.support:support-v4:25.3.1'
+    annotationProcessor 'com.github.bumptech.glide:compiler:4.0.0-RC1'
+
     testCompile 'junit:junit:4.12'
 }

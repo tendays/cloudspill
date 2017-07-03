@@ -4,6 +4,7 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.sqlite.SQLiteDatabase;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.support.annotation.NonNull;
@@ -14,6 +15,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
@@ -45,10 +47,16 @@ public class MainActivity extends AppCompatActivity {
         this.domain = new Domain(MainActivity.this);
 
         HorizontalGridView gridView = (HorizontalGridView) findViewById(R.id.gridView);
-
         GridViewAdapter adapter = new GridViewAdapter(this, new File(localFolder), domain);
-
         gridView.setAdapter(adapter);
+
+
+
+/*        Domain.Item item = domain.selectItems().get(3);
+        GlideApp.with(this).load(Uri.fromFile(new File(new File(localFolder), item.path)))
+                .placeholder(R.drawable.lb_ic_in_app_search)
+                .into((ImageView)findViewById(R.id.testImageView));
+*/
 
         /* Request read access to external storage */
         // Here, thisActivity is the current activity

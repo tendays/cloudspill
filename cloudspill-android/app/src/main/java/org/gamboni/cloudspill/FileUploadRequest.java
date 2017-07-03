@@ -35,7 +35,11 @@ public class FileUploadRequest extends Request<Long> {
         return new Response.ErrorListener() {
             @Override
             public void onErrorResponse(VolleyError error) {
-                Log.e(TAG, "Received status "+ error.networkResponse.statusCode +" for request at "+ url);
+                // networkResponse is unset if the server could not be reached
+                Log.e(TAG, "Received "+
+                                (error.networkResponse == null ? "no response" :
+                        "status "+ error.networkResponse.statusCode) +
+                        " for request at "+ url +": "+ error.getMessage());
             }
         };
     }

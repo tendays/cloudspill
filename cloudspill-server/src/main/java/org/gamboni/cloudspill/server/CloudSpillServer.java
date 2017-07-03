@@ -12,8 +12,8 @@ import java.util.List;
 
 import javax.inject.Inject;
 
+import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.Item;
-import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;
@@ -43,7 +43,7 @@ public class CloudSpillServer {
     }
     
     private interface TransactionBody<R> {
-    	R run(Session s) throws Exception;
+    	R run(Domain s) throws Exception;
     }
     
     private <R> R transacted(TransactionBody<R> task) throws Exception {
@@ -52,7 +52,7 @@ public class CloudSpillServer {
     	try {
     		session = sessionFactory.openSession();
     		tx = session.beginTransaction();
-    		R result = task.run(session);
+    		R result = task.run(new Domain(session));
     		tx.commit();
     		tx = null;
 			return result;
@@ -68,7 +68,7 @@ public class CloudSpillServer {
     public void run() {
     	/* Just for testing */
         get("/item/:id/path", (req, res) -> transacted(session -> {
-        	Item item = (Item) session.get(Item.class, Long.parseLong(req.params("id")));
+        	Item item = session.get(Item.class, Long.parseLong(req.params("id")));
         	return item.getPath();
         }));
         
@@ -76,17 +76,13 @@ public class CloudSpillServer {
         get("/item/:id", (req, res) -> true);
         
         /* Get list of items whose id is larger than the given one. */
-        get("item/since/:id", (req, res) -> transacted(session -> {
+        get("item/since/:id", (req, res) -> transacted(domain -> {
         	StringBuilder result = new StringBuilder();
         	
-        	Criteria criteria = session.createCriteria(Item.class)
+			for (Item item : domain.selectItem()
         			.add(Restrictions.gt("id", Long.parseLong(req.params("id"))))
-        			.addOrder(Order.asc("id"));
-        	
-			@SuppressWarnings("unchecked")
-			List<Item> results = criteria.list();
-			
-			for (Item item : results) {
+        			.addOrder(Order.asc("id"))
+        			.list()) {
 				result.append(item.getId())
 				.append(";")
 				.append(item.getUser())
@@ -119,22 +115,40 @@ public class CloudSpillServer {
         	if (normalisedPath.startsWith("/")) {
         		normalisedPath = normalisedPath.substring(1);
 			}
+        	
+        	/* First see if the path already exists. */
+        	List<Item> existing = session.selectItem()
+        		.add(Restrictions.eq("user", user))
+        		.add(Restrictions.eq("folder", folder))
+        		.add(Restrictions.eq("path", normalisedPath))
+        		.list();
+        	
+			switch (existing.size()) {
+			case 0:
+				Item item = new Item();
+				item.setFolder(folder);
+				item.setPath(normalisedPath);
+				item.setUser(user);
+				session.persist(item);
+				session.flush(); // flush before writing to disk
 
-        	Item item = new Item();
-        	item.setFolder(folder);
-        	item.setPath(normalisedPath);
-        	item.setUser(user);
-        	session.persist(item);
-        	session.flush(); // flush before writing to disk
+				requestedTarget.getParentFile().mkdirs();
 
-			requestedTarget.getParentFile().mkdirs();
+				System.out.println("Writing " + req.bodyAsBytes().length + " bytes to " + requestedTarget);
+				try (FileOutputStream out = new FileOutputStream(requestedTarget)) {
+					out.write(req.bodyAsBytes());
+				}
 
-			System.out.println("Writing " + req.bodyAsBytes().length + " bytes to " + requestedTarget);
-			try (FileOutputStream out = new FileOutputStream(requestedTarget)) {
-				out.write(req.bodyAsBytes());
+				return item.getId();
+
+			case 1:
+				return existing.get(0).getId();
+
+			default:
+				res.status(500);
+				System.out.println("Collision detected: " + existing);
+				return null;
 			}
-			
-        	return item.getId();
         }));
         
         /* get all files more recent than the given value. */

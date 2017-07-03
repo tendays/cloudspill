@@ -7,6 +7,7 @@ import android.database.DatabaseUtils;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.provider.BaseColumns;
+import android.util.Log;
 
 import java.util.AbstractList;
 import java.util.ArrayList;
@@ -20,6 +21,8 @@ import java.util.NoSuchElementException;
  * @author tendays
  */
 public class Domain extends SQLiteOpenHelper {
+
+    private static final String TAG = "CloudSpill.Domain";
 
     // If you change the database schema, you must increment the database version.
     private static final int DATABASE_VERSION = 1;
@@ -119,12 +122,18 @@ public class Domain extends SQLiteOpenHelper {
         return new AbstractList<Item>() {
 
             public Item get(int index) {
+                Log.d(TAG, "Getting item "+ index);
                 cursor.moveToPosition(index);
                 return new Item(cursor);
             }
 
+            private int cachedSize = -1;
+
             public int size() {
-                return cursor.getCount();
+                if (cachedSize == -1) {
+                    cachedSize = cursor.getCount();
+                }
+                return cachedSize;
             }
 
             @Override
@@ -140,6 +149,7 @@ public class Domain extends SQLiteOpenHelper {
 
                     @Override
                     public Item next() {
+                        Log.d(TAG, "Getting next item");
                         if (!hasNext()) {
                             throw new NoSuchElementException();
                         }
