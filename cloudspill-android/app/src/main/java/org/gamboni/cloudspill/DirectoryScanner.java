@@ -1,13 +1,15 @@
 package org.gamboni.cloudspill;
 
 import android.content.Context;
-import android.database.sqlite.SQLiteDatabase;
+import android.preference.PreferenceManager;
 import android.util.Log;
 
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 
 import org.gamboni.cloudspill.domain.Domain;
+import org.gamboni.cloudspill.server.CloudSpillServerProxy;
+import org.gamboni.cloudspill.server.ConnectivityTestRequest;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -31,7 +33,7 @@ public class DirectoryScanner {
     private int queued = 0;
     private int addedCount = 0;
 
-    private static final String TAG = "DirectoryScanner";
+    private static final String TAG = "CloudSpill.DirScanner";
 
     public interface StatusReport {
         void updatePercent(int percent);
@@ -46,7 +48,19 @@ public class DirectoryScanner {
     }
 
     public void run() {
-        scan(root);
+        // First verify we are online
+        queue();
+        server.checkLink(new ConnectivityTestRequest.Listener() {
+            @Override
+            public void setResult(boolean online) {
+                unqueue();
+                if (online) {
+                    scan(root);
+                } else {
+                    Log.i(TAG, "No connection to server, skipping upload");
+                }
+            }
+        });
     }
 
     public void close() {
@@ -141,7 +155,7 @@ public class DirectoryScanner {
 
         queue();
 
-        final String folder = "folder";
+        final String folder = SettingsActivity.getFolder(context);
         byte[] body = loadFile(file, (int)file.length());
 
         server.upload(folder, path, body, new Response.Listener<Long>() {
@@ -152,7 +166,7 @@ public class DirectoryScanner {
                 Domain.Item i = domain.new Item();
                 i.folder = folder;
                 i.latestAccess = new Date(); // TODO should actually be the file creation date
-                i.user = "tendays";
+                i.user = SettingsActivity.getUser(context);
                 i.path = path;
 
                 long id = i.insert();

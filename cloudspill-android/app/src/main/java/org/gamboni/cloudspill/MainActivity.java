@@ -3,36 +3,32 @@ package org.gamboni.cloudspill;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.database.sqlite.SQLiteDatabase;
-import android.net.Uri;
 import android.os.Bundle;
-import android.os.Environment;
+import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.v17.leanback.widget.HorizontalGridView;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
-import android.view.View;
-import android.widget.EditText;
-import android.widget.ImageView;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import org.gamboni.cloudspill.domain.Domain;
+import org.gamboni.cloudspill.server.CloudSpillServerProxy;
+import org.gamboni.cloudspill.server.ConnectivityTestRequest;
 import org.gamboni.cloudspill.ui.GridViewAdapter;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
     public static final String EXTRA_MESSAGE = "org.gamboni.cloudspill.MESSAGE";
     private static final String TAG = "CloudSpill.Main";
 
     private static final String localFolder = "/storage/emulated/0/DCIM/Tnotecamera";
-    private static final String serverUrl = "http://10.0.0.6:4567";
 
     private Domain domain;
 
@@ -50,7 +46,7 @@ public class MainActivity extends AppCompatActivity {
         GridViewAdapter adapter = new GridViewAdapter(this, new File(localFolder), domain);
         gridView.setAdapter(adapter);
 
-
+        PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
 
 /*        Domain.Item item = domain.selectItems().get(3);
         GlideApp.with(this).load(Uri.fromFile(new File(new File(localFolder), item.path)))
@@ -126,8 +122,8 @@ public class MainActivity extends AppCompatActivity {
                 Log.d(TAG, Environment.getRootDirectory().toString());
                 Log.d(TAG, Environment.getDataDirectory().toString());
                 */
-                CloudSpillServerProxy server = new CloudSpillServerProxy(MainActivity.this, serverUrl);
-                DirectoryScanner ds = new DirectoryScanner(MainActivity.this, domain, server, new File(localFolder),
+                CloudSpillServerProxy server = new CloudSpillServerProxy(MainActivity.this);
+                final DirectoryScanner ds = new DirectoryScanner(MainActivity.this, domain, server, new File(localFolder),
                         new DirectoryScanner.StatusReport() {
                             @Override
                             public void updatePercent(final int percent) {
@@ -144,6 +140,25 @@ public class MainActivity extends AppCompatActivity {
                 domain.close();
             }
         }).start();
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.main_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle item selection
+        switch (item.getItemId()) {
+            case R.id.settings:
+                startActivity(new Intent(this, SettingsActivity.class));
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
     }
 
     /** Called when the user taps the Send imageView */

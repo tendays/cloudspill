@@ -4,10 +4,12 @@
 package org.gamboni.cloudspill.server;
 
 import static spark.Spark.get;
+import static spark.Spark.post;
 import static spark.Spark.put;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.List;
 
 import javax.inject.Inject;
@@ -32,9 +34,7 @@ public class CloudSpillServer {
 	@Inject SessionFactory sessionFactory;
 	
 	File rootFolder = new File("/tmp/repository");
-	
-	String user = "tendays"; // TODO authentication
-	
+		
     public static void main(String[] args) {
     	
     	Injector injector = Guice.createInjector(new ServerModule());
@@ -66,6 +66,10 @@ public class CloudSpillServer {
     }
     
     public void run() {
+    	/* Used by clients to ensure connectivity is available. In the future this may
+    	 * also return a version string to ensure compatibility. */
+    	get("/ping", (req, res) -> "pong");
+    	
     	/* Just for testing */
         get("/item/:id/path", (req, res) -> transacted(session -> {
         	Item item = session.get(Item.class, Long.parseLong(req.params("id")));
@@ -83,6 +87,7 @@ public class CloudSpillServer {
         			.add(Restrictions.gt("id", Long.parseLong(req.params("id"))))
         			.addOrder(Order.asc("id"))
         			.list()) {
+				// TODO quote or escape
 				result.append(item.getId())
 				.append(";")
 				.append(item.getUser())
@@ -97,15 +102,16 @@ public class CloudSpillServer {
         }));
         
         /* Upload a file */
-        put("/item/:folder/*", (req, res) -> transacted(session -> {
+        put("/item/:user/:folder/*", (req, res) -> transacted(session -> {
+        	String user = req.params("user");
         	String folder = req.params("folder");
 			String path = req.splat()[0];
-			System.out.println("folder is "+ folder +" and path is "+ path);
+			System.out.println("user is "+ user +", folder is "+ folder +" and path is "+ path);
         	
 			// Normalise given path
-        	File requestedTarget = new File(new File(rootFolder, folder), path).getCanonicalFile();
+        	File requestedTarget = append(append(append(rootFolder, user), folder), path);
         	
-        	if (!requestedTarget.getPath().startsWith(rootFolder.getCanonicalPath())) {
+        	if (requestedTarget == null) {
         		res.status(400);
         		return null;
         	}
@@ -150,8 +156,24 @@ public class CloudSpillServer {
 				return null;
 			}
         }));
-        
-        /* get all files more recent than the given value. */
-        get("/item/since/:ts", (req, res) -> true);
+    }
+    
+    private File append(File parent, String child) {
+		try {
+			File requested = new File(parent, child).getCanonicalFile();
+			if (!requested.getPath().startsWith(parent.getCanonicalPath())) {
+				return null;
+			} else {
+				return requested;
+			}
+		} catch (IOException io) {
+			warn("Client-provided path caused IOException: \"" + parent + "\" / \"" + child + "\"", io);
+			return null;
+    	}
+    }
+    
+    private static void warn(String message, Throwable e) {
+    	System.err.println(message);
+    	e.printStackTrace();
     }
 }

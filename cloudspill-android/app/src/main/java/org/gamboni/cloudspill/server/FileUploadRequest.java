@@ -1,4 +1,4 @@
-package org.gamboni.cloudspill;
+package org.gamboni.cloudspill.server;
 
 import android.util.Log;
 
