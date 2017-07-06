@@ -14,6 +14,8 @@ import org.gamboni.cloudspill.server.ConnectivityTestRequest;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
@@ -39,9 +41,9 @@ public class DirectoryScanner {
         void updatePercent(int percent);
     }
 
-    public DirectoryScanner(Context context, Domain domain, CloudSpillServerProxy server, File root, StatusReport report) {
+    public DirectoryScanner(Context context, Domain domain, CloudSpillServerProxy server, StatusReport report) {
         this.context = context;
-        this.root = root;
+        this.root = SettingsActivity.getFolderPath(context);
         this.domain = domain;
         this.server = server;
         this.report = report;
@@ -87,7 +89,7 @@ public class DirectoryScanner {
             Log.e(TAG, "Path is not a directory: "+ folder);
             return;
         }
-        for (Domain.Item item : domain.selectItems()) { // TODO select current user/folder only
+        for (Domain.Item item : domain.selectItems(/*recentFirst*/true)) { // TODO select current user/folder only
             pathsInDb.add(item.path); // TODO support single attribute selects
         }
         Log.d(TAG, "Found "+ pathsInDb.size() +" items in database");
@@ -146,7 +148,7 @@ public class DirectoryScanner {
         }
     }
 
-    private void addFile(File file) {
+    private void addFile(final File file) {
         final String path = file.getPath().substring(root.getPath().length());
         if (pathsInDb.remove(path)) {
             Log.d(TAG, path +" already exists in DB");
@@ -165,7 +167,8 @@ public class DirectoryScanner {
 
                 Domain.Item i = domain.new Item();
                 i.folder = folder;
-                i.latestAccess = new Date(); // TODO should actually be the file creation date
+
+                i.latestAccess = new Date(file.lastModified());
                 i.user = SettingsActivity.getUser(context);
                 i.path = path;
 

@@ -9,6 +9,9 @@ import android.database.sqlite.SQLiteOpenHelper;
 import android.provider.BaseColumns;
 import android.util.Log;
 
+import org.gamboni.cloudspill.SettingsActivity;
+
+import java.io.File;
 import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Date;
@@ -53,7 +56,7 @@ public class Domain extends SQLiteOpenHelper {
                         _USER + " TEXT, " +
                         _FOLDER + " TEXT, " +
                         _PATH + " TEXT, " +
-                        _LATEST_ACCESS + " DATE" +
+                        _LATEST_ACCESS + " INTEGER" +
                         ")";
 
         private static final String SQL_DELETE_ENTRIES =
@@ -64,7 +67,7 @@ public class Domain extends SQLiteOpenHelper {
         public String user;
         public String folder;
         public String path;
-        public Date latestAccess; // TODO how to read/write that in db?
+        public Date latestAccess;
 
         private ContentValues getValues() {
             ContentValues result = new ContentValues();
@@ -72,7 +75,7 @@ public class Domain extends SQLiteOpenHelper {
             result.put(_USER, user);
             result.put(_FOLDER, folder);
             result.put(_PATH, path);
-//            result.put(_LATEST_ACCESS, latestAccess);
+            result.put(_LATEST_ACCESS, latestAccess.getTime());
             return result;
         }
 
@@ -84,6 +87,25 @@ public class Domain extends SQLiteOpenHelper {
             user = cursor.getString(2);
             folder = cursor.getString(3);
             path = cursor.getString(4);
+            latestAccess = new Date(cursor.getLong(5));
+        }
+
+        private Boolean local = null;
+        public synchronized boolean isLocal() {
+            if (local == null) {
+                local = (user.equals(SettingsActivity.getUser(context)) &&
+                    folder.equals(SettingsActivity.getFolder(context)));
+            }
+            return local;
+        }
+
+        public File getFile() {
+            return (isLocal() ?
+                    SettingsActivity.getFolderPath(context) :
+                    SettingsActivity.getDownloadPath(context).append(user).append(folder))
+
+                    .append(path)
+                    .target;
         }
 
         public long insert() {
@@ -92,8 +114,11 @@ public class Domain extends SQLiteOpenHelper {
 
     }
 
+    private final Context context;
+
     public Domain(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
+        this.context = context;
     }
     public void onCreate(SQLiteDatabase db) {
         db.execSQL(Item.SQL_CREATE_ENTRIES);
@@ -114,9 +139,11 @@ public class Domain extends SQLiteOpenHelper {
         return (int)DatabaseUtils.queryNumEntries(connect(), Item.TABLE_NAME);
     }
 
-    public List<Item> selectItems() {
+    public List<Item> selectItems(boolean recentFirst) {
         final Cursor cursor = connect().query(
-                Item.TABLE_NAME, ITEM_COLUMNS, null, null, null, null, null, null);
+                Item.TABLE_NAME, ITEM_COLUMNS, null, null, null, null,
+                Item._LATEST_ACCESS + (recentFirst ? " DESC" : " ASC"),
+                null);
         this.cursors.add(cursor);
 
         return new AbstractList<Item>() {

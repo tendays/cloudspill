@@ -21,6 +21,9 @@ import android.preference.RingtonePreference;
 import android.text.TextUtils;
 import android.view.MenuItem;
 
+import org.gamboni.cloudspill.file.FileBuilder;
+
+import java.io.File;
 import java.util.List;
 
 /**
@@ -49,8 +52,25 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
         return PreferenceManager.getDefaultSharedPreferences(context).getString(PREF_FOLDER_KEY, "");
     }
     private static final String PREF_FOLDER_PATH_KEY = "pref_folder_path";
-    public static String getFolderPath(Context context) {
-        return PreferenceManager.getDefaultSharedPreferences(context).getString(PREF_FOLDER_PATH_KEY, "");
+    public static FileBuilder getFolderPath(Context context) {
+        return new FileBuilder(PreferenceManager.getDefaultSharedPreferences(context).getString(PREF_FOLDER_PATH_KEY, ""));
+    }
+    private static final String PREF_DOWNLOAD_PATH_KEY = "pref_download_path";
+    public static FileBuilder getDownloadPath(Context context) {
+        return new FileBuilder(PreferenceManager.getDefaultSharedPreferences(context).getString(PREF_DOWNLOAD_PATH_KEY, ""));
+    }
+    private static final String PREF_FREESPACE_KEY = "pref_freespace_path";
+    public static long getMinSpaceBytes(Context context) {
+        String value = PreferenceManager.getDefaultSharedPreferences(context).getString(PREF_FREESPACE_KEY, "");
+        if (value.endsWith("K")) {
+            return 1024L * Long.parseLong(value.substring(0, value.length() - 1));
+        } else if (value.endsWith("M")) {
+            return 1024L * 1024 * Long.parseLong(value.substring(0, value.length() - 1));
+        } else if (value.endsWith("G")) {
+            return 1024L * 1024 * 1024 * Long.parseLong(value.substring(0, value.length() - 1));
+        } else {
+            return Long.parseLong(value);
+        }
     }
 
     public static class SettingsFragment extends PreferenceFragment implements SharedPreferences.OnSharedPreferenceChangeListener {
@@ -63,6 +83,10 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
 
             // Set summary based on current value
             onSharedPreferenceChanged(PreferenceManager.getDefaultSharedPreferences(getActivity()), PREF_SERVER_KEY);
+            onSharedPreferenceChanged(PreferenceManager.getDefaultSharedPreferences(getActivity()), PREF_FOLDER_KEY);
+            onSharedPreferenceChanged(PreferenceManager.getDefaultSharedPreferences(getActivity()), PREF_FREESPACE_KEY);
+            onSharedPreferenceChanged(PreferenceManager.getDefaultSharedPreferences(getActivity()), PREF_USER_KEY);
+            onSharedPreferenceChanged(PreferenceManager.getDefaultSharedPreferences(getActivity()), PREF_FOLDER_PATH_KEY);
         }
 
         @Override
@@ -94,21 +118,28 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
                 case PREF_USER_KEY:
                     String user = sharedPreferences.getString(key, "");
                     if (!user.isEmpty()) { // && !server.equals(connectionPref.))
-                        preference.setSummary(user);
+                        preference.setSummary("Connect to the server as "+ user);
                         invalidateDatabase();
                     } // TODO else: help message
                     return;
                 case PREF_FOLDER_KEY:
                     String folder = sharedPreferences.getString(key, "");
                     if (!folder.isEmpty()) { // && !server.equals(connectionPref.))
-                        preference.setSummary(folder);
+                        preference.setSummary("Local folder description: "+ folder);
                         invalidateDatabase();
                     } // TODO else: help message
                     return;
                 case PREF_FOLDER_PATH_KEY:
                     String folderPath = sharedPreferences.getString(key, "");
                     if (!folderPath.isEmpty()) { // && !server.equals(connectionPref.))
-                        preference.setSummary(folderPath);
+                        preference.setSummary("Scan "+ folderPath +" for new media");
+                        invalidateDatabase();
+                    } // TODO else: help message
+                    return;
+                case PREF_FREESPACE_KEY:
+                    String freeSpace = sharedPreferences.getString(key, "");
+                    if (!freeSpace.isEmpty()) { // && !server.equals(connectionPref.))
+                        preference.setSummary("Ensure at least "+ freeSpace +" is available on disk.");
                         invalidateDatabase();
                     } // TODO else: help message
                     return;

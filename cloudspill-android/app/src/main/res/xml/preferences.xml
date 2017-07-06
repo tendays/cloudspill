@@ -20,4 +20,14 @@
         android:title="@string/pref_folder_path"
         android:summary="@string/pref_folder_path_summ"
         android:defaultValue="@string/pref_folder_path_default"/>
+    <EditTextPreference
+        android:key="pref_dl_path"
+        android:title="@string/pref_dl_path"
+        android:summary="@string/pref_dl_path_summ"
+        android:defaultValue="@string/pref_dl_path_default"/>
+    <EditTextPreference
+        android:key="pref_freespace"
+        android:title="@string/pref_freespace"
+        android:summary="@string/pref_freespace_summ"
+        android:defaultValue="@string/pref_freespace_default" />
 </PreferenceScreen>

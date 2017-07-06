@@ -32,7 +32,7 @@ public class CloudSpillServerProxy {
     }
 
     public void checkLink(final ConnectivityTestRequest.Listener feedback) {
-        Log.d(TAG, "Checking server availability");
+        Log.d(TAG, "Checking server availability at "+ url);
         queue.add(new ConnectivityTestRequest(context, feedback));
     }
 

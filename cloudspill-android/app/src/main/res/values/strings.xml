@@ -16,8 +16,16 @@
     <string name="pref_folder_default">folder</string>
 
     <string name="pref_folder_path">Folder path</string>
-    <string name="pref_folder_path_summ">Location on this device to scan for media</string>
-    <string name="pref_folder_path_default">/media/emulated/0/DCIM</string>
+    <string name="pref_folder_path_summ">Location on this device to scan for new media</string>
+    <string name="pref_folder_path_default">/storage/media/emulated/0/DCIM</string>
+
+    <string name="pref_dl_path">Download path</string>
+    <string name="pref_dl_path_summ">Where to place downloaded media</string>
+    <string name="pref_dl_path_default">/storage/media/emulated/0/CloudSpill</string>
+
+    <string name="pref_freespace">Free space</string>
+    <string name="pref_freespace_summ">When free space gets lower than that, CloudSpill starts deleting files</string>
+    <string name="pref_freespace_default">1000M</string>
 
     <string name="title_activity_settings">Settings</string>
 

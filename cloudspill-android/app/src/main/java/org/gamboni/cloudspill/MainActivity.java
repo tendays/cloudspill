@@ -28,8 +28,6 @@ public class MainActivity extends AppCompatActivity {
     public static final String EXTRA_MESSAGE = "org.gamboni.cloudspill.MESSAGE";
     private static final String TAG = "CloudSpill.Main";
 
-    private static final String localFolder = "/storage/emulated/0/DCIM/Tnotecamera";
-
     private Domain domain;
 
     private enum PermissionRequest {
@@ -43,7 +41,7 @@ public class MainActivity extends AppCompatActivity {
         this.domain = new Domain(MainActivity.this);
 
         HorizontalGridView gridView = (HorizontalGridView) findViewById(R.id.gridView);
-        GridViewAdapter adapter = new GridViewAdapter(this, new File(localFolder), domain);
+        GridViewAdapter adapter = new GridViewAdapter(this, SettingsActivity.getFolderPath(this), domain);
         gridView.setAdapter(adapter);
 
         PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
@@ -123,7 +121,8 @@ public class MainActivity extends AppCompatActivity {
                 Log.d(TAG, Environment.getDataDirectory().toString());
                 */
                 CloudSpillServerProxy server = new CloudSpillServerProxy(MainActivity.this);
-                final DirectoryScanner ds = new DirectoryScanner(MainActivity.this, domain, server, new File(localFolder),
+                FreeSpaceMaker fsm = new FreeSpaceMaker(MainActivity.this, domain);
+                final DirectoryScanner ds = new DirectoryScanner(MainActivity.this, domain, server,
                         new DirectoryScanner.StatusReport() {
                             @Override
                             public void updatePercent(final int percent) {
