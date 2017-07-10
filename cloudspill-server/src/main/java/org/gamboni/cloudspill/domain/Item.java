@@ -59,5 +59,7 @@ public class Item {
 		this.path = path;
 	}
 	
-
+	public String toString() {
+		return "Item("+ user +", "+ folder +", "+ path +")";
+	}
 }

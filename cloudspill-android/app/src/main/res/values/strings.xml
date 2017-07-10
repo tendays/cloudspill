@@ -2,6 +2,7 @@
     <string name="app_name">CloudSpill</string>
     <string name="edit_message">Enter a message</string>
     <string name="button_send">Send</string>
+    <string name="sync">Sync</string>
 
     <string name="pref_server">Server address</string>
     <string name="pref_server_summ">Example: http://192.168.3.4/</string>

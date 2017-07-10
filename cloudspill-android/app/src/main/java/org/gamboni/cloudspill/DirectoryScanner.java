@@ -8,6 +8,7 @@ import com.android.volley.Response;
 import com.android.volley.VolleyError;
 
 import org.gamboni.cloudspill.domain.Domain;
+import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.server.CloudSpillServerProxy;
 import org.gamboni.cloudspill.server.ConnectivityTestRequest;
 
@@ -16,8 +17,10 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -25,14 +28,15 @@ import java.util.Set;
  */
 
 public class DirectoryScanner {
-    private final File root;
+    private final FileBuilder root;
     private final Context context;
     private final Domain domain;
     private final CloudSpillServerProxy server;
     private final Set<String> pathsInDb = new HashSet<>();
     private final StatusReport report;
 
-    private int queued = 0;
+    private List<String> queue = new ArrayList<>();
+//    private int queued = 0;
     private int addedCount = 0;
 
     private static final String TAG = "CloudSpill.DirScanner";
@@ -50,16 +54,21 @@ public class DirectoryScanner {
     }
 
     public void run() {
+        Log.d(TAG, "Starting run with queue "+ queue);
         // First verify we are online
-        queue();
+        queue("link-test");
         server.checkLink(new ConnectivityTestRequest.Listener() {
             @Override
             public void setResult(boolean online) {
-                unqueue();
                 if (online) {
-                    scan(root);
+                    Log.i(TAG, "Server is up");
+                    new Thread() {public void run() {
+                        scan(root.target);
+                        unqueue("link-test");
+                    }}.start();
                 } else {
                     Log.i(TAG, "No connection to server, skipping upload");
+                    unqueue("link-test");
                 }
             }
         });
@@ -69,7 +78,6 @@ public class DirectoryScanner {
     }
 
     private void scan(File folder) {
-
         Log.d(TAG, "Scanning "+ folder);
         if (!folder.exists()) {
             Log.e(TAG, "Folder does not exist: "+ folder);
@@ -149,13 +157,14 @@ public class DirectoryScanner {
     }
 
     private void addFile(final File file) {
-        final String path = file.getPath().substring(root.getPath().length());
+        final String path = root.getRelativePath(file);
         if (pathsInDb.remove(path)) {
             Log.d(TAG, path +" already exists in DB");
             return;
         }
-
-        queue();
+        Log.d(TAG, "Queuing...");
+        queue(file.getPath());
+        Log.d(TAG, "Loading file...");
 
         final String folder = SettingsActivity.getFolder(context);
         byte[] body = loadFile(file, (int)file.length());
@@ -177,37 +186,40 @@ public class DirectoryScanner {
                 Log.d(TAG, "Added Item with id "+ id);
 
                 addedCount++;
-                unqueue();
+                unqueue(file.getPath());
             }
         },
         new Response.ErrorListener() {
             public void onErrorResponse(VolleyError e) {
                 Log.e(TAG, "Failed uploading "+ path);
-                unqueue();
+                unqueue(file.getPath());
             }
         }
         );
     }
 
-    private void queue() {
-        waitForQueueSize(2);
+    private void queue(String item) {
+        waitForQueueSize(item, 2);
     }
 
-    private synchronized void waitForQueueSize(int threshold) {
-        while (queued > threshold) {
+    private synchronized void waitForQueueSize(String item, int threshold) {
+        while (queue.size() > threshold) {
             try {
+                Log.d(TAG, "Blocking "+ item +" because queue is full: "+ queue);
                 wait();
             } catch (InterruptedException e) {}
         }
-        queued++;
+        if (item != null) {
+            queue.add(item);
+        }
     }
 
-    private synchronized void unqueue() {
-        queued--;
+    private synchronized void unqueue(String item) {
+        queue.remove(item);
         notify();
     }
 
     public void waitForCompletion() {
-        waitForQueueSize(0);
+        waitForQueueSize(null, 0);
     }
 }

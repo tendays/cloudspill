@@ -19,6 +19,7 @@ import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
 import android.preference.RingtonePreference;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.MenuItem;
 
 import org.gamboni.cloudspill.file.FileBuilder;
@@ -38,6 +39,8 @@ import java.util.List;
  * API Guide</a> for more information on developing a Settings UI.
  */
 public class SettingsActivity extends AppCompatPreferenceActivity {
+
+    private static final String TAG = "CloudSpill.Settings";
 
     private static final String PREF_SERVER_KEY = "pref_server";
     public static String getServerUrl(Context context) {
@@ -59,7 +62,7 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
     public static FileBuilder getDownloadPath(Context context) {
         return new FileBuilder(PreferenceManager.getDefaultSharedPreferences(context).getString(PREF_DOWNLOAD_PATH_KEY, ""));
     }
-    private static final String PREF_FREESPACE_KEY = "pref_freespace_path";
+    private static final String PREF_FREESPACE_KEY = "pref_freespace";
     public static long getMinSpaceBytes(Context context) {
         String value = PreferenceManager.getDefaultSharedPreferences(context).getString(PREF_FREESPACE_KEY, "");
         if (value.endsWith("K")) {
@@ -69,7 +72,12 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
         } else if (value.endsWith("G")) {
             return 1024L * 1024 * 1024 * Long.parseLong(value.substring(0, value.length() - 1));
         } else {
-            return Long.parseLong(value);
+            try {
+                return Long.parseLong(value);
+            } catch (NumberFormatException e) {
+                Log.e(TAG, "Free space preference not set or invalid: "+ value, e);
+                return 0;
+            }
         }
     }
 

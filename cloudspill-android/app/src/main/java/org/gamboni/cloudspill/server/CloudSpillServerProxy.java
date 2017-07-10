@@ -37,7 +37,8 @@ public class CloudSpillServerProxy {
     }
 
     public void upload(String folder, String path, byte[] body, Response.Listener<Long> listener, Response.ErrorListener onError) {
-        queue.add(new FileUploadRequest(url +"/"+ user + "/item/"+ folder +"/"+ path,
+        Log.d(TAG, "Uploading "+ body.length +" bytes");
+        queue.add(new FileUploadRequest(url +"/item/"+ user +"/" + folder +"/"+ path,
                 body,
                 listener,
                 onError));

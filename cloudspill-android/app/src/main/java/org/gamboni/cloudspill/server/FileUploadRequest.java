@@ -18,7 +18,7 @@ public class FileUploadRequest extends Request<Long> {
     private final Response.Listener<Long> listener;
     private final byte[] body;
 
-    private static final String TAG = "FileUploadRequest";
+    private static final String TAG = "CloudSpill.Upload";
 
     /**
      * Make a PUT request and return the id of the created item.
@@ -29,6 +29,7 @@ public class FileUploadRequest extends Request<Long> {
         super(Method.PUT, url, loggingWrapper(url, errorListener));
         this.body = body;
         this.listener = listener;
+        Log.d(TAG, "Created request to "+ url);
     }
 
     private static Response.ErrorListener loggingWrapper(final String url, final Response.ErrorListener delegate) {
@@ -40,6 +41,7 @@ public class FileUploadRequest extends Request<Long> {
                                 (error.networkResponse == null ? "no response" :
                         "status "+ error.networkResponse.statusCode) +
                         " for request at "+ url +": "+ error.getMessage());
+                delegate.onErrorResponse(error);
             }
         };
     }
@@ -49,9 +51,9 @@ public class FileUploadRequest extends Request<Long> {
     }
 
     @Override
-    protected Response<Long> parseNetworkResponse(
-            NetworkResponse response) {
+    protected Response<Long> parseNetworkResponse(NetworkResponse response) {
         try {
+            Log.d(TAG, "Received response from server");
             return Response.success(Long.parseLong(new String(response.data,
                     HttpHeaderParser.parseCharset(response.headers))),
                     HttpHeaderParser.parseCacheHeaders(response)
@@ -63,6 +65,8 @@ public class FileUploadRequest extends Request<Long> {
     }
 
     protected void deliverResponse(Long response) {
+        Log.d(TAG, "Received response "+ response +" from server");
+
         listener.onResponse(response);
     }
 }

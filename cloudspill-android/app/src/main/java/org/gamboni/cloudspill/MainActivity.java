@@ -14,6 +14,7 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
@@ -24,13 +25,13 @@ import org.gamboni.cloudspill.ui.GridViewAdapter;
 
 import java.io.File;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements DirectoryScanner.StatusReport {
     public static final String EXTRA_MESSAGE = "org.gamboni.cloudspill.MESSAGE";
     private static final String TAG = "CloudSpill.Main";
 
     private Domain domain;
 
-    private enum PermissionRequest {
+    public enum PermissionRequest {
         READ_EXTERNAL_STORAGE
     }
 
@@ -41,7 +42,7 @@ public class MainActivity extends AppCompatActivity {
         this.domain = new Domain(MainActivity.this);
 
         HorizontalGridView gridView = (HorizontalGridView) findViewById(R.id.gridView);
-        GridViewAdapter adapter = new GridViewAdapter(this, SettingsActivity.getFolderPath(this), domain);
+        GridViewAdapter adapter = new GridViewAdapter(this, domain);
         gridView.setAdapter(adapter);
 
         PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
@@ -51,19 +52,25 @@ public class MainActivity extends AppCompatActivity {
                 .placeholder(R.drawable.lb_ic_in_app_search)
                 .into((ImageView)findViewById(R.id.testImageView));
 */
+        sync();
+    }
 
+    public void sync(View view) {
+        sync();
+    }
+
+    /** Check if necessary permissions are available, then start the synchronisation service. */
+    private void sync() {
         /* Request read access to external storage */
-        // Here, thisActivity is the current activity
-        if (ContextCompat.checkSelfPermission(this,
-                Manifest.permission.READ_EXTERNAL_STORAGE)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
                 == PackageManager.PERMISSION_GRANTED) {
             Log.d(TAG, "Read permission granted already");
-            runBatch();
+            startService();
         } else {
             Log.d(TAG, "Read permission denied.");
 
             // Should we show an explanation?
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
+           if (ActivityCompat.shouldShowRequestPermissionRationale(this,
                     Manifest.permission.READ_EXTERNAL_STORAGE)) {
                 Toast.makeText(this, "I need to read external storage so I can back it up", Toast.LENGTH_LONG).show();
                 // Show an explanation to the user *asynchronously* -- don't block
@@ -72,17 +79,13 @@ public class MainActivity extends AppCompatActivity {
 
             } else {
 
-                // No explanation needed, we can request the permission.
-                Log.d(TAG, "Requesting read permissions...");
+            // No explanation needed, we can request the permission.
+            Log.d(TAG, "Requesting read permissions...");
 
-                ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
-                        PermissionRequest.READ_EXTERNAL_STORAGE.ordinal());
-
-                // MY_PERMISSIONS_REQUEST_READ_CONTACTS is an
-                // app-defined int constant. The callback method gets the
-                // result of the request.
-            }
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
+                    MainActivity.PermissionRequest.READ_EXTERNAL_STORAGE.ordinal());
+           }
         }
     }
 
@@ -90,7 +93,7 @@ public class MainActivity extends AppCompatActivity {
     public void onRequestPermissionsResult(int requestCode,
                                            @NonNull String permissions[], @NonNull int[] grantResults) {
         Log.d(TAG, "Permission request result for code "+ requestCode);
-        switch (PermissionRequest.values()[requestCode]) {
+        switch (MainActivity.PermissionRequest.values()[requestCode]) {
             case READ_EXTERNAL_STORAGE: {
                 // If request is cancelled, the result arrays are empty.
                 if (grantResults.length > 0
@@ -98,7 +101,8 @@ public class MainActivity extends AppCompatActivity {
 
                     // permission was granted, yay!
                     Log.d(TAG, "Read permission was granted by user");
-                    runBatch();
+
+                    // todo start cloudspillintentservice
 
                 } else {
 
@@ -110,35 +114,33 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void runBatch() {
-        final ProgressBar progressBar = (ProgressBar) findViewById(R.id.progressBar);
-        new Thread(new Runnable() {
-            public void run() {
+    /** Start the synchronisation service. Don't call this method directly, but use sync() instead
+     * so that necessary permissions may be checked first.
+     */
+    private void startService() {
+        startService(new Intent(this, CloudSpillIntentService.class));}
 
-/*                Log.d(TAG, Environment.getExternalStorageDirectory().toString());
-                Log.d(TAG, Environment.getExternalStorageState());
-                Log.d(TAG, Environment.getRootDirectory().toString());
-                Log.d(TAG, Environment.getDataDirectory().toString());
-                */
-                CloudSpillServerProxy server = new CloudSpillServerProxy(MainActivity.this);
-                FreeSpaceMaker fsm = new FreeSpaceMaker(MainActivity.this, domain);
-                final DirectoryScanner ds = new DirectoryScanner(MainActivity.this, domain, server,
-                        new DirectoryScanner.StatusReport() {
-                            @Override
-                            public void updatePercent(final int percent) {
-                                runOnUiThread(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        progressBar.setProgress(percent);
-                                    }
-                                });
-                            }
-                        });
-                ds.run();
-                ds.waitForCompletion();
-                domain.close();
+    @Override
+    public void onStart() {
+        super.onStart();
+        CloudSpillIntentService.setListener(this);
+    }
+
+    @Override
+    public void updatePercent(final int percent) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                final ProgressBar progressBar = (ProgressBar) findViewById(R.id.progressBar);
+                progressBar.setProgress(percent);
             }
-        }).start();
+        });
+    }
+
+    @Override
+    public void onPause() {
+        CloudSpillIntentService.unsetListener(this);
+        super.onPause();
     }
 
     @Override

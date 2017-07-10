@@ -4,7 +4,6 @@
 package org.gamboni.cloudspill.server;
 
 import static spark.Spark.get;
-import static spark.Spark.post;
 import static spark.Spark.put;
 
 import java.io.File;
@@ -55,6 +54,7 @@ public class CloudSpillServer {
     		R result = task.run(new Domain(session));
     		tx.commit();
     		tx = null;
+    		debug("Return value: "+ result);
 			return result;
     	} catch (Throwable t) {
     		t.printStackTrace();
@@ -68,7 +68,10 @@ public class CloudSpillServer {
     public void run() {
     	/* Used by clients to ensure connectivity is available. In the future this may
     	 * also return a version string to ensure compatibility. */
-    	get("/ping", (req, res) -> "pong");
+    	get("/ping", (req, res) ->
+    	/*{	System.out.println("Received ping"); return */
+    	"pong"
+    	/*;}*/);
     	
     	/* Just for testing */
         get("/item/:id/path", (req, res) -> transacted(session -> {
@@ -103,6 +106,12 @@ public class CloudSpillServer {
         
         /* Upload a file */
         put("/item/:user/:folder/*", (req, res) -> transacted(session -> {
+        	if (req.bodyAsBytes() == null) {
+        		warn("Missing body");
+        		res.status(400);
+        		return null;
+        	}
+        	
         	String user = req.params("user");
         	String folder = req.params("folder");
 			String path = req.splat()[0];
@@ -140,11 +149,11 @@ public class CloudSpillServer {
 
 				requestedTarget.getParentFile().mkdirs();
 
-				System.out.println("Writing " + req.bodyAsBytes().length + " bytes to " + requestedTarget);
+				debug("Writing " + req.bodyAsBytes().length + " bytes to " + requestedTarget);
 				try (FileOutputStream out = new FileOutputStream(requestedTarget)) {
 					out.write(req.bodyAsBytes());
 				}
-
+				debug("Returning id "+ item.getId());
 				return item.getId();
 
 			case 1:
@@ -159,6 +168,7 @@ public class CloudSpillServer {
     }
     
     private File append(File parent, String child) {
+    	if (parent == null) { return null; } // indicates earlier error
 		try {
 			File requested = new File(parent, child).getCanonicalFile();
 			if (!requested.getPath().startsWith(parent.getCanonicalPath())) {
@@ -172,8 +182,16 @@ public class CloudSpillServer {
     	}
     }
     
+    private static void debug(String message) {
+    	warn(message);
+    }
+    
     private static void warn(String message, Throwable e) {
-    	System.err.println(message);
+    	warn(message);
     	e.printStackTrace();
     }
+
+	private static void warn(String message) {
+		System.err.println(message);
+	}
 }

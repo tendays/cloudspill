@@ -38,7 +38,34 @@ public class FileBuilder {
         }
     }
 
+    public String getRelativePath(File child) {
+        String targetPath = target.getPath();
+        if (!target.getPath().endsWith("/")) {
+            targetPath += "/";
+        }
+        if (!child.getPath().startsWith(targetPath)) {
+            throw new IllegalArgumentException("Given file "+ child +" is not under "+ targetPath);
+        }
+        return child.getPath().substring(target.getPath().length());
+    }
+
+    File filesystemRoot = null;
+    private synchronized File getFilesystemRoot() {
+        if (filesystemRoot == null) {
+            File pointer = target;
+            while (pointer != null && pointer.getUsableSpace() == 0) {
+                pointer = pointer.getParentFile();
+            }
+            filesystemRoot = (pointer == null) ? target : pointer;
+        }
+        return filesystemRoot;
+    }
+
     public long getFreeSpace() {
-        return target.getFreeSpace();
+        return getFilesystemRoot().getUsableSpace();
+    }
+
+    public String toString() {
+        return target.toString();
     }
 }

@@ -33,12 +33,10 @@ public class GridViewAdapter extends RecyclerView.Adapter<GridViewAdapter.Simple
 
     private final Context context;
     private final List<Domain.Item> domain;
-    private final File root;
 
-        public GridViewAdapter(Context context, File root, Domain domain) {
+        public GridViewAdapter(Context context, Domain domain) {
             this.context = context;
-            this.root = root;
-            this.domain = domain.selectItems();
+            this.domain = domain.selectItems(/*recentFirst*/true);
         }
 
         public static class SimpleViewHolder extends RecyclerView.ViewHolder {
@@ -63,7 +61,7 @@ public class GridViewAdapter extends RecyclerView.Adapter<GridViewAdapter.Simple
             Domain.Item item = domain.get(position);
 
             holder.target = GlideApp.with(context);
-            holder.target.load(Uri.fromFile(new File(root, item.path)))
+            holder.target.load(Uri.fromFile(item.getFile()))
                     .override(1000)
                     .placeholder(R.drawable.lb_ic_in_app_search)
                     .into(holder.imageView);

@@ -34,8 +34,4 @@ public class ConnectivityTestRequest extends StringRequest {
             }
         });
     }
-
-    public void parseNetworkResponse() {}
-
-    public void deliverResponse(String r) {}
 }
