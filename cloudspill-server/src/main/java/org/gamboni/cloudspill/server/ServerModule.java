@@ -13,6 +13,12 @@ import com.google.inject.Provides;
 
 public class ServerModule extends AbstractModule {
 
+	private final String configPath;
+	
+	ServerModule(String configPath) {
+		this.configPath = configPath;
+	}
+	
 	@Override
 	protected void configure() {
 		bind(CloudSpillServer.class).asEagerSingleton();
@@ -37,4 +43,8 @@ public class ServerModule extends AbstractModule {
 			   .buildSessionFactory(serviceRegistry);
 	}
 	
+	@Provides
+	public ServerConfiguration serverConfiguration() {
+		return new ServerConfiguration(configPath);
+	}
 }

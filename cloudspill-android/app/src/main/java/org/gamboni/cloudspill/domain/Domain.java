@@ -139,6 +139,10 @@ public class Domain extends SQLiteOpenHelper {
         return (int)DatabaseUtils.queryNumEntries(connect(), Item.TABLE_NAME);
     }
 
+    public int getHighestId() {
+        return 0; // TODO implement
+    }
+
     public List<Item> selectItems(boolean recentFirst) {
         final Cursor cursor = connect().query(
                 Item.TABLE_NAME, ITEM_COLUMNS, null, null, null, null,

@@ -39,11 +39,14 @@ import com.google.inject.Injector;
 public class CloudSpillServer {
 	
 	@Inject SessionFactory sessionFactory;
+	@Inject ServerConfiguration configuration;
 	
-	File rootFolder = new File("/tmp/repository");
-		
     public static void main(String[] args) {
-    	Injector injector = Guice.createInjector(new ServerModule());
+    	if (args.length != 1) {
+    		Log.error("Usage: CloudSpillServer configPath");
+    		System.exit(1);
+    	}
+    	Injector injector = Guice.createInjector(new ServerModule(args[0]));
     	
     	injector.getInstance(CloudSpillServer.class).run();
     }
@@ -73,6 +76,8 @@ public class CloudSpillServer {
     }
     
     public void run() {
+    	
+    	File rootFolder = configuration.getRepositoryPath();
     	
     	/* Used by clients to ensure connectivity is available. In the future this may
     	 * also return a version string to ensure compatibility. */

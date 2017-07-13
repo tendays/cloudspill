@@ -19,7 +19,11 @@ public class Log {
     }
 
 	public static void warn(String message) {
-		System.err.println(message);
+		System.err.println("WARN: "+ message);
+	}
+
+	public static void error(String message) {
+		System.err.println("ERROR: "+ message);
 	}
 
 }

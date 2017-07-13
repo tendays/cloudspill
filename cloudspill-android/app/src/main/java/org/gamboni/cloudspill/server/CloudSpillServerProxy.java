@@ -10,6 +10,9 @@ import com.android.volley.VolleyError;
 import com.android.volley.toolbox.Volley;
 
 import org.gamboni.cloudspill.SettingsActivity;
+import org.gamboni.cloudspill.domain.Domain;
+
+import java.util.ArrayList;
 
 /**
  * Created by tendays on 25.06.17.
@@ -42,5 +45,9 @@ public class CloudSpillServerProxy {
                 body,
                 listener,
                 onError));
+    }
+
+    public Iterable<Domain.Item> itemsSince(long id) {
+         return new ArrayList<>(); // TODO implement
     }
 }
