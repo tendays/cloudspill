@@ -44,12 +44,6 @@ public class CloudSpillIntentService extends IntentService {
 
     @Override
     protected void onHandleIntent(@Nullable Intent intent) {
-
-/*                Log.d(TAG, Environment.getExternalStorageDirectory().toString());
-                Log.d(TAG, Environment.getExternalStorageState());
-                Log.d(TAG, Environment.getRootDirectory().toString());
-                Log.d(TAG, Environment.getDataDirectory().toString());
-                */
         CloudSpillServerProxy server = new CloudSpillServerProxy(CloudSpillIntentService.this);
         FreeSpaceMaker fsm = new FreeSpaceMaker(CloudSpillIntentService.this, domain);
                 /* Highest priority: free some space so user may take more pictures */

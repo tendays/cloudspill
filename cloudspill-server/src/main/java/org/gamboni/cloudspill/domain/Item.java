@@ -3,6 +3,10 @@
  */
 package org.gamboni.cloudspill.domain;
 
+import static org.gamboni.cloudspill.util.Files.append;
+
+import java.io.File;
+
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
@@ -57,6 +61,10 @@ public class Item {
 	}
 	public void setPath(String path) {
 		this.path = path;
+	}
+	
+	public File getFile(File rootFolder) {
+		return append(append(append(rootFolder, user), folder), path);
 	}
 	
 	public String toString() {

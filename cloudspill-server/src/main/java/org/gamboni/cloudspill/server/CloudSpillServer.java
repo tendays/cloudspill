@@ -3,24 +3,32 @@
  */
 package org.gamboni.cloudspill.server;
 
+import static org.gamboni.cloudspill.util.Files.append;
 import static spark.Spark.get;
 import static spark.Spark.put;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.IOException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.Arrays;
 import java.util.List;
 
 import javax.inject.Inject;
+import javax.transaction.SystemException;
 
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.Item;
+import org.gamboni.cloudspill.util.Log;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.io.ByteStreams;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 
@@ -35,7 +43,6 @@ public class CloudSpillServer {
 	File rootFolder = new File("/tmp/repository");
 		
     public static void main(String[] args) {
-    	
     	Injector injector = Guice.createInjector(new ServerModule());
     	
     	injector.getInstance(CloudSpillServer.class).run();
@@ -54,7 +61,7 @@ public class CloudSpillServer {
     		R result = task.run(new Domain(session));
     		tx.commit();
     		tx = null;
-    		debug("Return value: "+ result);
+    		Log.debug("Return value: "+ result);
 			return result;
     	} catch (Throwable t) {
     		t.printStackTrace();
@@ -66,6 +73,7 @@ public class CloudSpillServer {
     }
     
     public void run() {
+    	
     	/* Used by clients to ensure connectivity is available. In the future this may
     	 * also return a version string to ensure compatibility. */
     	get("/ping", (req, res) ->
@@ -80,7 +88,16 @@ public class CloudSpillServer {
         }));
         
         /* Download a file */
-        get("/item/:id", (req, res) -> true);
+        get("/item/:id", (req, res) -> transacted(session -> {
+        	Item item = session.get(Item.class, Long.parseLong(req.params("id")));
+        	File file = item.getFile(rootFolder);
+        	res.header("Content-Type", "image/jpeg");
+        	res.header("Content-Length", String.valueOf(file.length()));
+        	try (FileInputStream stream = new FileInputStream(file)) {
+        		ByteStreams.copy(stream, res.raw().getOutputStream());
+        	}
+        	return true;
+        }));
         
         /* Get list of items whose id is larger than the given one. */
         get("item/since/:id", (req, res) -> transacted(domain -> {
@@ -107,7 +124,7 @@ public class CloudSpillServer {
         /* Upload a file */
         put("/item/:user/:folder/*", (req, res) -> transacted(session -> {
         	if (req.bodyAsBytes() == null) {
-        		warn("Missing body");
+        		Log.warn("Missing body");
         		res.status(400);
         		return null;
         	}
@@ -118,7 +135,8 @@ public class CloudSpillServer {
 			System.out.println("user is "+ user +", folder is "+ folder +" and path is "+ path);
         	
 			// Normalise given path
-        	File requestedTarget = append(append(append(rootFolder, user), folder), path);
+        	File folderPath = append(append(rootFolder, user), folder);
+			File requestedTarget = append(folderPath, path);
         	
         	if (requestedTarget == null) {
         		res.status(400);
@@ -126,7 +144,7 @@ public class CloudSpillServer {
         	}
         	
         	// Path to put into the database
-        	String normalisedPath = requestedTarget.getPath().substring(rootFolder.getCanonicalPath().length());
+        	String normalisedPath = requestedTarget.getPath().substring(folderPath.getCanonicalPath().length());
         	if (normalisedPath.startsWith("/")) {
         		normalisedPath = normalisedPath.substring(1);
 			}
@@ -149,11 +167,11 @@ public class CloudSpillServer {
 
 				requestedTarget.getParentFile().mkdirs();
 
-				debug("Writing " + req.bodyAsBytes().length + " bytes to " + requestedTarget);
+				Log.debug("Writing " + req.bodyAsBytes().length + " bytes to " + requestedTarget);
 				try (FileOutputStream out = new FileOutputStream(requestedTarget)) {
 					out.write(req.bodyAsBytes());
 				}
-				debug("Returning id "+ item.getId());
+				Log.debug("Returning id "+ item.getId());
 				return item.getId();
 
 			case 1:
@@ -161,37 +179,9 @@ public class CloudSpillServer {
 
 			default:
 				res.status(500);
-				System.out.println("Collision detected: " + existing);
+				Log.warn("Collision detected: " + existing);
 				return null;
 			}
         }));
     }
-    
-    private File append(File parent, String child) {
-    	if (parent == null) { return null; } // indicates earlier error
-		try {
-			File requested = new File(parent, child).getCanonicalFile();
-			if (!requested.getPath().startsWith(parent.getCanonicalPath())) {
-				return null;
-			} else {
-				return requested;
-			}
-		} catch (IOException io) {
-			warn("Client-provided path caused IOException: \"" + parent + "\" / \"" + child + "\"", io);
-			return null;
-    	}
     }
-    
-    private static void debug(String message) {
-    	warn(message);
-    }
-    
-    private static void warn(String message, Throwable e) {
-    	warn(message);
-    	e.printStackTrace();
-    }
-
-	private static void warn(String message) {
-		System.err.println(message);
-	}
-}
