@@ -28,7 +28,7 @@ public class Domain extends SQLiteOpenHelper {
     private static final String TAG = "CloudSpill.Domain";
 
     // If you change the database schema, you must increment the database version.
-    private static final int DATABASE_VERSION = 1;
+    private static final int DATABASE_VERSION = 2;
     private static final String DATABASE_NAME = "CloudSpill.db";
 
     private static final String[] ITEM_COLUMNS = new String[]{
@@ -111,7 +111,38 @@ public class Domain extends SQLiteOpenHelper {
         public long insert() {
             return connect().insert(TABLE_NAME, null, getValues());
         }
+    }
 
+    private static final String[] FOLDER_COLUMNS = {
+            Folder._ID,
+            Folder._NAME,
+            Folder._PATH
+    };
+    public class Folder implements BaseColumns {
+        public static final String TABLE_NAME="FOLDER";
+        public long id;
+        public static final String _NAME = "NAME";
+        public String name;
+        public static final String _PATH = "PATH";
+        public String path;
+
+        private static final String SQL_CREATE_ENTRIES =
+                "CREATE TABLE " + TABLE_NAME + " (" +
+                        _ID + " INTEGER PRIMARY KEY, " +
+                        _NAME + " TEXT, " +
+                        _PATH + " TEXT" +
+                        ")";
+
+        private static final String SQL_DELETE_ENTRIES =
+                "DROP TABLE "+ TABLE_NAME +" IF EXISTS";
+
+        public Folder() {}
+
+        private Folder(Cursor cursor) {
+            id = cursor.getLong(0);
+            name = cursor.getString(1);
+            path = cursor.getString(2);
+        }
     }
 
     private final Context context;
@@ -121,18 +152,24 @@ public class Domain extends SQLiteOpenHelper {
         this.context = context;
     }
     public void onCreate(SQLiteDatabase db) {
-        db.execSQL(Item.SQL_CREATE_ENTRIES);
-    }
-
-    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        // This database is only a cache for online data, so its upgrade policy is
-        // to simply to discard the data and start over
-        db.execSQL(Item.SQL_DELETE_ENTRIES);
-        onCreate(db);
+        onUpgrade(db, 0, DATABASE_VERSION);
     }
 
     public void onDowngrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         onUpgrade(db, oldVersion, newVersion);
+    }
+
+    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        onUpgrade(db, oldVersion, newVersion, 2, Folder.SQL_CREATE_ENTRIES, Folder.SQL_DELETE_ENTRIES);
+        onUpgrade(db, oldVersion, newVersion, 1, Item.SQL_CREATE_ENTRIES, Item.SQL_DELETE_ENTRIES);
+    }
+
+    private static void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion, int since, String create, String delete) {
+        if (oldVersion < since && newVersion >= since) {
+            db.execSQL(create);
+        } else if (oldVersion >= since && newVersion < since) {
+            db.execSQL(delete);
+        }
     }
 
     public int getItemCount() {
@@ -140,65 +177,36 @@ public class Domain extends SQLiteOpenHelper {
     }
 
     public int getHighestId() {
-        return 0; // TODO implement
+        return connect().query(Item.TABLE_NAME, new String[]{max(Item._SERVER_ID)}, null, null, null, null, null)
+                .getInt(0);
     }
 
     public List<Item> selectItems(boolean recentFirst) {
-        final Cursor cursor = connect().query(
+        Cursor cursor = connect().query(
                 Item.TABLE_NAME, ITEM_COLUMNS, null, null, null, null,
                 Item._LATEST_ACCESS + (recentFirst ? " DESC" : " ASC"),
                 null);
         this.cursors.add(cursor);
 
-        return new AbstractList<Item>() {
-
-            public Item get(int index) {
-                Log.d(TAG, "Getting item "+ index);
-                cursor.moveToPosition(index);
+        return new CursorList<Item>(cursor) {
+            @Override
+            protected Item newEntity() {
                 return new Item(cursor);
             }
+        };
+    }
 
-            private int cachedSize = -1;
+    public List<Folder> selectFolders() {
+        Cursor cursor = connect().query(
+                Folder.TABLE_NAME, FOLDER_COLUMNS, null, null, null, null,
+                Folder._NAME + " ASC",
+                null);
+        this.cursors.add(cursor);
 
-            public int size() {
-                if (cachedSize == -1) {
-                    cachedSize = cursor.getCount();
-                }
-                return cachedSize;
-            }
-
+        return new CursorList<Folder>(cursor) {
             @Override
-            public Iterator<Item> iterator() {
-                return new Iterator<Item>() {
-                    boolean ready = false;
-                    Item next;
-                    @Override
-                    public boolean hasNext() {
-                        tryNext();
-                        return next != null;
-                    }
-
-                    @Override
-                    public Item next() {
-                        Log.d(TAG, "Getting next item");
-                        if (!hasNext()) {
-                            throw new NoSuchElementException();
-                        }
-                        Item result = next;
-                        next = null;
-                        ready = false;
-                        return result;
-                    }
-
-                    private void tryNext() {
-                        if (!ready) {
-                            if (cursor.moveToNext()) {
-                                next = new Item(cursor);
-                            }
-                            ready = true;
-                        }
-                    }
-                };
+            protected Folder newEntity() {
+                return new Folder(cursor);
             }
         };
     }
@@ -237,5 +245,10 @@ public class Domain extends SQLiteOpenHelper {
         for (Cursor c : cursors) {
             c.close();
         }
+    }
+
+    /** Wrap a sql expression in a MAX() aggregate function. */
+    protected String max(String column) {
+        return "MAX("+ column +")";
     }
 }

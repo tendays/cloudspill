@@ -1,7 +1,6 @@
 package org.gamboni.cloudspill;
 
 import android.content.Context;
-import android.preference.PreferenceManager;
 import android.util.Log;
 
 import com.android.volley.Response;
@@ -9,14 +8,13 @@ import com.android.volley.VolleyError;
 
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.file.FileBuilder;
+import org.gamboni.cloudspill.message.StatusReport;
 import org.gamboni.cloudspill.server.CloudSpillServerProxy;
 import org.gamboni.cloudspill.server.ConnectivityTestRequest;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
@@ -41,10 +39,6 @@ public class DirectoryScanner {
 
     private static final String TAG = "CloudSpill.DirScanner";
 
-    public interface StatusReport {
-        void updatePercent(int percent);
-    }
-
     public DirectoryScanner(Context context, Domain domain, CloudSpillServerProxy server, StatusReport report) {
         this.context = context;
         this.root = SettingsActivity.getFolderPath(context);
@@ -67,6 +61,7 @@ public class DirectoryScanner {
                         unqueue("link-test");
                     }}.start();
                 } else {
+                    report.updateMessage(StatusReport.Severity.ERROR, "No connection to server");
                     Log.i(TAG, "No connection to server, skipping upload");
                     unqueue("link-test");
                 }
@@ -221,5 +216,7 @@ public class DirectoryScanner {
 
     public void waitForCompletion() {
         waitForQueueSize(null, 0);
+        report.updatePercent(100);
+        report.updateMessage(StatusReport.Severity.INFO, "Upload complete");
     }
 }

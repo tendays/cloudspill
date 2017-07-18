@@ -2,4 +2,8 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:id="@+id/settings"
         android:title="@string/title_activity_settings" />
+    <item android:id="@+id/folders"
+        android:title="@string/title_activity_folders" />
+    <item android:id="@+id/servers"
+        android:title="@string/title_activity_servers" />
 </menu>

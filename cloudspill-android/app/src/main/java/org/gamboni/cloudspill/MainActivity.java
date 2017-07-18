@@ -3,6 +3,7 @@ package org.gamboni.cloudspill;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
@@ -16,16 +17,14 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import org.gamboni.cloudspill.domain.Domain;
-import org.gamboni.cloudspill.server.CloudSpillServerProxy;
-import org.gamboni.cloudspill.server.ConnectivityTestRequest;
+import org.gamboni.cloudspill.message.StatusReport;
 import org.gamboni.cloudspill.ui.GridViewAdapter;
 
-import java.io.File;
-
-public class MainActivity extends AppCompatActivity implements DirectoryScanner.StatusReport {
+public class MainActivity extends AppCompatActivity implements StatusReport {
     public static final String EXTRA_MESSAGE = "org.gamboni.cloudspill.MESSAGE";
     private static final String TAG = "CloudSpill.Main";
 
@@ -120,6 +119,8 @@ public class MainActivity extends AppCompatActivity implements DirectoryScanner.
     private void startService() {
         startService(new Intent(this, CloudSpillIntentService.class));}
 
+    Severity highestSeverity = Severity.INFO;
+
     @Override
     public void onStart() {
         super.onStart();
@@ -133,6 +134,25 @@ public class MainActivity extends AppCompatActivity implements DirectoryScanner.
             public void run() {
                 final ProgressBar progressBar = (ProgressBar) findViewById(R.id.progressBar);
                 progressBar.setProgress(percent);
+            }
+        });
+    }
+
+    @Override
+    public void updateMessage(final Severity severity, final String message) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (severity.compareTo(highestSeverity) >= 0) {
+                    final TextView messageView = (TextView) findViewById(R.id.statusMessage);
+                    messageView.setText(message);
+                    if (severity == Severity.ERROR) {
+                        messageView.setTextColor(Color.RED);
+                    } else {
+                        messageView.setTextColor(Color.BLACK);
+                    }
+                    highestSeverity = severity;
+                }
             }
         });
     }
@@ -157,6 +177,9 @@ public class MainActivity extends AppCompatActivity implements DirectoryScanner.
             case R.id.settings:
                 startActivity(new Intent(this, SettingsActivity.class));
                 return true;
+            case R.id.folders:
+                startActivity(new Intent(this, FoldersActivity.class));
+                return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
@@ -164,7 +187,7 @@ public class MainActivity extends AppCompatActivity implements DirectoryScanner.
 
     /** Called when the user taps the Send imageView */
     /*public void sendMessage(View view) {
-        Intent intent = new Intent(this, DisplayMessageActivity.class);
+        Intent intent = new Intent(this, FoldersActivity.class);
         EditText editText = (EditText) findViewById(R.id.editText);
         String message = editText.getText().toString();
         intent.putExtra(EXTRA_MESSAGE, message);
