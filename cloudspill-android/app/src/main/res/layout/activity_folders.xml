@@ -4,11 +4,11 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="org.gamboni.cloudspill.FoldersActivity">
+    tools:context="org.gamboni.cloudspill.ui.FoldersActivity">
 
     <ListView
         android:id="@+id/folderList"
-        android:layout_width="147dp"
+        android:layout_width="match_parent"
         android:layout_height="495dp"
         android:layout_marginTop="8dp"
         android:layout_marginRight="8dp"

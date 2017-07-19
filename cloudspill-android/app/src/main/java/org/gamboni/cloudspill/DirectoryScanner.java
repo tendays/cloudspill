@@ -11,6 +11,7 @@ import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.message.StatusReport;
 import org.gamboni.cloudspill.server.CloudSpillServerProxy;
 import org.gamboni.cloudspill.server.ConnectivityTestRequest;
+import org.gamboni.cloudspill.ui.SettingsActivity;
 
 import java.io.File;
 import java.io.FileInputStream;

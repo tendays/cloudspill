@@ -1,7 +1,11 @@
 <resources>
     <string name="app_name">CloudSpill</string>
     <string name="starting">Starting up...</string>
+
+    <!-- button labels -->
     <string name="sync">Sync</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
 
     <string name="pref_server">Server address</string>
     <string name="pref_server_summ">Example: http://192.168.3.4/</string>
@@ -28,6 +32,10 @@
     <string name="pref_freespace_default">1000M</string>
 
     <string name="title_activity_folders">Folders</string>
+    <string name="folder_name_hint">Folder name</string>
+    <string name="folder_path_hint">Folder path</string>
+    <string name="edit_folder_title">Edit folder...</string>
+
     <string name="title_activity_servers">Servers</string>
     <string name="title_activity_settings">Settings</string>
 

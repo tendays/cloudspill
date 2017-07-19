@@ -7,17 +7,13 @@ import android.database.DatabaseUtils;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.provider.BaseColumns;
-import android.util.Log;
 
-import org.gamboni.cloudspill.SettingsActivity;
+import org.gamboni.cloudspill.ui.SettingsActivity;
 
 import java.io.File;
-import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.Iterator;
 import java.util.List;
-import java.util.NoSuchElementException;
 
 /** Represents an item that exists on the server.
  *
@@ -69,16 +65,6 @@ public class Domain extends SQLiteOpenHelper {
         public String path;
         public Date latestAccess;
 
-        private ContentValues getValues() {
-            ContentValues result = new ContentValues();
-            result.put(_SERVER_ID, serverId);
-            result.put(_USER, user);
-            result.put(_FOLDER, folder);
-            result.put(_PATH, path);
-            result.put(_LATEST_ACCESS, latestAccess.getTime());
-            return result;
-        }
-
         public Item() {}
 
         private Item(Cursor cursor) {
@@ -106,6 +92,16 @@ public class Domain extends SQLiteOpenHelper {
 
                     .append(path)
                     .target;
+        }
+
+        private ContentValues getValues() {
+            ContentValues result = new ContentValues();
+            result.put(_SERVER_ID, serverId);
+            result.put(_USER, user);
+            result.put(_FOLDER, folder);
+            result.put(_PATH, path);
+            result.put(_LATEST_ACCESS, latestAccess.getTime());
+            return result;
         }
 
         public long insert() {
@@ -142,6 +138,17 @@ public class Domain extends SQLiteOpenHelper {
             id = cursor.getLong(0);
             name = cursor.getString(1);
             path = cursor.getString(2);
+        }
+
+        private ContentValues getValues() {
+            ContentValues result = new ContentValues();
+            result.put(_ID, id);
+            result.put(_NAME, name);
+            result.put(_PATH, path);
+            return result;
+        }
+        public long insert() {
+            return connect().insert(TABLE_NAME, null, getValues());
         }
     }
 

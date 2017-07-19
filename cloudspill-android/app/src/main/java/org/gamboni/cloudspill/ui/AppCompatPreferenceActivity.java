@@ -1,4 +1,4 @@
-package org.gamboni.cloudspill;
+package org.gamboni.cloudspill.ui;
 
 import android.content.res.Configuration;
 import android.os.Bundle;

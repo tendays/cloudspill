@@ -1,4 +1,4 @@
-package org.gamboni.cloudspill;
+package org.gamboni.cloudspill.ui;
 
 import android.content.Intent;
 import android.support.annotation.NonNull;
@@ -19,11 +19,14 @@ import com.android.volley.VolleyError;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
 
+import org.gamboni.cloudspill.R;
 import org.gamboni.cloudspill.domain.Domain;
 
 import java.util.List;
 
-public class FoldersActivity extends AppCompatActivity {
+public class FoldersActivity extends AppCompatActivity implements EditFolderFragment.FolderSavedListener {
+
+    private Domain domain;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -32,7 +35,7 @@ public class FoldersActivity extends AppCompatActivity {
 
         ListView lv = (ListView)findViewById(R.id.folderList);
 
-        final Domain domain = new Domain(this);
+        this.domain = new Domain(this);
 
         lv.setAdapter(new BaseAdapter() {
 
@@ -67,7 +70,18 @@ public class FoldersActivity extends AppCompatActivity {
         });
     }
 
+    /** Add-button listener */
     public void addFolder(View view) {
-        // TODO
+        new EditFolderFragment().show(getFragmentManager(), EditFolderFragment.class.getSimpleName());
+    }
+
+    @Override
+    public Domain getDomain() {
+        return this.domain;
+    }
+
+    @Override
+    public void onFolderSaved(Domain.Folder folder) {
+        folder.insert();
     }
 }

@@ -1,11 +1,11 @@
 package org.gamboni.cloudspill;
 
 import android.content.Context;
-import android.preference.PreferenceManager;
 import android.util.Log;
 
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.message.StatusReport;
+import org.gamboni.cloudspill.ui.SettingsActivity;
 
 import java.io.File;
 import java.util.List;

@@ -1,14 +1,12 @@
 package org.gamboni.cloudspill.server;
 
 import android.content.Context;
-import android.preference.PreferenceManager;
 
-import com.android.volley.Request;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.StringRequest;
 
-import org.gamboni.cloudspill.SettingsActivity;
+import org.gamboni.cloudspill.ui.SettingsActivity;
 
 /**
  * @author tendays

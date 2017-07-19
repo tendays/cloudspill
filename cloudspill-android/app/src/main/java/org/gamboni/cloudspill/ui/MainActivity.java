@@ -1,4 +1,4 @@
-package org.gamboni.cloudspill;
+package org.gamboni.cloudspill.ui;
 
 import android.Manifest;
 import android.content.Intent;
@@ -20,9 +20,10 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.gamboni.cloudspill.CloudSpillIntentService;
+import org.gamboni.cloudspill.R;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.message.StatusReport;
-import org.gamboni.cloudspill.ui.GridViewAdapter;
 
 public class MainActivity extends AppCompatActivity implements StatusReport {
     public static final String EXTRA_MESSAGE = "org.gamboni.cloudspill.MESSAGE";
