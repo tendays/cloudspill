@@ -8,6 +8,8 @@ import java.io.IOException;
 /** Helper class for constructing files by appending segments.
  * <p>This class makes sure no segment may go up in the file hierarchy.</p>
  * <p>NOTE: duplicate from CloudSpillServer.append() in the server module.</p>
+ * <p>This class is immutable. {@link #append(String)} returns a new instance,
+ * leaving this unchanged.</p>
  *
  * @author tendays
  */
@@ -50,7 +52,7 @@ public class FileBuilder {
     }
 
     File filesystemRoot = null;
-    private synchronized File getFilesystemRoot() {
+    public synchronized File getFilesystemRoot() {
         if (filesystemRoot == null) {
             File pointer = target;
             while (pointer != null && pointer.getUsableSpace() == 0) {
@@ -61,8 +63,17 @@ public class FileBuilder {
         return filesystemRoot;
     }
 
-    public long getFreeSpace() {
+    public long getUsableSpace() {
         return getFilesystemRoot().getUsableSpace();
+    }
+
+    public int hashCode() {
+        return target.hashCode();
+    }
+
+    public boolean equals(Object o) {
+        // NOTE: we don't expect to mix FileBuilders with nulls or other types. Fail early if that happens
+        return ((FileBuilder)o).target.equals(this.target);
     }
 
     public String toString() {

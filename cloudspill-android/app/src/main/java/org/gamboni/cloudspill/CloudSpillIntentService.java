@@ -9,7 +9,8 @@ import org.gamboni.cloudspill.message.SettableStatusListener;
 import org.gamboni.cloudspill.message.StatusReport;
 import org.gamboni.cloudspill.server.CloudSpillServerProxy;
 
-/**
+/** This class is reponsible for coordinating CloudSpill background jobs.
+ * 
  * @author tendays
  */
 public class CloudSpillIntentService extends IntentService {

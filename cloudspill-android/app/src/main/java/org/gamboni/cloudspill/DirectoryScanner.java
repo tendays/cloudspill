@@ -27,12 +27,11 @@ import java.util.Set;
  */
 
 public class DirectoryScanner {
-    private final FileBuilder root;
     private final Context context;
     private final Domain domain;
     private final CloudSpillServerProxy server;
     private final Set<String> pathsInDb = new HashSet<>();
-    private final StatusReport report;
+    private final StatusReport listener;
 
     private List<String> queue = new ArrayList<>();
 //    private int queued = 0;
@@ -40,12 +39,11 @@ public class DirectoryScanner {
 
     private static final String TAG = "CloudSpill.DirScanner";
 
-    public DirectoryScanner(Context context, Domain domain, CloudSpillServerProxy server, StatusReport report) {
+    public DirectoryScanner(Context context, Domain domain, CloudSpillServerProxy server, StatusReport listener) {
         this.context = context;
-        this.root = SettingsActivity.getFolderPath(context);
         this.domain = domain;
         this.server = server;
-        this.report = report;
+        this.listener = listener;
     }
 
     public void run() {
@@ -58,11 +56,14 @@ public class DirectoryScanner {
                 if (online) {
                     Log.i(TAG, "Server is up");
                     new Thread() {public void run() {
-                        scan(root.target);
+                        for (Domain.Folder folder : domain.selectFolders()) {
+                            FileBuilder root = folder.getFile();
+                            scan(root, root.target);
+                        }
                         unqueue("link-test");
                     }}.start();
                 } else {
-                    report.updateMessage(StatusReport.Severity.ERROR, "No connection to server");
+                    listener.updateMessage(StatusReport.Severity.ERROR, "No connection to server");
                     Log.i(TAG, "No connection to server, skipping upload");
                     unqueue("link-test");
                 }
@@ -73,7 +74,8 @@ public class DirectoryScanner {
     public void close() {
     }
 
-    private void scan(File folder) {
+    private void scan(FileBuilder root, File folder) {
+        listener.updateMessage(StatusReport.Severity.INFO, "Scanning "+ folder);
         Log.d(TAG, "Scanning "+ folder);
         if (!folder.exists()) {
             Log.e(TAG, "Folder does not exist: "+ folder);
@@ -100,25 +102,30 @@ public class DirectoryScanner {
 
         int percentage = 0;
         int processed = 0;
-        report.updatePercent(percentage);
+        listener.updatePercent(percentage);
 
         for (File file : files) {
             Log.d(TAG, file.toString());
-
-            byte[] preamble = loadFile(file, 4);
-            if (preamble == null) { continue; }
-            if (new FileTypeChecker(preamble).isJpeg()) {
-                Log.d(TAG, "JPEG file");
-                addFile(file);
+            if (file.isDirectory()) {
+                scan(root, file);
             } else {
-                Log.d(TAG, "Not a JPEG file");
+                byte[] preamble = loadFile(file, 4);
+                if (preamble == null) {
+                    continue;
+                }
+                if (new FileTypeChecker(preamble).isJpeg()) {
+                    Log.d(TAG, "JPEG file");
+                    addFile(root, file);
+                } else {
+                    Log.d(TAG, "Not a JPEG file");
+                }
             }
 
             processed++;
             int newPercentage = processed * 100 / files.length;
             if (percentage != newPercentage) {
                 percentage = newPercentage;
-                report.updatePercent(percentage);
+                listener.updatePercent(percentage);
             }
         }
 
@@ -152,7 +159,7 @@ public class DirectoryScanner {
         }
     }
 
-    private void addFile(final File file) {
+    private void addFile(FileBuilder root, final File file) {
         final String path = root.getRelativePath(file);
         if (pathsInDb.remove(path)) {
             Log.d(TAG, path +" already exists in DB");
@@ -183,6 +190,8 @@ public class DirectoryScanner {
 
                 addedCount++;
                 unqueue(file.getPath());
+
+                listener.updateMessage(StatusReport.Severity.INFO, "Scanning "+ folder +": "+ addedCount +" files uploaded");
             }
         },
         new Response.ErrorListener() {
@@ -217,7 +226,7 @@ public class DirectoryScanner {
 
     public void waitForCompletion() {
         waitForQueueSize(null, 0);
-        report.updatePercent(100);
-        report.updateMessage(StatusReport.Severity.INFO, "Upload complete");
+        listener.updatePercent(100);
+        listener.updateMessage(StatusReport.Severity.INFO, "Upload complete");
     }
 }

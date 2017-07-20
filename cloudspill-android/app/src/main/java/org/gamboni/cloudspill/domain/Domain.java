@@ -8,6 +8,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.provider.BaseColumns;
 
+import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.ui.SettingsActivity;
 
 import java.io.File;
@@ -85,13 +86,12 @@ public class Domain extends SQLiteOpenHelper {
             return local;
         }
 
-        public File getFile() {
+        public FileBuilder getFile() {
             return (isLocal() ?
                     SettingsActivity.getFolderPath(context) :
                     SettingsActivity.getDownloadPath(context).append(user).append(folder))
 
-                    .append(path)
-                    .target;
+                    .append(path);
         }
 
         private ContentValues getValues() {
@@ -149,6 +149,10 @@ public class Domain extends SQLiteOpenHelper {
         }
         public long insert() {
             return connect().insert(TABLE_NAME, null, getValues());
+        }
+
+        public FileBuilder getFile() {
+            return new FileBuilder(path);
         }
     }
 

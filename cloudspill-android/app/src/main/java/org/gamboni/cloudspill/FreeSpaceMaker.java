@@ -4,11 +4,14 @@ import android.content.Context;
 import android.util.Log;
 
 import org.gamboni.cloudspill.domain.Domain;
+import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.message.StatusReport;
 import org.gamboni.cloudspill.ui.SettingsActivity;
 
 import java.io.File;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /** This class is responsible for deleting files when available space is running low.
  *
@@ -22,42 +25,68 @@ public class FreeSpaceMaker {
     private final List<Domain.Item> items;
     private final long minSpace;
     private StatusReport status;
-
+    private Set<File> filesystems;
     private int index = 0; // next file to delete
     private int deletedFiles = 0;
-    private final long missingBytes;
+    private long missingBytes;
 
     public FreeSpaceMaker(Context context, Domain domain, StatusReport status) {
         this.context = context;
         this.domain = domain;
         this.items = domain.selectItems(/*recentFirst*/false);
         this.minSpace = SettingsActivity.getMinSpaceBytes(context);
-        this.missingBytes = minSpace - getFreeSpace();
         this.status = status;
     }
 
-    private long getFreeSpace() {
-        return SettingsActivity.getFolderPath(context).getFreeSpace();
+    /** Get the missing space in bytes on the filesystem containing the given FileBuilder. */
+    private long getMissingSpace(FileBuilder file) {
+        long delta = minSpace - file.getUsableSpace();
+        return (delta < 0) ? 0 : delta;
+    }
+
+    /** Get the missing space in bytes on the filesystem whose root is at the given file
+     * (the call will return an incorrect value if the given file is not a filesystem rooot). */
+    private long getMissingSpace(File file) {
+        long delta = minSpace - file.getUsableSpace();
+        return (delta < 0) ? 0 : delta;
+    }
+
+    private long getMissingSpace() {
+        long total = 0;
+        for (File fs : filesystems) {
+            total += getMissingSpace(fs);
+        }
+        return total;
     }
 
     /** Delete files until there is enough space left, or until there is nothing left to delete.
      * This method may be called several times (after download, because there would be less free
      * space, and after upload because uploaded files may be deleted) */
     public void run() {
+        this.filesystems = new HashSet<>();
+        for (Domain.Folder folder : domain.selectFolders()) {
+            this.filesystems.add(folder.getFile().getFilesystemRoot());
+        }
+
+        this.missingBytes = getMissingSpace(); // for progress report
+
         logSpace();
-        while (getFreeSpace() < minSpace && items.size() > index) {
+        while (getMissingSpace() < minSpace && items.size() > index) {
             reportStatus();
             Domain.Item item = items.get(index);
 
-            File file = item.getFile();
-            if (file.exists()) {
-                long size = file.length();
-                if (file.delete()) {
-                    Log.d(TAG, "Deleted " + file + " to save " + size + " bytes");
-                    this.deletedFiles++;
-                } else {
-                    Log.e(TAG, "Failed deleting " + file);
-                    status.updateMessage(StatusReport.Severity.ERROR, "Failed deleting some files");
+            FileBuilder fb = item.getFile();
+            if (getMissingSpace(fb) > 0) { // only delete file if its filesystem needs space
+                File file = fb.target;
+                if (file.exists()) {
+                    long size = file.length();
+                    if (file.delete()) {
+                        Log.d(TAG, "Deleted " + file + " to save " + size + " bytes");
+                        this.deletedFiles++;
+                    } else {
+                        Log.e(TAG, "Failed deleting " + file);
+                        status.updateMessage(StatusReport.Severity.ERROR, "Failed deleting some files");
+                    }
                 }
             }
             index++;
@@ -65,12 +94,11 @@ public class FreeSpaceMaker {
         logSpace();
     }
 
-    private long reportStatus() {
-        long freeSpace = getFreeSpace();
-        if (freeSpace >= minSpace) {
+    private void reportStatus() {
+        long missingNow = getMissingSpace();
+        if (missingNow == 0) {
             status.updatePercent(100);
         } else {
-            long missingNow = minSpace - freeSpace;
             status.updateMessage(StatusReport.Severity.INFO, "Deleting files ("+ missingNow +" bytes over quota)");
             if (missingNow > missingBytes) {
                 status.updatePercent(0);
@@ -78,12 +106,13 @@ public class FreeSpaceMaker {
                 status.updatePercent((int)((missingBytes - missingNow) * 100 / missingBytes));
             }
         }
-        return freeSpace;
     }
 
     private void logSpace() {
-        long freeSpace = reportStatus();
-        Log.i(TAG, "Usable space available: "+ freeSpace +
-                " bytes. Required space: "+ minSpace +" bytes.");
+        StringBuilder logMessage = new StringBuilder("Missing space: ");
+        for (File fs : filesystems) {
+            logMessage.append(fs).append(": ").append(getMissingSpace(fs)).append("bytes. ");
+        }
+        Log.i(TAG, logMessage.toString());
     }
 }

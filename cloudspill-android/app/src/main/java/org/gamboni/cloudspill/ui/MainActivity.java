@@ -102,7 +102,7 @@ public class MainActivity extends AppCompatActivity implements StatusReport {
                     // permission was granted, yay!
                     Log.d(TAG, "Read permission was granted by user");
 
-                    // todo start cloudspillintentservice
+                    startService();
 
                 } else {
 
