@@ -35,6 +35,10 @@
             android:label="@string/title_activity_folders"
             android:parentActivityName=".ui.MainActivity" />
         <activity
+            android:name=".ui.ServersActivity"
+            android:label="@string/title_activity_servers"
+            android:parentActivityName=".ui.MainActivity" />
+        <activity
             android:name=".ui.SettingsActivity"
             android:label="@string/title_activity_settings"
             android:parentActivityName=".ui.MainActivity" />

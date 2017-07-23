@@ -66,6 +66,18 @@ public class Item {
 	public File getFile(File rootFolder) {
 		return append(append(append(rootFolder, user), folder), path);
 	}
+
+	/** Construct a Serialised form understandable by the android frontend. */
+	public String serialise() {
+		// TODO quote or escape
+		return getId()
+		+ ";"
+		+ getUser()
+		+ ";"
+		+ getFolder()
+		+ ";"
+		+ getPath();
+	}
 	
 	public String toString() {
 		return "Item("+ user +", "+ folder +", "+ path +")";

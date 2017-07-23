@@ -1,4 +1,4 @@
-package org.gamboni.cloudspill;
+package org.gamboni.cloudspill.file;
 
 /**
  * Created by tendays on 25.06.17.

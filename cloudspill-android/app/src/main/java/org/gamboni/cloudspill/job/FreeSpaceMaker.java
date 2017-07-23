@@ -1,4 +1,4 @@
-package org.gamboni.cloudspill;
+package org.gamboni.cloudspill.job;
 
 import android.content.Context;
 import android.util.Log;
@@ -64,9 +64,12 @@ public class FreeSpaceMaker {
      * space, and after upload because uploaded files may be deleted) */
     public void run() {
         this.filesystems = new HashSet<>();
+        // Add filesystems of our folders
         for (Domain.Folder folder : domain.selectFolders()) {
             this.filesystems.add(folder.getFile().getFilesystemRoot());
         }
+        // Add filesystems of other users' folders
+        this.filesystems.add(SettingsActivity.getDownloadPath(context).getFilesystemRoot());
 
         this.missingBytes = getMissingSpace(); // for progress report
 

@@ -181,6 +181,9 @@ public class MainActivity extends AppCompatActivity implements StatusReport {
             case R.id.folders:
                 startActivity(new Intent(this, FoldersActivity.class));
                 return true;
+            case R.id.servers:
+                startActivity(new Intent(this, ServersActivity.class));
+                return true;
             default:
                 return super.onOptionsItemSelected(item);
         }

@@ -38,14 +38,6 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
     public static String getUser(Context context) {
         return PreferenceManager.getDefaultSharedPreferences(context).getString(PREF_USER_KEY, "");
     }
-    private static final String PREF_FOLDER_KEY = "pref_folder";
-    public static String getFolder(Context context) {
-        return PreferenceManager.getDefaultSharedPreferences(context).getString(PREF_FOLDER_KEY, "");
-    }
-    private static final String PREF_FOLDER_PATH_KEY = "pref_folder_path";
-    public static FileBuilder getFolderPath(Context context) {
-        return new FileBuilder(PreferenceManager.getDefaultSharedPreferences(context).getString(PREF_FOLDER_PATH_KEY, ""));
-    }
     private static final String PREF_DOWNLOAD_PATH_KEY = "pref_download_path";
     public static FileBuilder getDownloadPath(Context context) {
         return new FileBuilder(PreferenceManager.getDefaultSharedPreferences(context).getString(PREF_DOWNLOAD_PATH_KEY, ""));
@@ -69,6 +61,21 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
         }
     }
 
+
+    private static SharedPreferences getSharedPreferences(Context context) {
+        return context.getSharedPreferences("values", Context.MODE_PRIVATE);
+    }
+
+    private static final String HIGHEST_ID_KEY = "highest_id";
+    public static long getHighestId(Context context) {
+        return getSharedPreferences(context).getLong(HIGHEST_ID_KEY, -1L);
+    }
+    public static void setHighestId(Context context, long highestId) {
+        getSharedPreferences(context).edit()
+                .putLong(HIGHEST_ID_KEY, highestId)
+                .apply();
+    }
+
     public static class SettingsFragment extends PreferenceFragment implements SharedPreferences.OnSharedPreferenceChangeListener {
         @Override
         public void onCreate(Bundle savedInstanceState) {
@@ -79,10 +86,8 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
 
             // Set summary based on current value
             onSharedPreferenceChanged(PreferenceManager.getDefaultSharedPreferences(getActivity()), PREF_SERVER_KEY);
-            onSharedPreferenceChanged(PreferenceManager.getDefaultSharedPreferences(getActivity()), PREF_FOLDER_KEY);
             onSharedPreferenceChanged(PreferenceManager.getDefaultSharedPreferences(getActivity()), PREF_FREESPACE_KEY);
             onSharedPreferenceChanged(PreferenceManager.getDefaultSharedPreferences(getActivity()), PREF_USER_KEY);
-            onSharedPreferenceChanged(PreferenceManager.getDefaultSharedPreferences(getActivity()), PREF_FOLDER_PATH_KEY);
         }
 
         @Override
@@ -115,20 +120,6 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
                     String user = sharedPreferences.getString(key, "");
                     if (!user.isEmpty()) { // && !server.equals(connectionPref.))
                         preference.setSummary("Connect to the server as "+ user);
-                        invalidateDatabase();
-                    } // TODO else: help message
-                    return;
-                case PREF_FOLDER_KEY:
-                    String folder = sharedPreferences.getString(key, "");
-                    if (!folder.isEmpty()) { // && !server.equals(connectionPref.))
-                        preference.setSummary("Local folder description: "+ folder);
-                        invalidateDatabase();
-                    } // TODO else: help message
-                    return;
-                case PREF_FOLDER_PATH_KEY:
-                    String folderPath = sharedPreferences.getString(key, "");
-                    if (!folderPath.isEmpty()) { // && !server.equals(connectionPref.))
-                        preference.setSummary("Scan "+ folderPath +" for new media");
                         invalidateDatabase();
                     } // TODO else: help message
                     return;

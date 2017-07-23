@@ -24,9 +24,11 @@ public class CloudSpillServerProxy {
     private final String user;
     private final RequestQueue queue;
     private final Context context;
+    private final Domain domain;
 
-    public CloudSpillServerProxy(Context context) {
+    public CloudSpillServerProxy(Context context, Domain domain) {
         this.context = context;
+        this.domain = domain;
         this.user = SettingsActivity.getUser(context);
         this.url = SettingsActivity.getServerUrl(context);
         this.queue = Volley.newRequestQueue(context);
@@ -45,7 +47,7 @@ public class CloudSpillServerProxy {
                 onError));
     }
 
-    public Iterable<Domain.Item> itemsSince(long id) {
-         return new ArrayList<>(); // TODO implement
+    public void itemsSince(long id, Response.Listener<Iterable<Domain.Item>> listener, Response.ErrorListener errorListener) {
+        queue.add(new ItemsSinceRequest(context, domain, id, listener, errorListener));
     }
 }

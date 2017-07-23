@@ -1,4 +1,4 @@
-package org.gamboni.cloudspill;
+package org.gamboni.cloudspill.job;
 
 import android.content.Context;
 import android.util.Log;
@@ -8,6 +8,7 @@ import com.android.volley.VolleyError;
 
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.file.FileBuilder;
+import org.gamboni.cloudspill.file.FileTypeChecker;
 import org.gamboni.cloudspill.message.StatusReport;
 import org.gamboni.cloudspill.server.CloudSpillServerProxy;
 import org.gamboni.cloudspill.server.ConnectivityTestRequest;
@@ -57,8 +58,7 @@ public class DirectoryScanner {
                     Log.i(TAG, "Server is up");
                     new Thread() {public void run() {
                         for (Domain.Folder folder : domain.selectFolders()) {
-                            FileBuilder root = folder.getFile();
-                            scan(root, root.target);
+                            scan(folder, folder.getFile().target);
                         }
                         unqueue("link-test");
                     }}.start();
@@ -74,7 +74,7 @@ public class DirectoryScanner {
     public void close() {
     }
 
-    private void scan(FileBuilder root, File folder) {
+    private void scan(Domain.Folder root, File folder) {
         listener.updateMessage(StatusReport.Severity.INFO, "Scanning "+ folder);
         Log.d(TAG, "Scanning "+ folder);
         if (!folder.exists()) {
@@ -116,7 +116,7 @@ public class DirectoryScanner {
                 if (new FileTypeChecker(preamble).isJpeg()) {
                     Log.d(TAG, "JPEG file");
                     addFile(root, file);
-                } else {
+                } else { // TODO support videos as well
                     Log.d(TAG, "Not a JPEG file");
                 }
             }
@@ -159,8 +159,8 @@ public class DirectoryScanner {
         }
     }
 
-    private void addFile(FileBuilder root, final File file) {
-        final String path = root.getRelativePath(file);
+    private void addFile(Domain.Folder root, final File file) {
+        final String path = root.getFile().getRelativePath(file);
         if (pathsInDb.remove(path)) {
             Log.d(TAG, path +" already exists in DB");
             return;
@@ -169,7 +169,7 @@ public class DirectoryScanner {
         queue(file.getPath());
         Log.d(TAG, "Loading file...");
 
-        final String folder = SettingsActivity.getFolder(context);
+        final String folder = root.name;
         byte[] body = loadFile(file, (int)file.length());
 
         server.upload(folder, path, body, new Response.Listener<Long>() {

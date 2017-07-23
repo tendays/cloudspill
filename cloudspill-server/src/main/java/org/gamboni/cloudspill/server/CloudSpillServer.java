@@ -112,15 +112,7 @@ public class CloudSpillServer {
         			.add(Restrictions.gt("id", Long.parseLong(req.params("id"))))
         			.addOrder(Order.asc("id"))
         			.list()) {
-				// TODO quote or escape
-				result.append(item.getId())
-				.append(";")
-				.append(item.getUser())
-				.append(";")
-				.append(item.getFolder())
-				.append(";")
-				.append(item.getPath())
-				.append("\n");
+				result.append(item.serialise()).append("\n");
 			}
         	
         	return result.toString();

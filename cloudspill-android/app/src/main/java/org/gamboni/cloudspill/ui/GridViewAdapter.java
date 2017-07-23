@@ -61,7 +61,8 @@ public class GridViewAdapter extends RecyclerView.Adapter<GridViewAdapter.Simple
             Domain.Item item = domain.get(position);
 
             holder.target = GlideApp.with(context);
-            holder.target.load(Uri.fromFile(item.getFile()))
+            // TODO if file does not exist: download
+            holder.target.load(Uri.fromFile(item.getFile().target))
                     .override(1000)
                     .placeholder(R.drawable.lb_ic_in_app_search)
                     .into(holder.imageView);

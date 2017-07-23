@@ -37,6 +37,10 @@
     <string name="edit_folder_title">Edit folder...</string>
 
     <string name="title_activity_servers">Servers</string>
+    <string name="server_name_hint">Server name</string>
+    <string name="server_url_hint">Server URL</string>
+    <string name="edit_server_title">Edit server...</string>
+
     <string name="title_activity_settings">Settings</string>
 
     <!-- Strings related to Settings -->
