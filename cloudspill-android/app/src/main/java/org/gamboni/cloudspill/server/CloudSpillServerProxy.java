@@ -26,17 +26,19 @@ public class CloudSpillServerProxy {
     private final Context context;
     private final Domain domain;
 
-    public CloudSpillServerProxy(Context context, Domain domain) {
+    public CloudSpillServerProxy(Context context, Domain domain, String url) {
         this.context = context;
         this.domain = domain;
         this.user = SettingsActivity.getUser(context);
-        this.url = SettingsActivity.getServerUrl(context);
+        this.url = url;
         this.queue = Volley.newRequestQueue(context);
     }
 
-    public void checkLink(final ConnectivityTestRequest.Listener feedback) {
+    public boolean checkLink() {
         Log.d(TAG, "Checking server availability at "+ url);
-        queue.add(new ConnectivityTestRequest(context, feedback));
+        ConnectivityTestRequest request = new ConnectivityTestRequest(url);
+        queue.add(request);
+        return request.getResponse();
     }
 
     public void upload(String folder, String path, byte[] body, Response.Listener<Long> listener, Response.ErrorListener onError) {
@@ -48,6 +50,6 @@ public class CloudSpillServerProxy {
     }
 
     public void itemsSince(long id, Response.Listener<Iterable<Domain.Item>> listener, Response.ErrorListener errorListener) {
-        queue.add(new ItemsSinceRequest(context, domain, id, listener, errorListener));
+        queue.add(new ItemsSinceRequest(url, context, domain, id, listener, errorListener));
     }
 }

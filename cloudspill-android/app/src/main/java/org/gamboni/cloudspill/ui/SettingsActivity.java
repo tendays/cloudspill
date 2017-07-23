@@ -30,10 +30,6 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
 
     private static final String TAG = "CloudSpill.Settings";
 
-    private static final String PREF_SERVER_KEY = "pref_server";
-    public static String getServerUrl(Context context) {
-        return PreferenceManager.getDefaultSharedPreferences(context).getString(PREF_SERVER_KEY, "");
-    }
     private static final String PREF_USER_KEY = "pref_user";
     public static String getUser(Context context) {
         return PreferenceManager.getDefaultSharedPreferences(context).getString(PREF_USER_KEY, "");
@@ -85,7 +81,6 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
             addPreferencesFromResource(R.xml.preferences);
 
             // Set summary based on current value
-            onSharedPreferenceChanged(PreferenceManager.getDefaultSharedPreferences(getActivity()), PREF_SERVER_KEY);
             onSharedPreferenceChanged(PreferenceManager.getDefaultSharedPreferences(getActivity()), PREF_FREESPACE_KEY);
             onSharedPreferenceChanged(PreferenceManager.getDefaultSharedPreferences(getActivity()), PREF_USER_KEY);
         }
@@ -109,13 +104,6 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
                                               String key) {
             Preference preference = findPreference(key);
             switch (key) {
-                case PREF_SERVER_KEY:
-                    String server = sharedPreferences.getString(key, "");
-                    if (!server.isEmpty()) { // && !server.equals(connectionPref.))
-                        preference.setSummary(server);
-                        invalidateDatabase();
-                    } // TODO else: help message
-                    return;
                 case PREF_USER_KEY:
                     String user = sharedPreferences.getString(key, "");
                     if (!user.isEmpty()) { // && !server.equals(connectionPref.))

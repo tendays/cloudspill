@@ -13,23 +13,45 @@ import org.gamboni.cloudspill.ui.SettingsActivity;
  */
 
 public class ConnectivityTestRequest extends StringRequest {
-    /** Interface implemented by the client to receive the result. */
-    public interface Listener {
-        /** Set to true if connectivity was etablished, false otherwise. */
-        void setResult(boolean online);
+
+    private final Listener listener;
+
+    private static class Listener implements Response.Listener<String>, Response.ErrorListener {
+        private Boolean response = null;
+        @Override
+        public synchronized void onErrorResponse(VolleyError error) {
+            response = false;
+            this.notify();
+        }
+
+        @Override
+        public synchronized void onResponse(String serverResponse) {
+            response = true;
+            this.notify();
+        }
+
+        private synchronized boolean getResponse() {
+            while (response == null) {
+                try {
+                    wait();
+                } catch (InterruptedException e) {
+                    response = false;
+                }
+            }
+            return response;
+        }
     }
 
-    public ConnectivityTestRequest(Context context, final Listener listener) {
-        super(SettingsActivity.getServerUrl(context) + "/ping", new Response.Listener<String>() {
-            @Override
-            public void onResponse(String response) {
-                listener.setResult(true);
-            }
-        }, new Response.ErrorListener() {
-            @Override
-            public void onErrorResponse(VolleyError error) {
-                listener.setResult(false);
-            }
-        });
+    public ConnectivityTestRequest(final String url) {
+        this(url + "/ping", new Listener());
+    }
+
+    private ConnectivityTestRequest(String pingUrl, Listener listener) {
+        super(pingUrl, listener, listener);
+        this.listener = listener;
+    }
+
+    public boolean getResponse() {
+        return listener.getResponse();
     }
 }

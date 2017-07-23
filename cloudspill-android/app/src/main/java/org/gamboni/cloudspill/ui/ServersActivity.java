@@ -26,7 +26,7 @@ public class ServersActivity extends AppCompatActivity implements EditServerFrag
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_folders);
+        setContentView(R.layout.activity_servers);
 
         ListView lv = (ListView)findViewById(R.id.serverList);
 

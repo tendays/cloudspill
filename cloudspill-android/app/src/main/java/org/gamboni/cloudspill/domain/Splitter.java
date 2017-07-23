@@ -14,14 +14,17 @@ public class Splitter {
     }
 
     public String getString() {
-        left = right+1;
-        right = input.indexOf(left, ';');
-
-        if (right == -1) {
+        if (right == input.length()) {
             throw new IllegalArgumentException("Not enough components in input");
         }
+        left = right+1;
+        right = input.indexOf(';', left);
 
-        return input.substring(left, right - 1);
+        if (right == -1) {
+            right = input.length();
+        }
+
+        return input.substring(left, right);
     }
 
     public long getLong() {

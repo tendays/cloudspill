@@ -30,8 +30,8 @@ public class ItemsSinceRequest extends Request<Iterable<Domain.Item>> {
     private final Response.Listener<Iterable<Domain.Item>> listener;
     private final Domain domain;
 
-    public ItemsSinceRequest(Context context, Domain domain, long id, Response.Listener<Iterable<Domain.Item>> listener, Response.ErrorListener errorListener) {
-        super(Method.GET, SettingsActivity.getServerUrl(context) +  "item/since/"+ id, errorListener);
+    public ItemsSinceRequest(String url, Context context, Domain domain, long id, Response.Listener<Iterable<Domain.Item>> listener, Response.ErrorListener errorListener) {
+        super(Method.GET, url +  "/item/since/"+ id, errorListener);
         this.listener = listener;
         this.domain = domain;
     }

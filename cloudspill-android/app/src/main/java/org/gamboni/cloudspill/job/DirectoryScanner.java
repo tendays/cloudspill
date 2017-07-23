@@ -49,26 +49,9 @@ public class DirectoryScanner {
 
     public void run() {
         Log.d(TAG, "Starting run with queue "+ queue);
-        // First verify we are online
-        queue("link-test");
-        server.checkLink(new ConnectivityTestRequest.Listener() {
-            @Override
-            public void setResult(boolean online) {
-                if (online) {
-                    Log.i(TAG, "Server is up");
-                    new Thread() {public void run() {
-                        for (Domain.Folder folder : domain.selectFolders()) {
-                            scan(folder, folder.getFile().target);
-                        }
-                        unqueue("link-test");
-                    }}.start();
-                } else {
-                    listener.updateMessage(StatusReport.Severity.ERROR, "No connection to server");
-                    Log.i(TAG, "No connection to server, skipping upload");
-                    unqueue("link-test");
-                }
-            }
-        });
+        for (Domain.Folder folder : domain.selectFolders()) {
+            scan(folder, folder.getFile().target);
+        }
     }
 
     public void close() {

@@ -117,7 +117,7 @@ public class Domain extends SQLiteOpenHelper {
             result.put(_USER, user);
             result.put(_FOLDER, folder);
             result.put(_PATH, path);
-            result.put(_LATEST_ACCESS, latestAccess.getTime());
+            result.put(_LATEST_ACCESS, (latestAccess == null) ? null : latestAccess.getTime());
             return result;
         }
 
@@ -133,7 +133,7 @@ public class Domain extends SQLiteOpenHelper {
     };
     public class Folder implements BaseColumns {
         public static final String TABLE_NAME="FOLDER";
-        public long id;
+        public Long id;
         public static final String _NAME = "NAME";
         public String name;
         public static final String _PATH = "PATH";
@@ -159,7 +159,9 @@ public class Domain extends SQLiteOpenHelper {
 
         private ContentValues getValues() {
             ContentValues result = new ContentValues();
-            result.put(_ID, id);
+            if (id != null) {
+                result.put(_ID, id);
+            }
             result.put(_NAME, name);
             result.put(_PATH, path);
             return result;
@@ -181,7 +183,7 @@ public class Domain extends SQLiteOpenHelper {
     };
     public class Server implements BaseColumns {
         public static final String TABLE_NAME="SERVER";
-        public long id;
+        public Long id;
         public static final String _NAME = "NAME";
         public String name;
         public static final String _URL = "URL";
@@ -207,7 +209,9 @@ public class Domain extends SQLiteOpenHelper {
 
         private ContentValues getValues() {
             ContentValues result = new ContentValues();
-            result.put(_ID, id);
+            if (id != null) {
+                result.put(_ID, id);
+            }
             result.put(_NAME, name);
             result.put(_URL, url);
             return result;
@@ -276,6 +280,7 @@ public class Domain extends SQLiteOpenHelper {
     private abstract class Query<T> {
         final String tableName;
         String selection = null;
+        Cursor cursor = null;
         private List<String> args = new ArrayList<>();
 
         Query(String tableName) {
@@ -294,7 +299,7 @@ public class Domain extends SQLiteOpenHelper {
         }
 
         protected Cursor list(String[] columns) {
-            Cursor cursor = connect().query(
+            cursor = connect().query(
                     tableName, columns, selection,
                     args.toArray(new String[args.size()]), null, null, null);
 
@@ -302,7 +307,23 @@ public class Domain extends SQLiteOpenHelper {
             return cursor;
         }
 
+        /** Return a List of results that dynamically read through the Cursor.
+         * You must close() this object when you are done accessing the list.
+         */
         abstract List<T> list();
+
+        /** Return a List of result that is entirely copied in memory. You
+         * must not close() this object when you are done.
+         */
+        List<T> detachedList() {
+            List<T> result = new ArrayList<>(list());
+            close();
+            return result;
+        }
+
+        void close() {
+            cursor.close();
+        }
     }
 
     private class ItemQuery extends Query<Item> {
@@ -318,7 +339,7 @@ public class Domain extends SQLiteOpenHelper {
     public List<Item> selectItemsByServerId(long serverId) {
         return new ItemQuery()
                 .eq(Item._SERVER_ID, serverId)
-                .list();
+                .detachedList();
     }
 
     private List<Folder> folders = null;
@@ -342,25 +363,18 @@ public class Domain extends SQLiteOpenHelper {
         return folders;
     }
 
-    private List<Server> servers = null;
     public List<Server> selectServers() {
-        if (servers == null) {
-            Cursor cursor = connect().query(
-                    Server.TABLE_NAME, SERVER_COLUMNS, null, null, null, null,
-                    Server._NAME + " ASC",
-                    null);
-            try {
-                servers = new ArrayList<>(new CursorList<Server>(cursor) {
+        Cursor cursor = connect().query(
+                Server.TABLE_NAME, SERVER_COLUMNS, null, null, null, null,
+                Server._NAME + " ASC",
+                null);
+        this.cursors.add(cursor);
+        return new CursorList<Server>(cursor) {
                     @Override
                     protected Server newEntity() {
                         return new Server(cursor);
                     }
-                });
-            } finally {
-                cursor.close();
-            }
-        }
-        return servers;
+                };
     }
 
     private SQLiteDatabase connection;
