@@ -1,6 +1,7 @@
 package org.gamboni.cloudspill.job;
 
 import android.content.Context;
+import android.media.ExifInterface;
 import android.util.Log;
 
 import com.android.volley.Response;
@@ -14,9 +15,12 @@ import org.gamboni.cloudspill.server.CloudSpillServerProxy;
 import org.gamboni.cloudspill.server.ConnectivityTestRequest;
 import org.gamboni.cloudspill.ui.SettingsActivity;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
@@ -28,6 +32,9 @@ import java.util.Set;
  */
 
 public class DirectoryScanner {
+    // not static because not threadsafe
+    private final SimpleDateFormat exifTimestampFormat = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss");
+
     private final Context context;
     private final Domain domain;
     private final CloudSpillServerProxy server;
@@ -142,6 +149,16 @@ public class DirectoryScanner {
         }
     }
 
+    private Date getMediaDate(File file, byte[] content) {
+        try {
+            ExifInterface exif = new ExifInterface(file.getName()); // unfortunately not available on API 22: new ByteArrayInputStream(content));
+            return exifTimestampFormat.parse(exif.getAttribute(ExifInterface.TAG_DATETIME));
+        } catch (IOException | ParseException e) {
+            Log.w(TAG, "Error reading EXIF data", e);
+            return new Date(file.lastModified());
+        }
+    }
+
     private void addFile(Domain.Folder root, final File file) {
         final String path = root.getFile().getRelativePath(file);
         if (pathsInDb.remove(path)) {
@@ -154,16 +171,17 @@ public class DirectoryScanner {
 
         final String folder = root.name;
         byte[] body = loadFile(file, (int)file.length());
+        final Date date = getMediaDate(file, body);
 
-        server.upload(folder, path, body, new Response.Listener<Long>() {
+        server.upload(folder, path, date, body, new Response.Listener<Long>() {
             @Override
             public void onResponse(Long response) {
                 Log.d(TAG, "Received new id "+ response);
 
                 Domain.Item i = domain.new Item();
                 i.folder = folder;
-
-                i.latestAccess = new Date(file.lastModified());
+                i.date = date;
+                i.latestAccess = date;
                 i.user = SettingsActivity.getUser(context);
                 i.path = path;
 

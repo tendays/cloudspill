@@ -6,6 +6,7 @@ import com.android.volley.Response;
 import com.android.volley.VolleyError;
 
 import org.gamboni.cloudspill.domain.Domain;
+import org.gamboni.cloudspill.domain.ServerInfo;
 import org.gamboni.cloudspill.message.StatusReport;
 import org.gamboni.cloudspill.server.CloudSpillServerProxy;
 import org.gamboni.cloudspill.ui.SettingsActivity;
@@ -33,7 +34,11 @@ public class Downloader {
     Iterable<Domain.Item> items = null;
 
     public void run() {
-        final long firstId = SettingsActivity.getHighestId(context);
+        ServerInfo lastServer = SettingsActivity.getLastServerVersion(context);
+        ServerInfo currentServer = server.getServerInfo();
+
+        final long firstId = currentServer.moreRecentThan(lastServer) ?
+                        0 : SettingsActivity.getHighestId(context);
 
         listener.updateMessage(StatusReport.Severity.INFO, "Downloading new items @"+ firstId);
         server.itemsSince(firstId, new Response.Listener<Iterable<Domain.Item>>() {

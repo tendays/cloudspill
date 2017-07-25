@@ -10,13 +10,11 @@ import static spark.Spark.put;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.util.Arrays;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import javax.inject.Inject;
-import javax.transaction.SystemException;
 
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.Item;
@@ -27,7 +25,6 @@ import org.hibernate.Transaction;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
@@ -40,6 +37,12 @@ public class CloudSpillServer {
 	
 	@Inject SessionFactory sessionFactory;
 	@Inject ServerConfiguration configuration;
+	
+	/** This constants holds the version of the data stored in the database.
+	 * Each time new information is added to all items the number should be incremented.
+	 * It will cause clients to refresh their database with an /item/since/ call.
+	 */
+	private static final int DATA_VERSION = 1;
 	
     public static void main(String[] args) {
     	if (args.length != 1) {
@@ -82,9 +85,9 @@ public class CloudSpillServer {
     	/* Used by clients to ensure connectivity is available. In the future this may
     	 * also return a version string to ensure compatibility. */
     	get("/ping", (req, res) ->
-    	/*{	System.out.println("Received ping"); return */
-    	"pong"
-    	/*;}*/);
+    		// WARN: currently the frontend requires precisely this syntax, spaces included
+    		"CloudSpill server.\n"
+    		+ "Data-Version: "+ DATA_VERSION);
     	
     	/* Just for testing */
         get("/item/:id/path", (req, res) -> transacted(session -> {
@@ -159,6 +162,13 @@ public class CloudSpillServer {
 				item.setFolder(folder);
 				item.setPath(normalisedPath);
 				item.setUser(user);
+				// TODO create shared artifact between backend and frontend to hold this kind of constants
+				final String timestampHeader = req.headers("X-CloudSpill-Timestamp");
+				if (timestampHeader != null) {
+					item.setDate(Instant.ofEpochMilli(Long.valueOf(timestampHeader))
+						.atOffset(ZoneOffset.UTC)
+						.toLocalDateTime());
+				}
 				session.persist(item);
 				session.flush(); // flush before writing to disk
 

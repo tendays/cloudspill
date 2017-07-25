@@ -1,12 +1,10 @@
 package org.gamboni.cloudspill.server;
 
-import android.content.Context;
-
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.StringRequest;
 
-import org.gamboni.cloudspill.ui.SettingsActivity;
+import org.gamboni.cloudspill.domain.ServerInfo;
 
 /**
  * @author tendays
@@ -15,27 +13,31 @@ import org.gamboni.cloudspill.ui.SettingsActivity;
 public class ConnectivityTestRequest extends StringRequest {
 
     private final Listener listener;
+    private static final String PREAMBLE = "CloudSpill server.\nData-Version: ";
 
     private static class Listener implements Response.Listener<String>, Response.ErrorListener {
-        private Boolean response = null;
+        private ServerInfo response = null;
         @Override
         public synchronized void onErrorResponse(VolleyError error) {
-            response = false;
+            response = ServerInfo.offline();
             this.notify();
         }
 
         @Override
         public synchronized void onResponse(String serverResponse) {
-            response = true;
+            if (!serverResponse.startsWith(PREAMBLE)) {
+                response = ServerInfo.offline(); // TODO LOG
+            }
+            response = ServerInfo.online(Integer.parseInt(serverResponse.substring(PREAMBLE.length())));
             this.notify();
         }
 
-        private synchronized boolean getResponse() {
+        private synchronized ServerInfo getResponse() {
             while (response == null) {
                 try {
                     wait();
                 } catch (InterruptedException e) {
-                    response = false;
+                    response = ServerInfo.offline();
                 }
             }
             return response;
@@ -51,7 +53,7 @@ public class ConnectivityTestRequest extends StringRequest {
         this.listener = listener;
     }
 
-    public boolean getResponse() {
+    public ServerInfo getResponse() {
         return listener.getResponse();
     }
 }

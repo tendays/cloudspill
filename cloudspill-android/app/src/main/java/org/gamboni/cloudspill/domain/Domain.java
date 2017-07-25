@@ -11,16 +11,15 @@ import android.provider.BaseColumns;
 import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.ui.SettingsActivity;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-/** Represents an item that exists on the server.
+/** CloudSpill Android database.
  *
  * @author tendays
  */
-public class Domain extends SQLiteOpenHelper {
+public class Domain extends AbstractDomain {
 
     private static final String TAG = "CloudSpill.Domain";
 
@@ -45,6 +44,7 @@ public class Domain extends SQLiteOpenHelper {
         private static final String _FOLDER = "FOLDER";
         private static final String _PATH = "PATH";
         private static final String _LATEST_ACCESS = "LATEST_ACCESS";
+        private static final String _DATE = "DATE";
 
         private static final String SQL_CREATE_ENTRIES =
                 "CREATE TABLE " + TABLE_NAME + " (" +
@@ -53,7 +53,8 @@ public class Domain extends SQLiteOpenHelper {
                         _USER + " TEXT, " +
                         _FOLDER + " TEXT, " +
                         _PATH + " TEXT, " +
-                        _LATEST_ACCESS + " INTEGER" +
+                        _LATEST_ACCESS + " INTEGER," +
+                        _DATE +" INTEGER" +
                         ")";
 
         private static final String SQL_DELETE_ENTRIES =
@@ -65,6 +66,7 @@ public class Domain extends SQLiteOpenHelper {
         public String folder;
         public String path;
         public Date latestAccess;
+        public Date date;
 
         public Item() {}
 
@@ -74,7 +76,8 @@ public class Domain extends SQLiteOpenHelper {
             user = cursor.getString(2);
             folder = cursor.getString(3);
             path = cursor.getString(4);
-            latestAccess = new Date(cursor.getLong(5));
+            latestAccess = toDate(cursor.getLong(5));
+            date = toDate(cursor.getLong(6));
         }
 
         /** Construct an Item from its serialized form as constructed by the server. */
@@ -84,6 +87,7 @@ public class Domain extends SQLiteOpenHelper {
             user = splitter.getString();
             folder = splitter.getString();
             path = splitter.getString();
+            date = toDate(splitter.getLong()); // TODO this is supposed to be UTC - check!
         }
 
         private Boolean local = null;
@@ -117,7 +121,8 @@ public class Domain extends SQLiteOpenHelper {
             result.put(_USER, user);
             result.put(_FOLDER, folder);
             result.put(_PATH, path);
-            result.put(_LATEST_ACCESS, (latestAccess == null) ? null : latestAccess.getTime());
+            result.put(_LATEST_ACCESS, fromDate(latestAccess));
+            result.put(_DATE, fromDate(date));
             return result;
         }
 
@@ -221,32 +226,19 @@ public class Domain extends SQLiteOpenHelper {
         }
     }
 
-    private final Context context;
-
     public Domain(Context context) {
-        super(context, DATABASE_NAME, null, DATABASE_VERSION);
-        this.context = context;
+        super(context, DATABASE_NAME, DATABASE_VERSION);
     }
+
     public void onCreate(SQLiteDatabase db) {
         onUpgrade(db, 0, DATABASE_VERSION);
     }
 
-    public void onDowngrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        onUpgrade(db, oldVersion, newVersion);
-    }
-
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        onUpgrade(db, oldVersion, newVersion, 3, Server.SQL_CREATE_ENTRIES, Server.SQL_DELETE_ENTRIES);
-        onUpgrade(db, oldVersion, newVersion, 2, Folder.SQL_CREATE_ENTRIES, Folder.SQL_DELETE_ENTRIES);
-        onUpgrade(db, oldVersion, newVersion, 1, Item.SQL_CREATE_ENTRIES, Item.SQL_DELETE_ENTRIES);
-    }
-
-    private static void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion, int since, String create, String delete) {
-        if (oldVersion < since && newVersion >= since) {
-            db.execSQL(create);
-        } else if (oldVersion >= since && newVersion < since) {
-            db.execSQL(delete);
-        }
+        newTable(db, oldVersion, newVersion, 1, Item.SQL_CREATE_ENTRIES, Item.SQL_DELETE_ENTRIES);
+        newTable(db, oldVersion, newVersion, 2, Folder.SQL_CREATE_ENTRIES, Folder.SQL_DELETE_ENTRIES);
+        newTable(db, oldVersion, newVersion, 3, Server.SQL_CREATE_ENTRIES, Server.SQL_DELETE_ENTRIES);
+        newColumn(db, oldVersion, newVersion, 4, Item.TABLE_NAME, Item._DATE, "INTEGER");
     }
 
     public int getItemCount() {
@@ -275,55 +267,6 @@ public class Domain extends SQLiteOpenHelper {
                 return new Item(cursor);
             }
         };
-    }
-
-    private abstract class Query<T> {
-        final String tableName;
-        String selection = null;
-        Cursor cursor = null;
-        private List<String> args = new ArrayList<>();
-
-        Query(String tableName) {
-            this.tableName = tableName;
-        }
-
-        Query<T> eq(String column, Object value) {
-            if (selection == null) {
-                selection = column +" = ?";
-            } else {
-                selection += " and "+ column +" = ?";
-            }
-            args.add(String.valueOf(value));
-
-            return this;
-        }
-
-        protected Cursor list(String[] columns) {
-            cursor = connect().query(
-                    tableName, columns, selection,
-                    args.toArray(new String[args.size()]), null, null, null);
-
-            cursors.add(cursor);
-            return cursor;
-        }
-
-        /** Return a List of results that dynamically read through the Cursor.
-         * You must close() this object when you are done accessing the list.
-         */
-        abstract List<T> list();
-
-        /** Return a List of result that is entirely copied in memory. You
-         * must not close() this object when you are done.
-         */
-        List<T> detachedList() {
-            List<T> result = new ArrayList<>(list());
-            close();
-            return result;
-        }
-
-        void close() {
-            cursor.close();
-        }
     }
 
     private class ItemQuery extends Query<Item> {
@@ -375,46 +318,5 @@ public class Domain extends SQLiteOpenHelper {
                         return new Server(cursor);
                     }
                 };
-    }
-
-    private SQLiteDatabase connection;
-    /** All cursors returned by this class, that are still open. */
-    private List<Cursor> cursors = new ArrayList<>();
-
-    /** Gets the data repository in write mode */
-    private SQLiteDatabase connect() {
-        if (connection != null && connection.isOpen() && connection.isReadOnly()) {
-            closeCursors();
-            closeConnection();
-        }
-        if (connection == null || !connection.isOpen()) {
-            connection = getWritableDatabase();
-        }
-        return connection;
-    }
-
-    public void close() {
-        closeCursors();
-        super.close();
-    }
-
-    public void closeConnection() {
-        if (connection != null) {
-            connection.close();
-            connection = null;
-        }
-    }
-
-    public void closeCursors() {
-        List<Cursor> copy = new ArrayList<>(cursors);
-        cursors.clear();
-        for (Cursor c : cursors) {
-            c.close();
-        }
-    }
-
-    /** Wrap a sql expression in a MAX() aggregate function. */
-    protected String max(String column) {
-        return "MAX("+ column +")";
     }
 }

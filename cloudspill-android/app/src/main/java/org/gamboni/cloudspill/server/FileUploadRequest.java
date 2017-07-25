@@ -2,6 +2,7 @@ package org.gamboni.cloudspill.server;
 
 import android.util.Log;
 
+import com.android.volley.AuthFailureError;
 import com.android.volley.NetworkResponse;
 import com.android.volley.Request;
 import com.android.volley.Response;
@@ -9,6 +10,9 @@ import com.android.volley.VolleyError;
 import com.android.volley.toolbox.HttpHeaderParser;
 
 import java.io.UnsupportedEncodingException;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Created by tendays on 25.06.17.
@@ -16,6 +20,7 @@ import java.io.UnsupportedEncodingException;
 
 public class FileUploadRequest extends Request<Long> {
     private final Response.Listener<Long> listener;
+    private final Date date;
     private final byte[] body;
 
     private static final String TAG = "CloudSpill.Upload";
@@ -25,11 +30,19 @@ public class FileUploadRequest extends Request<Long> {
      *
      * @param url URL of the request to make
      */
-    public FileUploadRequest(String url, byte[] body, Response.Listener<Long> listener, Response.ErrorListener errorListener) {
+    public FileUploadRequest(String url, Date date, byte[] body, Response.Listener<Long> listener, Response.ErrorListener errorListener) {
         super(Method.PUT, url, loggingWrapper(url, errorListener));
         this.body = body;
         this.listener = listener;
+        this.date = date;
         Log.d(TAG, "Created request to "+ url);
+    }
+
+    @Override
+    public Map<String, String> getHeaders() throws AuthFailureError {
+        Map<String, String> headers = new HashMap<>();
+        headers.put("X-CloudSpill-Timestamp", Long.toString(date.getTime()));
+        return headers;
     }
 
     private static Response.ErrorListener loggingWrapper(final String url, final Response.ErrorListener delegate) {

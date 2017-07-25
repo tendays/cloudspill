@@ -6,6 +6,8 @@ package org.gamboni.cloudspill.domain;
 import static org.gamboni.cloudspill.util.Files.append;
 
 import java.io.File;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -28,6 +30,7 @@ public class Item {
 	String user;
 	String folder;
 	String path;
+	LocalDateTime date;
 	
 	@Id
 	@GeneratedValue(strategy = GenerationType.AUTO)
@@ -63,6 +66,15 @@ public class Item {
 		this.path = path;
 	}
 	
+	@Column(name="DATE")
+	public LocalDateTime getDate() {
+		return this.date;
+	}
+	
+	public void setDate(LocalDateTime date) {
+		this.date = date;
+	}
+	
 	public File getFile(File rootFolder) {
 		return append(append(append(rootFolder, user), folder), path);
 	}
@@ -76,7 +88,9 @@ public class Item {
 		+ ";"
 		+ getFolder()
 		+ ";"
-		+ getPath();
+		+ getPath()
+		+ ";"
+		+ getDate().atOffset(ZoneOffset.UTC);
 	}
 	
 	public String toString() {

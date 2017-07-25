@@ -13,6 +13,7 @@ import android.preference.PreferenceManager;
 import android.util.Log;
 
 import org.gamboni.cloudspill.R;
+import org.gamboni.cloudspill.domain.ServerInfo;
 import org.gamboni.cloudspill.file.FileBuilder;
 
 /**
@@ -69,6 +70,17 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
     public static void setHighestId(Context context, long highestId) {
         getSharedPreferences(context).edit()
                 .putLong(HIGHEST_ID_KEY, highestId)
+                .apply();
+    }
+
+    private static final String LAST_SERVER_VERSION_KEY = "last_server_version";
+    public static ServerInfo getLastServerVersion(Context context) {
+        return ServerInfo.online(
+                getSharedPreferences(context).getInt(LAST_SERVER_VERSION_KEY, -1));
+    }
+    public static void setLastServerVersion(Context context, ServerInfo serverInfo) {
+        getSharedPreferences(context).edit()
+                .putInt(LAST_SERVER_VERSION_KEY, serverInfo.getVersion())
                 .apply();
     }
 

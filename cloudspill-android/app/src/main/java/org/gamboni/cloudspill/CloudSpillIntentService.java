@@ -38,8 +38,6 @@ public class CloudSpillIntentService extends IntentService {
         CloudSpillIntentService.listener.unset(listener);
     }
 
-
-
     @Override
     protected void onHandleIntent(@Nullable Intent intent) {
         FreeSpaceMaker fsm = new FreeSpaceMaker(CloudSpillIntentService.this, domain, listener);
