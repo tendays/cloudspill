@@ -90,7 +90,11 @@ public class Item {
 		+ ";"
 		+ getPath()
 		+ ";"
-		+ getDate().atOffset(ZoneOffset.UTC);
+		+ serialise(getDate());
+	}
+	
+	private static String serialise(LocalDateTime time) {
+		return (time == null) ? "" : Long.toString(time.atOffset(ZoneOffset.UTC).toInstant().toEpochMilli());
 	}
 	
 	public String toString() {
