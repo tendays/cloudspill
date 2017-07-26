@@ -27,7 +27,9 @@ public class Splitter {
         return input.substring(left, right);
     }
 
-    public long getLong() {
-        return Long.valueOf(getString());
+    public Long getLong() {
+        String string = getString();
+
+        return string.isEmpty() ? null : Long.valueOf(string);
     }
 }

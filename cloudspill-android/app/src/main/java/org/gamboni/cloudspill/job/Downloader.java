@@ -11,6 +11,8 @@ import org.gamboni.cloudspill.message.StatusReport;
 import org.gamboni.cloudspill.server.CloudSpillServerProxy;
 import org.gamboni.cloudspill.ui.SettingsActivity;
 
+import java.util.List;
+
 /** This component is responsible for downloading database entries created by other users.
  *
  * @author tendays
@@ -65,9 +67,14 @@ public class Downloader {
 
         for (Domain.Item item : items) {
             loaded++;
-            if (domain.selectItemsByServerId(item.serverId).isEmpty()) {
+            List<Domain.Item> allExisting = domain.selectItemsByServerId(item.serverId);
+            if (allExisting.isEmpty()) {
                 item.insert();
                 created++;
+            } else {
+                Domain.Item existing = allExisting.get(0);
+                existing.copyFrom(item);
+                existing.update();
             }
             highestId = item.serverId;
 
@@ -77,6 +84,7 @@ public class Downloader {
             }
         }
         SettingsActivity.setHighestId(context, highestId);
+        SettingsActivity.setLastServerVersion(context, currentServer);
         listener.updateMessage(StatusReport.Severity.INFO, "Download complete. Created " + created + "/" + loaded);
     }
 

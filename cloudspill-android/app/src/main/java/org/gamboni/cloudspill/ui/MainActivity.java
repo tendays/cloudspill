@@ -55,12 +55,14 @@ public class MainActivity extends AppCompatActivity implements StatusReport {
         sync();
     }
 
+    /** NOTE: method invoked from ui xml as well. */
     public void sync(View view) {
         sync();
     }
 
     /** Check if necessary permissions are available, then start the synchronisation service. */
     private void sync() {
+        highestSeverity = Severity.INFO;
         /* Request read access to external storage */
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
                 == PackageManager.PERMISSION_GRANTED) {
@@ -118,7 +120,8 @@ public class MainActivity extends AppCompatActivity implements StatusReport {
      * so that necessary permissions may be checked first.
      */
     private void startService() {
-        startService(new Intent(this, CloudSpillIntentService.class));}
+        startService(new Intent(this, CloudSpillIntentService.class));
+    }
 
     Severity highestSeverity = Severity.INFO;
 

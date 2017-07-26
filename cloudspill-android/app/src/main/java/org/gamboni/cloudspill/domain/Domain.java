@@ -126,8 +126,17 @@ public class Domain extends AbstractDomain {
             return result;
         }
 
+        public void copyFrom(Item that) {
+            this.date = that.date;
+            this.serverId = that.serverId;
+        }
+
         public long insert() {
             return connect().insert(TABLE_NAME, null, getValues());
+        }
+
+        public void update() {
+            new ItemQuery().eq(_ID, this.id).update(getValues());
         }
     }
 
@@ -239,15 +248,6 @@ public class Domain extends AbstractDomain {
         newTable(db, oldVersion, newVersion, 2, Folder.SQL_CREATE_ENTRIES, Folder.SQL_DELETE_ENTRIES);
         newTable(db, oldVersion, newVersion, 3, Server.SQL_CREATE_ENTRIES, Server.SQL_DELETE_ENTRIES);
         newColumn(db, oldVersion, newVersion, 4, Item.TABLE_NAME, Item._DATE, "INTEGER");
-    }
-
-    public int getItemCount() {
-        return (int)DatabaseUtils.queryNumEntries(connect(), Item.TABLE_NAME);
-    }
-
-    public int getHighestId() {
-        return connect().query(Item.TABLE_NAME, new String[]{max(Item._SERVER_ID)}, null, null, null, null, null)
-                .getInt(0);
     }
 
     public List<Item> selectItems(boolean recentFirst) {

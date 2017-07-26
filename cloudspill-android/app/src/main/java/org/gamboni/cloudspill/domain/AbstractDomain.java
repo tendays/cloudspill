@@ -1,5 +1,6 @@
 package org.gamboni.cloudspill.domain;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
@@ -61,7 +62,7 @@ public abstract class AbstractDomain extends SQLiteOpenHelper {
         protected Cursor list(String[] columns) {
             cursor = connect().query(
                     tableName, columns, selection,
-                    args.toArray(new String[args.size()]), null, null, null);
+                    selectionArgs(), null, null, null);
 
             cursors.add(cursor);
             return cursor;
@@ -79,6 +80,14 @@ public abstract class AbstractDomain extends SQLiteOpenHelper {
             List<T> result = new ArrayList<>(list());
             close();
             return result;
+        }
+
+        void update(ContentValues values) {
+            connect().update(tableName, values, selection, selectionArgs());
+        }
+
+        private String[] selectionArgs() {
+            return args.toArray(new String[args.size()]);
         }
 
         void close() {
