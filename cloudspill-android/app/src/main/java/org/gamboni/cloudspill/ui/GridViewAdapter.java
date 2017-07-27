@@ -36,7 +36,7 @@ public class GridViewAdapter extends RecyclerView.Adapter<GridViewAdapter.Simple
 
         public GridViewAdapter(Context context, Domain domain) {
             this.context = context;
-            this.domain = domain.selectItems(/*recentFirst*/true);
+            this.domain = domain.selectItems().orderDesc(Domain.Item._DATE).list();
         }
 
         public static class SimpleViewHolder extends RecyclerView.ViewHolder {

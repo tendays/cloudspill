@@ -1,6 +1,7 @@
 package org.gamboni.cloudspill.job;
 
 import android.content.Context;
+import android.util.Log;
 
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
@@ -18,6 +19,8 @@ import java.util.List;
  * @author tendays
  */
 public class Downloader {
+    private static final String TAG = "CloudSpill.Download";
+
     private final Context context;
     private final Domain domain;
     private final FreeSpaceMaker fsm;
@@ -53,6 +56,7 @@ public class Downloader {
         new Response.ErrorListener() {
             @Override
             public void onErrorResponse(VolleyError error) {
+                Log.e(TAG, "Downloading failed", error);
                 listener.updateMessage(StatusReport.Severity.ERROR, "Downloading failed: "+ error);
                 publish(null);
             }

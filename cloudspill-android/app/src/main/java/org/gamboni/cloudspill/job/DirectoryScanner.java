@@ -7,6 +7,7 @@ import android.util.Log;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 
+import org.gamboni.cloudspill.domain.AbstractDomain;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.file.FileTypeChecker;
@@ -85,9 +86,11 @@ public class DirectoryScanner {
             Log.e(TAG, "Path is not a directory: "+ folder);
             return;
         }
-        for (Domain.Item item : domain.selectItems(/*recentFirst*/true)) { // TODO select current user/folder only
+        AbstractDomain.Query<Domain.Item> q = domain.selectItems();
+        for (Domain.Item item : q.list()) { // TODO select current user/folder only
             pathsInDb.add(item.path); // TODO support single attribute selects
         }
+        q.close();
         Log.d(TAG, "Found "+ pathsInDb.size() +" items in database");
 
         int percentage = 0;

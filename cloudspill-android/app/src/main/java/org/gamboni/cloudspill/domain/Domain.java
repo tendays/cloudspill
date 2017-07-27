@@ -7,6 +7,7 @@ import android.database.DatabaseUtils;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.provider.BaseColumns;
+import android.util.Log;
 
 import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.ui.SettingsActivity;
@@ -24,7 +25,7 @@ public class Domain extends AbstractDomain {
     private static final String TAG = "CloudSpill.Domain";
 
     // If you change the database schema, you must increment the database version.
-    private static final int DATABASE_VERSION = 3;
+    private static final int DATABASE_VERSION = 4;
     private static final String DATABASE_NAME = "CloudSpill.db";
 
     private static final String[] ITEM_COLUMNS = new String[]{
@@ -33,7 +34,8 @@ public class Domain extends AbstractDomain {
             Item._USER,
             Item._FOLDER,
             Item._PATH,
-            Item._LATEST_ACCESS
+            Item._LATEST_ACCESS,
+            Item._DATE
     };
 
     public class Item implements BaseColumns {
@@ -43,8 +45,8 @@ public class Domain extends AbstractDomain {
         private static final String _USER = "USER";
         private static final String _FOLDER = "FOLDER";
         private static final String _PATH = "PATH";
-        private static final String _LATEST_ACCESS = "LATEST_ACCESS";
-        private static final String _DATE = "DATE";
+        public static final String _LATEST_ACCESS = "LATEST_ACCESS";
+        public static final String _DATE = "DATE";
 
         private static final String SQL_CREATE_ENTRIES =
                 "CREATE TABLE " + TABLE_NAME + " (" +
@@ -244,20 +246,15 @@ public class Domain extends AbstractDomain {
     }
 
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        Log.d(TAG, "Current version: "+ oldVersion +". New version: "+ newVersion);
         newTable(db, oldVersion, newVersion, 1, Item.SQL_CREATE_ENTRIES, Item.SQL_DELETE_ENTRIES);
         newTable(db, oldVersion, newVersion, 2, Folder.SQL_CREATE_ENTRIES, Folder.SQL_DELETE_ENTRIES);
         newTable(db, oldVersion, newVersion, 3, Server.SQL_CREATE_ENTRIES, Server.SQL_DELETE_ENTRIES);
         newColumn(db, oldVersion, newVersion, 4, Item.TABLE_NAME, Item._DATE, "INTEGER");
     }
 
-    public List<Item> selectItems(boolean recentFirst) {
-        Cursor cursor = connect().query(
-                Item.TABLE_NAME, ITEM_COLUMNS, null, null, null, null,
-                Item._LATEST_ACCESS + (recentFirst ? " DESC" : " ASC"),
-                null);
-        this.cursors.add(cursor);
-
-        return itemList(cursor);
+    public Query<Item> selectItems() {
+        return new ItemQuery();
     }
 
     private List<Item> itemList(final Cursor cursor) {
@@ -274,7 +271,7 @@ public class Domain extends AbstractDomain {
             super(Item.TABLE_NAME);
         }
 
-        List<Item> list() {
+        public List<Item> list() {
             return itemList(list(ITEM_COLUMNS));
         }
     }

@@ -38,9 +38,10 @@ public abstract class AbstractDomain extends SQLiteOpenHelper {
         }
     }
 
-    protected abstract class Query<T> {
+    public abstract class Query<T> {
         final String tableName;
         String selection = null;
+        String ordering = null;
         Cursor cursor = null;
         private List<String> args = new ArrayList<>();
 
@@ -48,7 +49,7 @@ public abstract class AbstractDomain extends SQLiteOpenHelper {
             this.tableName = tableName;
         }
 
-        Query<T> eq(String column, Object value) {
+        public Query<T> eq(String column, Object value) {
             if (selection == null) {
                 selection = column +" = ?";
             } else {
@@ -59,10 +60,22 @@ public abstract class AbstractDomain extends SQLiteOpenHelper {
             return this;
         }
 
+        public Query<T> orderAsc(String column) {
+            ordering = (ordering == null) ? "" : (ordering +", ");
+            ordering += column;
+            return this;
+        }
+
+        public Query<T> orderDesc(String column) {
+            ordering = (ordering == null) ? "" : (ordering +", ");
+            ordering += column +" DESC";
+            return this;
+        }
+
         protected Cursor list(String[] columns) {
             cursor = connect().query(
                     tableName, columns, selection,
-                    selectionArgs(), null, null, null);
+                    selectionArgs(), null, null, ordering);
 
             cursors.add(cursor);
             return cursor;
@@ -71,12 +84,12 @@ public abstract class AbstractDomain extends SQLiteOpenHelper {
         /** Return a List of results that dynamically read through the Cursor.
          * You must close() this object when you are done accessing the list.
          */
-        abstract List<T> list();
+        public abstract List<T> list();
 
         /** Return a List of result that is entirely copied in memory. You
          * must not close() this object when you are done.
          */
-        List<T> detachedList() {
+        public List<T> detachedList() {
             List<T> result = new ArrayList<>(list());
             close();
             return result;
@@ -90,7 +103,7 @@ public abstract class AbstractDomain extends SQLiteOpenHelper {
             return args.toArray(new String[args.size()]);
         }
 
-        void close() {
+        public void close() {
             cursor.close();
         }
     }
