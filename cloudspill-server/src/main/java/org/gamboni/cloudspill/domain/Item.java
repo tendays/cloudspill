@@ -33,7 +33,7 @@ public class Item {
 	LocalDateTime date;
 	
 	@Id
-	@GeneratedValue(strategy = GenerationType.AUTO)
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column(name="ID")
 	public long getId() {
 		return id;

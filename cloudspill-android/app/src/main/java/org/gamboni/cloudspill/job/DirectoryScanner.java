@@ -56,6 +56,8 @@ public class DirectoryScanner {
     }
 
     public void run() {
+        Log.d(TAG, "hotfix output: "+ domain.hotfix());
+
         Log.d(TAG, "Starting run with queue "+ queue);
         for (Domain.Folder folder : domain.selectFolders()) {
             scan(folder, folder.getFile().target);
@@ -98,6 +100,10 @@ public class DirectoryScanner {
         listener.updatePercent(percentage);
 
         for (File file : files) {
+            if (file.getName().startsWith(".")) {
+                Log.d(TAG, "Skipping "+ file +" because it starts with a dot");
+                continue;
+            }
             Log.d(TAG, file.toString());
             if (file.isDirectory()) {
                 scan(root, file);
@@ -154,12 +160,18 @@ public class DirectoryScanner {
 
     private Date getMediaDate(File file, byte[] content) {
         try {
-            ExifInterface exif = new ExifInterface(file.getName()); // unfortunately not available on API 22: new ByteArrayInputStream(content));
-            return exifTimestampFormat.parse(exif.getAttribute(ExifInterface.TAG_DATETIME));
+            ExifInterface exif = new ExifInterface(file.getPath()); // unfortunately not available on API 22: new ByteArrayInputStream(content));
+            String exifDate = exif.getAttribute(ExifInterface.TAG_DATETIME);
+            if (exifDate == null) {
+                Log.w(TAG, "No Exif datetime in " + file);
+            } else {
+                return exifTimestampFormat.parse(exifDate);
+            }
         } catch (IOException | ParseException e) {
             Log.w(TAG, "Error reading EXIF data", e);
-            return new Date(file.lastModified());
+            // ... then fallback to last modification date
         }
+        return new Date(file.lastModified());
     }
 
     private void addFile(Domain.Folder root, final File file) {

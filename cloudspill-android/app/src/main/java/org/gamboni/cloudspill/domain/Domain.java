@@ -142,6 +142,11 @@ public class Domain extends AbstractDomain {
         }
     }
 
+    /** I don't know how to access the database on my android device so I put my commands here instead. */
+    public int hotfix() {
+        return new ItemQuery().like(Item._PATH, "%.thumbnail%").delete();
+    }
+
     private static final String[] FOLDER_COLUMNS = {
             Folder._ID,
             Folder._NAME,

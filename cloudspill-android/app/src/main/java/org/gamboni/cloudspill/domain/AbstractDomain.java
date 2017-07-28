@@ -50,12 +50,20 @@ public abstract class AbstractDomain extends SQLiteOpenHelper {
         }
 
         public Query<T> eq(String column, Object value) {
+            return restriction(column +" = ?", value);
+        }
+
+        public Query<T> like(String column, String pattern) {
+            return restriction(column +" like ?", pattern);
+        }
+
+        protected Query<T> restriction(String sql, Object arg) {
             if (selection == null) {
-                selection = column +" = ?";
+                selection = sql;
             } else {
-                selection += " and "+ column +" = ?";
+                selection += " and "+ sql;
             }
-            args.add(String.valueOf(value));
+            args.add(String.valueOf(arg));
 
             return this;
         }
@@ -95,8 +103,12 @@ public abstract class AbstractDomain extends SQLiteOpenHelper {
             return result;
         }
 
-        void update(ContentValues values) {
-            connect().update(tableName, values, selection, selectionArgs());
+        public int update(ContentValues values) {
+            return connect().update(tableName, values, selection, selectionArgs());
+        }
+
+        public int delete() {
+            return connect().delete(tableName, selection, selectionArgs());
         }
 
         private String[] selectionArgs() {
