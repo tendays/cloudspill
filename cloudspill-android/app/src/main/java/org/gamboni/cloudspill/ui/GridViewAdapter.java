@@ -1,6 +1,7 @@
 package org.gamboni.cloudspill.ui;
 
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.util.Log;
@@ -18,6 +19,7 @@ import org.gamboni.cloudspill.GlideApp;
 import org.gamboni.cloudspill.GlideRequests;
 import org.gamboni.cloudspill.R;
 import org.gamboni.cloudspill.domain.Domain;
+import org.gamboni.cloudspill.job.MediaDownloader;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -61,11 +63,15 @@ public class GridViewAdapter extends RecyclerView.Adapter<GridViewAdapter.Simple
             Domain.Item item = domain.get(position);
 
             holder.target = GlideApp.with(context);
-            // TODO if file does not exist: download
-            holder.target.load(Uri.fromFile(item.getFile().target))
-                    .override(1000)
-                    .placeholder(R.drawable.lb_ic_in_app_search)
-                    .into(holder.imageView);
+            if (item.getFile().target.exists()) {
+                holder.target.load(Uri.fromFile(item.getFile().target))
+                        .override(1000)
+                        .placeholder(R.drawable.lb_ic_in_app_search)
+                        .into(holder.imageView);
+            } else {
+                // File doesn't exist - download it first
+                MediaDownloader.download(context, item.serverId, item.getFile());
+            }
         }
 
         @Override

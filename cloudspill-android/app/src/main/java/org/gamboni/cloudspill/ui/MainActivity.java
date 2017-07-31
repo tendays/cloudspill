@@ -26,7 +26,6 @@ import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.message.StatusReport;
 
 public class MainActivity extends AppCompatActivity implements StatusReport {
-    public static final String EXTRA_MESSAGE = "org.gamboni.cloudspill.MESSAGE";
     private static final String TAG = "CloudSpill.Main";
 
     private Domain domain;
@@ -191,14 +190,4 @@ public class MainActivity extends AppCompatActivity implements StatusReport {
                 return super.onOptionsItemSelected(item);
         }
     }
-
-    /** Called when the user taps the Send imageView */
-    /*public void sendMessage(View view) {
-        Intent intent = new Intent(this, FoldersActivity.class);
-        EditText editText = (EditText) findViewById(R.id.editText);
-        String message = editText.getText().toString();
-        intent.putExtra(EXTRA_MESSAGE, message);
-        startActivity(intent);
-    }*/
-
 }

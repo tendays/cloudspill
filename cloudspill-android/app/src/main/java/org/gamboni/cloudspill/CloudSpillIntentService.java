@@ -14,7 +14,14 @@ import org.gamboni.cloudspill.message.StatusReport;
 import org.gamboni.cloudspill.server.CloudSpillServerProxy;
 import org.gamboni.cloudspill.server.ConnectivityTestRequest;
 
-/** This class is reponsible for coordinating CloudSpill background jobs.
+/** This class is reponsible for coordinating CloudSpill background jobs:
+ * <ul>
+ *     <li>{@link FreeSpaceMaker} to make free space,</li>
+ *     <li>{@link DirectoryScanner} to upload local media to server</li>
+ *     <li>{@link Downloader} to download media metadata from server</li>
+ * </ul>
+ *
+ * Actual media download is handled by {@link org.gamboni.cloudspill.job.MediaDownloader}.
  *
  * @author tendays
  */
@@ -46,28 +53,12 @@ public class CloudSpillIntentService extends IntentService {
 
         /* - the rest of the batch needs server connectivity - */
 
-        CloudSpillServerProxy server = null;
-        for (final Domain.Server serverEntity : domain.selectServers()) {
-            CloudSpillServerProxy testServer = new CloudSpillServerProxy(CloudSpillIntentService.this, domain, serverEntity.url);
-            listener.updateMessage(StatusReport.Severity.INFO, "Connecting to "+ serverEntity.name);
-            // First verify we are online
-            if (testServer.checkLink()) {
-                Log.i(TAG, "Server is up");
-                listener.updateMessage(StatusReport.Severity.INFO, "Connected to "+ serverEntity.name);
-                server = testServer;
-                break;
-            } else {
-                Log.i(TAG, "No connection to server "+ serverEntity.name +" at "+ serverEntity.url);
-            }
-        }
-
-        if (server == null) {
-            listener.updateMessage(StatusReport.Severity.ERROR, "No connection to server");
-            return;
-        }
+        CloudSpillServerProxy server = CloudSpillServerProxy.selectServer(this, listener, domain);
+        // TODO use an exception instead
+        if (server == null) { return; }
 
                 /* Second highest: upload pictures so they are backed up and available to other users */
-        final DirectoryScanner ds = new DirectoryScanner(CloudSpillIntentService.this, domain, server, listener);
+        final DirectoryScanner ds = new DirectoryScanner(this, domain, server, listener);
         ds.run();
         ds.waitForCompletion();
                 /* Finally: download pictures from other users. */
