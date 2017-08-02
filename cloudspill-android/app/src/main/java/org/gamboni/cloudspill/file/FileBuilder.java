@@ -40,6 +40,12 @@ public class FileBuilder {
         }
     }
 
+    public FileBuilder getParent() {
+        String parent = target.getParent();
+        // TODO 1: check File.getParent may actually return null. 2: consider using Null Object instead of null
+        return (parent == null) ? null : new FileBuilder(parent);
+    }
+
     public String getRelativePath(File child) {
         String targetPath = target.getPath();
         if (!target.getPath().endsWith("/")) {

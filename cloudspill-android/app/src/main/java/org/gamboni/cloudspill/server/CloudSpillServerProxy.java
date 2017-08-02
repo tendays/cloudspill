@@ -8,6 +8,7 @@ import com.android.volley.Response;
 import com.android.volley.toolbox.Volley;
 
 import org.gamboni.cloudspill.domain.ServerInfo;
+import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.message.StatusReport;
 import org.gamboni.cloudspill.ui.SettingsActivity;
 import org.gamboni.cloudspill.domain.Domain;
@@ -89,9 +90,22 @@ public class CloudSpillServerProxy {
         return server;
     }
 
+    /** Check availability of the server represented by this proxy, <em>if it hasn't been checked previously</em>.
+     * Otherwise return the outcome of the previous {@link #checkLink()} or {@link #recheckLink()} invocation.
+     * @return whether communication with the server was successful.
+     */
     public boolean checkLink() {
-        Log.d(TAG, "Checking server availability at "+ verifiedUrl);
-        ConnectivityTestRequest request = new ConnectivityTestRequest(verifiedUrl);
+        if (this.serverInfo == null) {
+            return recheckLink();
+        } else {
+            return this.serverInfo.isOnline();
+        }
+    }
+
+    /** Check availability of the server represented by this proxy, <em>even if it was checked previously</em>. */
+    public boolean recheckLink() {
+        Log.d(TAG, "Checking server availability at "+ url);
+        ConnectivityTestRequest request = new ConnectivityTestRequest(url);
         queue.add(request);
         this.serverInfo = request.getResponse();
         return serverInfo.isOnline();
@@ -99,13 +113,21 @@ public class CloudSpillServerProxy {
 
     public void upload(String folder, String path, Date date, byte[] body, Response.Listener<Long> listener, Response.ErrorListener onError) {
         Log.d(TAG, "Uploading "+ body.length +" bytes");
-        queue.add(new FileUploadRequest(verifiedUrl +"/item/"+ user +"/" + folder +"/"+ path,
+        queue.add(new FileUploadRequest(url +"/item/"+ user +"/" + folder +"/"+ path,
                 date,
                 body,
                 listener,
                 onError));
     }
 
+    public void download(long serverId, FileBuilder target, Response.Listener<byte[]> listener, Response.ErrorListener onError) {
+        Log.d(TAG, "Downloading item#"+ serverId +" to "+ target);
+        queue.add(new MediaDownloadRequest(url, serverId, listener, onError));
+    }
+
+    /** Get information about the server. This method may only be called after {@link #checkLink} or {@link #recheckLink}
+     * was invoked on the same object (but it is not necessary those methods have returned true).
+     */
     public ServerInfo getServerInfo() {
         if (this.serverInfo == null) {
             throw new IllegalStateException("call checkLink() before getServerInfo");
@@ -114,6 +136,6 @@ public class CloudSpillServerProxy {
     }
 
     public void itemsSince(long id, Response.Listener<Iterable<Domain.Item>> listener, Response.ErrorListener errorListener) {
-        queue.add(new ItemsSinceRequest(verifiedUrl, context, domain, id, listener, errorListener));
+        queue.add(new ItemsSinceRequest(url, context, domain, id, listener, errorListener));
     }
 }

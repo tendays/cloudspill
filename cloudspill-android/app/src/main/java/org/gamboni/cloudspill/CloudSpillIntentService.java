@@ -3,7 +3,6 @@ package org.gamboni.cloudspill;
 import android.app.IntentService;
 import android.content.Intent;
 import android.support.annotation.Nullable;
-import android.util.Log;
 
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.job.DirectoryScanner;
@@ -12,7 +11,6 @@ import org.gamboni.cloudspill.job.FreeSpaceMaker;
 import org.gamboni.cloudspill.message.SettableStatusListener;
 import org.gamboni.cloudspill.message.StatusReport;
 import org.gamboni.cloudspill.server.CloudSpillServerProxy;
-import org.gamboni.cloudspill.server.ConnectivityTestRequest;
 
 /** This class is reponsible for coordinating CloudSpill background jobs:
  * <ul>
@@ -28,7 +26,7 @@ import org.gamboni.cloudspill.server.ConnectivityTestRequest;
 public class CloudSpillIntentService extends IntentService {
 
     private static final String TAG = "CloudSpill.Worker";
-    private static final SettableStatusListener listener = new SettableStatusListener();
+    private static final SettableStatusListener<StatusReport> listener = new SettableStatusListener<>();
 
     private Domain domain;
 
@@ -56,6 +54,7 @@ public class CloudSpillIntentService extends IntentService {
         CloudSpillServerProxy server = CloudSpillServerProxy.selectServer(this, listener, domain);
         // TODO use an exception instead
         if (server == null) { return; }
+        server.checkLink(); // ensure serverInfo is available
 
                 /* Second highest: upload pictures so they are backed up and available to other users */
         final DirectoryScanner ds = new DirectoryScanner(this, domain, server, listener);

@@ -14,15 +14,7 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <service android:name="CloudSpillIntentService" />
-        <service
-            android:name="org.gamboni.cloudspill.sync.AuthenticatorService">
-            <intent-filter>
-                <action android:name="android.accounts.AccountAuthenticator"/>
-            </intent-filter>
-            <meta-data
-                android:name="android.accounts.AccountAuthenticator"
-                android:resource="@xml/authenticator" />
-        </service>
+        <service android:name=".job.MediaDownloader" />
         <activity android:name=".ui.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

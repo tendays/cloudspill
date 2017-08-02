@@ -3,15 +3,15 @@ package org.gamboni.cloudspill.message;
 /**
  * @author tendays
  */
-public class SettableStatusListener implements StatusReport {
+public class SettableStatusListener<T extends StatusReport> implements StatusReport {
 
-    private StatusReport listener;
+    protected T listener;
 
-    public void set(StatusReport listener) {
+    public void set(T listener) {
         this.listener = listener;
     }
 
-    public void unset(StatusReport listener) {
+    public void unset(T listener) {
         if (this.listener == listener) {
             this.listener = null;
         }

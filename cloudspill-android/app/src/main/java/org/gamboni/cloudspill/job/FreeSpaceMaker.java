@@ -114,7 +114,7 @@ public class FreeSpaceMaker {
     private void logSpace() {
         StringBuilder logMessage = new StringBuilder("Missing space: ");
         for (File fs : filesystems) {
-            logMessage.append(fs).append(": ").append(getMissingSpace(fs)).append("bytes. ");
+            logMessage.append(fs).append(": ").append(getMissingSpace(fs)).append(" bytes. ");
         }
         Log.i(TAG, logMessage.toString());
     }
