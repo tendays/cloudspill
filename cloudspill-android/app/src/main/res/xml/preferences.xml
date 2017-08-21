@@ -1,25 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
     <EditTextPreference
-        android:key="pref_server"
-        android:title="@string/pref_server"
-        android:summary="@string/pref_server_summ"
-        android:defaultValue="@string/pref_server_default"/>
-    <EditTextPreference
         android:key="pref_user"
         android:title="@string/pref_user"
         android:summary="@string/pref_user_summ"
         android:defaultValue="@string/pref_user_default"/>
-    <EditTextPreference
-        android:key="pref_folder"
-        android:title="@string/pref_folder"
-        android:summary="@string/pref_folder_summ"
-        android:defaultValue="@string/pref_folder_default"/>
-    <EditTextPreference
-        android:key="pref_folder_path"
-        android:title="@string/pref_folder_path"
-        android:summary="@string/pref_folder_path_summ"
-        android:defaultValue="@string/pref_folder_path_default"/>
     <EditTextPreference
         android:key="pref_dl_path"
         android:title="@string/pref_dl_path"
@@ -30,4 +15,10 @@
         android:title="@string/pref_freespace"
         android:summary="@string/pref_freespace_summ"
         android:defaultValue="@string/pref_freespace_default" />
+    <ListPreference
+        android:key="pref_mobile_upload"
+        android:title="@string/pref_mobile_upload"
+        android:summary="@string/pref_mobile_upload_summ"
+        android:entries="@array/pref_mobile_upload_entries"
+        android:entryValues="@array/pref_mobile_upload_entryValues" />
 </PreferenceScreen>

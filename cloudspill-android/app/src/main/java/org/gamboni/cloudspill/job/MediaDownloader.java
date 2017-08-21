@@ -3,6 +3,8 @@ package org.gamboni.cloudspill.job;
 import android.app.IntentService;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
+import android.support.v4.provider.DocumentFile;
 import android.util.Log;
 
 import com.android.volley.Response;
@@ -47,7 +49,7 @@ public class MediaDownloader extends IntentService {
     public static void download(Context context, Domain.Item item) {
         Intent intent = new Intent(context, MediaDownloader.class);
         intent.putExtra(MediaDownloader.PARAM_SERVER_ID, item.serverId);
-        intent.putExtra(MediaDownloader.PARAM_FILE, item.getFile().target.getPath());
+        intent.putExtra(MediaDownloader.PARAM_FILE, item.getFile().target.getUri());
         context.startService(intent);
     }
 
@@ -71,11 +73,11 @@ public class MediaDownloader extends IntentService {
 
 
         final long serverId = intent.getLongExtra(PARAM_SERVER_ID, 0);
-        final FileBuilder target = new FileBuilder(intent.getCharSequenceExtra(PARAM_FILE).toString());
+        final FileBuilder target = new FileBuilder(DocumentFile.fromTreeUri(this, intent.<Uri>getParcelableExtra(PARAM_FILE)));
         Log.d(TAG, "Downloading item "+ serverId +" to "+ target);
         // Make sure directory exists
         FileBuilder parent = target.getParent();
-        parent.target.mkdirs();
+        parent.mkdirs();
         if (!parent.target.canWrite()) {
             statusListener.updateMessage(StatusReport.Severity.ERROR, "Download directory not writable: "+ parent);
         }
@@ -87,7 +89,7 @@ public class MediaDownloader extends IntentService {
                         Log.d(TAG, "Received item "+ serverId);
                         OutputStream o = null;
                         try {
-                            o = new FileOutputStream(target.target);
+                            o = getContentResolver().openOutputStream(target.target.getUri());
                             o.write(response);
                         } catch (IOException e) {
                             Log.e(TAG, "Writing "+ serverId +" to "+ target +" failed", e);

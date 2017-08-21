@@ -7,6 +7,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.BaseAdapter;
 import android.widget.ListView;
@@ -37,9 +38,10 @@ public class FoldersActivity extends AppCompatActivity implements EditFolderFrag
 
         this.domain = new Domain(this);
 
-        lv.setAdapter(new BaseAdapter() {
+        final List<Domain.Folder> folders = domain.selectFolders();
 
-            List<Domain.Folder> folders = domain.selectFolders();
+        BaseAdapter adapter = new BaseAdapter() {
+
 
             @Override
             public int getCount() {
@@ -67,12 +69,45 @@ public class FoldersActivity extends AppCompatActivity implements EditFolderFrag
                 ((TextView) convertView.findViewById(R.id.folderPath)).setText(folder.path);
                 return convertView;
             }
+        };
+
+        lv.setAdapter(adapter);
+
+        lv.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+                editFolder(folders.get(i));
+            }
         });
+
+        lv.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+            @Override
+            public boolean onItemLongClick(AdapterView<?> adapterView, View view, int i, long l) {
+                // TODO Ask if folder should be deleted
+            }
+        });
+    }
+
+    private void editFolder(Domain.Folder folder) {
+        currentFolder = folder;
+        new EditFolderFragment().show(getFragmentManager(), EditFolderFragment.class.getSimpleName());
     }
 
     /** Add-button listener */
     public void addFolder(View view) {
-        new EditFolderFragment().show(getFragmentManager(), EditFolderFragment.class.getSimpleName());
+        editFolder(null);
+    }
+
+    Domain.Folder currentFolder = null;
+
+    @Override
+    public String getFolderName() {
+        return (currentFolder == null) ? "" : currentFolder.name;
+    }
+
+    @Override
+    public String getFolderPath() {
+        return (currentFolder == null) ? "" : currentFolder.path;
     }
 
     @Override
@@ -82,6 +117,9 @@ public class FoldersActivity extends AppCompatActivity implements EditFolderFrag
 
     @Override
     public void onFolderSaved(Domain.Folder folder) {
-        folder.insert();
+        if (currentFolder != null) {
+            folder.id = currentFolder.id;
+        }
+        folder.save();
     }
 }

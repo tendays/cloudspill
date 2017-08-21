@@ -7,14 +7,18 @@ import android.content.res.Configuration;
 import android.os.Bundle;
 import android.preference.Preference;
 import android.preference.PreferenceActivity;
+import android.support.v4.provider.DocumentFile;
 import android.support.v7.app.ActionBar;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
 import android.util.Log;
 
+import org.gamboni.cloudspill.CloudSpillIntentService;
 import org.gamboni.cloudspill.R;
 import org.gamboni.cloudspill.domain.ServerInfo;
 import org.gamboni.cloudspill.file.FileBuilder;
+
+import java.io.File;
 
 /**
  * A {@link PreferenceActivity} that presents a set of application settings. On
@@ -37,7 +41,10 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
     }
     private static final String PREF_DOWNLOAD_PATH_KEY = "pref_dl_path";
     public static FileBuilder getDownloadPath(Context context) {
-        return new FileBuilder(PreferenceManager.getDefaultSharedPreferences(context).getString(PREF_DOWNLOAD_PATH_KEY, ""));
+        // TODO use SAF here as well
+        return new FileBuilder(
+                DocumentFile.fromFile(new File(
+                PreferenceManager.getDefaultSharedPreferences(context).getString(PREF_DOWNLOAD_PATH_KEY, ""))));
     }
     private static final String PREF_FREESPACE_KEY = "pref_freespace";
     public static long getMinSpaceBytes(Context context) {
@@ -57,7 +64,33 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
             }
         }
     }
+    public enum ConnectionType {
+        WIFI, MOBILE
+    }
 
+    private static String PREF_MOBILE_UPLOAD = "pref_mobile_upload";
+    public enum PrefMobileUpload {
+        NEVER {
+            public boolean shouldRun(ConnectionType connection, CloudSpillIntentService.Trigger trigger) {
+                return false;
+            }
+        }, APP_OPEN {
+            public boolean shouldRun(ConnectionType connection, CloudSpillIntentService.Trigger trigger) {
+                return trigger == CloudSpillIntentService.Trigger.FOREGROUND ||
+                        trigger == CloudSpillIntentService.Trigger.MANUAL;
+            }
+        }, ANYTIME {
+            public boolean shouldRun(ConnectionType connection, CloudSpillIntentService.Trigger trigger) {
+                return true;
+            }
+        };
+
+        public abstract boolean shouldRun(ConnectionType connection, CloudSpillIntentService.Trigger trigger);
+    }
+    public static PrefMobileUpload getMobileUpload(Context context) {
+        return PrefMobileUpload.valueOf(PreferenceManager.getDefaultSharedPreferences(context)
+                .getString(PREF_MOBILE_UPLOAD, PrefMobileUpload.NEVER.name()));
+    }
 
     private static SharedPreferences getSharedPreferences(Context context) {
         return context.getSharedPreferences("values", Context.MODE_PRIVATE);

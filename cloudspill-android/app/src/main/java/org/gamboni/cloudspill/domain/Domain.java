@@ -6,12 +6,15 @@ import android.database.Cursor;
 import android.database.DatabaseUtils;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.net.Uri;
 import android.provider.BaseColumns;
+import android.support.v4.provider.DocumentFile;
 import android.util.Log;
 
 import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.ui.SettingsActivity;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -191,8 +194,17 @@ public class Domain extends AbstractDomain {
             return connect().insert(TABLE_NAME, null, getValues());
         }
 
+        public void save() {
+            if (id == null) {
+                insert();
+            } else {
+                connect().update(TABLE_NAME, getValues(), _ID +" = ?", new String[]{String.valueOf(id)});
+            }
+        }
+
+        /** @throws java.lang.IllegalArgumentException if the path is not a valid URI. */
         public FileBuilder getFile() {
-            return new FileBuilder(path);
+            return new FileBuilder(context, Uri.parse(path));
         }
     }
 

@@ -1,9 +1,12 @@
 package org.gamboni.cloudspill.file;
 
+import android.content.Context;
+import android.net.Uri;
+import android.support.v4.provider.DocumentFile;
 import android.util.Log;
 
 import java.io.File;
-import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 
 /** Helper class for constructing files by appending segments.
  * <p>This class makes sure no segment may go up in the file hierarchy.</p>
@@ -15,62 +18,85 @@ import java.io.IOException;
  */
 
 public class FileBuilder {
-    public final File target;
+    public final DocumentFile target;
     private static final String TAG = "CloudSpill";
 
-    public FileBuilder(String target) {
-        this.target = new File(target);
+    public FileBuilder(Context context, Uri target) {
+        this(DocumentFile.fromTreeUri(context, target));
     }
 
-    public FileBuilder(File target) {
+    public FileBuilder(DocumentFile target) {
         this.target = target;
     }
 
     public FileBuilder append(String path) {
-        try {
-            File requested = new File(target, path).getCanonicalFile();
-            if (!requested.getPath().startsWith(target.getCanonicalPath())) {
-                return null;
-            } else {
-               return new FileBuilder(requested);
+            DocumentFile pointer = target;
+            int cursor = 0;
+            int next;
+            while ((next = path.indexOf('/', cursor)) != -1) {
+                DocumentFile requested = pointer.findFile(path.substring(cursor + 1, next));
+                if (requested == null) {
+                    return null;
+                }
             }
-        } catch (IOException io) {
-            Log.w(TAG, "Client-provided path caused IOException: \"" + target + "\" / \"" + path + "\"", io);
+            DocumentFile requested = pointer.findFile(path.substring(cursor + 1));
+            if (requested == null) { return null; }
+
+            return new FileBuilder(requested);
+    }
+
+    public FileBuilder getParent() {
+        DocumentFile parent = target.getParentFile();
+        // TODO 1: check File.getParentFile may actually return null. 2: consider using Null Object instead of null
+        return (parent == null) ? null : new FileBuilder(parent);
+    }
+
+    public String getRelativePath(DocumentFile child) {
+        String targetPath = target.getUri().toString();
+        if (!targetPath.endsWith("/")) {
+            targetPath += "/";
+        }
+        String childPath = child.getUri().toString();
+        if (!childPath.startsWith(targetPath)) {
+            throw new IllegalArgumentException("Given file "+ child +" is not under "+ targetPath);
+        }
+        return childPath.substring(targetPath.length());
+    }
+
+    private static final String LOCAL_STORAGE_URI = "content://com.android.externalstorage.documents/tree/";
+    private static final String PRIMARY_STORAGE_NAME = "primary/";
+    private File filesystemRoot = null;
+    public synchronized File getFileEquivalent() {
+        if (target.getUri().toString().startsWith(LOCAL_STORAGE_URI)) {
+                String path = Uri.decode(target.getUri().toString().substring(LOCAL_STORAGE_URI.length()));
+                if (path.startsWith(PRIMARY_STORAGE_NAME)) {
+                    return new File("/storage/emulated/0/" + path.substring(PRIMARY_STORAGE_NAME.length()));
+                } else {
+                    return new File("/storage/"+ path);
+                }
+        } else {
+            Log.d(TAG, "Can't determine File equivalent of "+ this);
             return null;
         }
     }
 
-    public FileBuilder getParent() {
-        String parent = target.getParent();
-        // TODO 1: check File.getParent may actually return null. 2: consider using Null Object instead of null
-        return (parent == null) ? null : new FileBuilder(parent);
+    public void mkdirs() {
+        if (!target.exists()) {
+            FileBuilder parent = getParent();
+            parent.mkdirs();
+            parent.target.createDirectory(target.getName());
+        }
     }
 
-    public String getRelativePath(File child) {
-        String targetPath = target.getPath();
-        if (!target.getPath().endsWith("/")) {
-            targetPath += "/";
-        }
-        if (!child.getPath().startsWith(targetPath)) {
-            throw new IllegalArgumentException("Given file "+ child +" is not under "+ targetPath);
-        }
-        return child.getPath().substring(target.getPath().length());
-    }
-
-    File filesystemRoot = null;
-    public synchronized File getFilesystemRoot() {
-        if (filesystemRoot == null) {
-            File pointer = target;
-            while (pointer != null && pointer.getUsableSpace() == 0) {
-                pointer = pointer.getParentFile();
-            }
-            filesystemRoot = (pointer == null) ? target : pointer;
-        }
-        return filesystemRoot;
-    }
-
-    public long getUsableSpace() {
-        return getFilesystemRoot().getUsableSpace();
+    /** Return how many bytes are missing in order to be able to store the given number of bytes.
+     * This only returns a non-zero value for local storage.
+     *
+     * @param required number of bytes required
+     * @return number of bytes missing to reach required
+     */
+    public long getMissingSpace(long required) {
+        File file = getFileEquivalent();
+        return (file == null) ? 0L : Math.max(0L, (required - file.getUsableSpace()));
     }
 
     public int hashCode() {

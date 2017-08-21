@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="pref_mobile_upload_entries">
+        <item>Upload any time</item>
+        <item>Only when app is open</item>
+        <item>Never</item>
+    </string-array>
+    <string-array name="pref_mobile_upload_entryValues">
+        <item>ANYTIME</item>
+        <item>APP_OPEN</item>
+        <item>NEVER</item>
+    </string-array>
+</resources>

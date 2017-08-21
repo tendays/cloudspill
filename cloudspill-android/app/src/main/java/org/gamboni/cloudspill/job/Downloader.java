@@ -35,8 +35,8 @@ public class Downloader {
         this.listener = listener;
     }
 
-    boolean responded = false;
-    Iterable<Domain.Item> items = null;
+    private boolean responded = false;
+    private Iterable<Domain.Item> items = null;
 
     public void run() {
         ServerInfo lastServer = SettingsActivity.getLastServerVersion(context);

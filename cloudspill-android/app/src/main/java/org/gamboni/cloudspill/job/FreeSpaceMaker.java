@@ -1,6 +1,11 @@
 package org.gamboni.cloudspill.job;
 
+import android.Manifest;
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.os.Environment;
+import android.support.v4.content.ContextCompat;
+import android.support.v4.provider.DocumentFile;
 import android.util.Log;
 
 import org.gamboni.cloudspill.domain.Domain;
@@ -9,6 +14,9 @@ import org.gamboni.cloudspill.message.StatusReport;
 import org.gamboni.cloudspill.ui.SettingsActivity;
 
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -40,8 +48,7 @@ public class FreeSpaceMaker {
 
     /** Get the missing space in bytes on the filesystem containing the given FileBuilder. */
     private long getMissingSpace(FileBuilder file) {
-        long delta = minSpace - file.getUsableSpace();
-        return (delta < 0) ? 0 : delta;
+        return file.getMissingSpace(minSpace);
     }
 
     /** Get the missing space in bytes on the filesystem whose root is at the given file
@@ -63,31 +70,60 @@ public class FreeSpaceMaker {
      * This method may be called several times (after download, because there would be less free
      * space, and after upload because uploaded files may be deleted) */
     public void run() {
-        this.filesystems = new HashSet<>();
-        // Add filesystems of our folders
-        for (Domain.Folder folder : domain.selectFolders()) {
-            this.filesystems.add(folder.getFile().getFilesystemRoot());
+        // Various attempts at writing to SD card follow:
+
+        /*Log.d(TAG, Environment.getExternalStorageDirectory() +" is instate "+ Environment.getExternalStorageState());
+        Log.d(TAG, "Write permission available: "+ (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                                == PackageManager.PERMISSION_GRANTED));
+
+        Log.i(TAG, "ExternalFilesDir is "+ context.getExternalFilesDir(null));
+
+        try {
+            FileWriter fw = new FileWriter("/storage/3563-3866/DCIM/Camera/test");
+            fw.write("test");
+            fw.flush();
+            fw.close();
+        } catch (IOException e) {
+            Log.w(TAG, "Can't write test file", e);
         }
-        // Add filesystems of other users' folders
-        this.filesystems.add(SettingsActivity.getDownloadPath(context).getFilesystemRoot());
+
+        Log.d(TAG, "context.deleteFile: "+ context.deleteFile("/storage/3563-3866/DCIM/Camera/20160130_225811.jpg"));
+        */
+
+        this.filesystems = new HashSet<>();
+        try {
+            // Add filesystems of our folders
+            for (Domain.Folder folder : domain.selectFolders()) {
+                addFileSystem(folder.getFile());
+            }
+        } catch (IllegalArgumentException badUri) {
+            status.updateMessage(StatusReport.Severity.ERROR, "One of the folders has an invalid path: "+ badUri);
+            Log.e(TAG, "Invalid folder URI", badUri);
+        }
+        try {
+            // Add filesystems of other users' folders
+            addFileSystem(SettingsActivity.getDownloadPath(context));
+        } catch (IllegalArgumentException badUri) {
+            status.updateMessage(StatusReport.Severity.ERROR, "Download folder has an invalid path: "+ badUri);
+            Log.e(TAG, "Invalid download folder URI", badUri);
+        }
 
         this.missingBytes = getMissingSpace(); // for progress report
 
         logSpace();
-        while (getMissingSpace() < minSpace && items.size() > index) {
+        while (getMissingSpace() > 0 && items.size() > index) {
             reportStatus();
             Domain.Item item = items.get(index);
-
             FileBuilder fb = item.getFile();
             if (getMissingSpace(fb) > 0) { // only delete file if its filesystem needs space
-                File file = fb.target;
+                DocumentFile file = fb.target;
                 if (file.exists()) {
                     long size = file.length();
                     if (file.delete()) {
                         Log.d(TAG, "Deleted " + file + " to save " + size + " bytes");
                         this.deletedFiles++;
                     } else {
-                        Log.e(TAG, "Failed deleting " + file);
+                        Log.e(TAG, "Failed deleting " + file +". canWrite:"+ file.canWrite() +". canRead:"+ file.canRead());
                         status.updateMessage(StatusReport.Severity.ERROR, "Failed deleting some files");
                     }
                 }
@@ -95,6 +131,13 @@ public class FreeSpaceMaker {
             index++;
         }
         logSpace();
+    }
+
+    private void addFileSystem(FileBuilder folder) {
+        File f = folder.getFileEquivalent();
+        if (f != null) {
+            this.filesystems.add(f);
+        }
     }
 
     private void reportStatus() {
