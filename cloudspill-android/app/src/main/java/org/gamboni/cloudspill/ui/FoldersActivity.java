@@ -1,10 +1,13 @@
 package org.gamboni.cloudspill.ui;
 
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
@@ -26,6 +29,8 @@ import org.gamboni.cloudspill.domain.Domain;
 import java.util.List;
 
 public class FoldersActivity extends AppCompatActivity implements EditFolderFragment.FolderSavedListener {
+
+    private static final String TAG = "CloudSpill.Folders";
 
     private Domain domain;
 
@@ -82,8 +87,25 @@ public class FoldersActivity extends AppCompatActivity implements EditFolderFrag
 
         lv.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
             @Override
-            public boolean onItemLongClick(AdapterView<?> adapterView, View view, int i, long l) {
+            public boolean onItemLongClick(AdapterView<?> adapterView, View view, final int i, long l) {
                 // TODO Ask if folder should be deleted
+                new AlertDialog.Builder(FoldersActivity.this)
+                        .setMessage(R.string.confirm_folder_delete)
+                        .setPositiveButton(R.string.delete, new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialogInterface, int wut) {
+                                Log.d(TAG, "Deleting folder number "+ i);
+                                folders.get(i).delete();
+                                Log.d(TAG, "Deleted folder number "+ i);
+                            }
+                        })
+                .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        /* User cancelled, don't do anything */
+                    }
+                }).show();
+                return true;
             }
         });
     }

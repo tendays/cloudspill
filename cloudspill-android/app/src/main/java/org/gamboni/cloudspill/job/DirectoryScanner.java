@@ -62,14 +62,14 @@ public class DirectoryScanner {
 
         Log.d(TAG, "Starting run with queue "+ queue);
         for (Domain.Folder folder : domain.selectFolders()) {
-            scan(folder, folder.getFile().target);
+            scan(folder, folder.getFile());
         }
     }
 
     public void close() {
     }
 
-    private void scan(Domain.Folder root, DocumentFile folder) {
+    private void scan(Domain.Folder root, FileBuilder folder) {
         listener.updateMessage(StatusReport.Severity.INFO, "Scanning "+ folder);
         Log.d(TAG, "Scanning "+ folder);
         if (!folder.exists()) {
@@ -104,7 +104,7 @@ public class DirectoryScanner {
             }
             Log.d(TAG, file.toString());
             if (file.isDirectory()) {
-                scan(root, file);
+                scan(root, new FileBuilder.Found(file));
             } else {
                 byte[] preamble = loadFile(file, 4);
                 if (preamble == null) {
@@ -177,7 +177,7 @@ public class DirectoryScanner {
                     // ... then fallback to last modification date
                 }
             }
-        return new Date(file.target.lastModified());
+        return file.lastModified();
     }
 
     private void addFile(Domain.Folder root, final DocumentFile file) {
@@ -192,7 +192,7 @@ public class DirectoryScanner {
 
         final String folder = root.name;
         byte[] body = loadFile(file, (int)file.length());
-        final Date date = getMediaDate(new FileBuilder(file), body);
+        final Date date = getMediaDate(new FileBuilder.Found(file), body);
 
         server.upload(folder, path, date, body, new Response.Listener<Long>() {
             @Override

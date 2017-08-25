@@ -107,14 +107,17 @@ public class Domain extends AbstractDomain {
         FileBuilder file = null;
         public FileBuilder getFile() {
             if (file != null) { return file; }
+//            Log.d(TAG, "getFile: u "+ this.user +" /f "+ this.folder +" /p "+ this.path);
             if (isLocal()) {
                 for (Folder folder : selectFolders()) {
+//                    Log.d(TAG, "Trying folder "+ folder.name);
                     if (folder.name.equals(this.folder)) {
                         file = folder.getFile().append(path);
                         return file;
                     }
                 }
             }
+//            Log.d(TAG, "(not local)");
 
             file = SettingsActivity.getDownloadPath(context).append(user).append(folder).append(path);
             return file;
@@ -202,9 +205,15 @@ public class Domain extends AbstractDomain {
             }
         }
 
+        public void delete() {
+            if (id != null) {
+                connect().delete(TABLE_NAME, _ID +" = ?", new String[]{String.valueOf(id)});
+            }
+        }
+
         /** @throws java.lang.IllegalArgumentException if the path is not a valid URI. */
         public FileBuilder getFile() {
-            return new FileBuilder(context, Uri.parse(path));
+            return new FileBuilder.Found(context, Uri.parse(path));
         }
     }
 

@@ -72,9 +72,9 @@ public class GridViewAdapter extends RecyclerView.Adapter<GridViewAdapter.Simple
             Domain.Item item = domain.get(position);
             holder.serverId = item.serverId;
             holder.target = GlideApp.with(context);
-            DocumentFile df;
+            FileBuilder df;
             try {
-                df = item.getFile().target;
+                df = item.getFile();
             } catch (IllegalArgumentException badUri) { return; }
             if (df.exists()) {
                 holder.target.load(df)
@@ -121,11 +121,11 @@ public class GridViewAdapter extends RecyclerView.Adapter<GridViewAdapter.Simple
     }
 
     @Override
-    public void mediaReady(long serverId, FileBuilder file) {
+    public void mediaReady(long serverId, Uri location) {
         Log.d(TAG, serverId +" ready. Updating view");
         SimpleViewHolder holder = pendingRequests.get(serverId);
         if (holder == null) { return; } // in case the view was recycled already
-        holder.target.load(file.target)
+        holder.target.load(location)
                 .override(1000)
                 .placeholder(R.drawable.lb_ic_in_app_search)
                 .into(holder.imageView);

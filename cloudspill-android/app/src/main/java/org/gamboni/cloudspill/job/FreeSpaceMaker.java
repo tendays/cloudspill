@@ -89,7 +89,6 @@ public class FreeSpaceMaker {
 
         Log.d(TAG, "context.deleteFile: "+ context.deleteFile("/storage/3563-3866/DCIM/Camera/20160130_225811.jpg"));
         */
-
         this.filesystems = new HashSet<>();
         try {
             // Add filesystems of our folders
@@ -100,6 +99,7 @@ public class FreeSpaceMaker {
             status.updateMessage(StatusReport.Severity.ERROR, "One of the folders has an invalid path: "+ badUri);
             Log.e(TAG, "Invalid folder URI", badUri);
         }
+
         try {
             // Add filesystems of other users' folders
             addFileSystem(SettingsActivity.getDownloadPath(context));
@@ -111,19 +111,18 @@ public class FreeSpaceMaker {
         this.missingBytes = getMissingSpace(); // for progress report
 
         logSpace();
-        while (getMissingSpace() > 0 && items.size() > index) {
+        while (getMissingSpace() > 0 && index < items.size()) {
             reportStatus();
             Domain.Item item = items.get(index);
-            FileBuilder fb = item.getFile();
+            FileBuilder fb = item.getFile(); // TODO fb may be null?
             if (getMissingSpace(fb) > 0) { // only delete file if its filesystem needs space
-                DocumentFile file = fb.target;
-                if (file.exists()) {
-                    long size = file.length();
-                    if (file.delete()) {
-                        Log.d(TAG, "Deleted " + file + " to save " + size + " bytes");
+                if (fb.exists()) {
+                    long size = fb.length();
+                    if (fb.delete()) {
+                        Log.d(TAG, "Deleted " + fb + " to save " + size + " bytes. Need "+ getMissingSpace(fb) +" more.");
                         this.deletedFiles++;
                     } else {
-                        Log.e(TAG, "Failed deleting " + file +". canWrite:"+ file.canWrite() +". canRead:"+ file.canRead());
+                        Log.e(TAG, "Failed deleting " + fb +". canWrite:"+ fb.canWrite() +". canRead:"+ fb.canRead());
                         status.updateMessage(StatusReport.Severity.ERROR, "Failed deleting some files");
                     }
                 }

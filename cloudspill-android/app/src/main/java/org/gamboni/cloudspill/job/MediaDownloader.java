@@ -16,7 +16,6 @@ import org.gamboni.cloudspill.message.SettableStatusListener;
 import org.gamboni.cloudspill.message.StatusReport;
 import org.gamboni.cloudspill.server.CloudSpillServerProxy;
 
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
@@ -32,14 +31,14 @@ public class MediaDownloader extends IntentService {
     private static final SettableMediaListener statusListener = new SettableMediaListener();
 
     public interface MediaListener extends StatusReport {
-        void mediaReady(long serverId, FileBuilder file);
+        void mediaReady(long serverId, Uri location);
     }
 
     private static class SettableMediaListener extends SettableStatusListener<MediaListener> implements MediaListener {
-        public void mediaReady(long serverId, FileBuilder file) {
+        public void mediaReady(long serverId, Uri location) {
             MediaListener delegate = listener;
             if (delegate != null) {
-                delegate.mediaReady(serverId, file);
+                delegate.mediaReady(serverId, location);
             }
         }
     }
@@ -49,7 +48,7 @@ public class MediaDownloader extends IntentService {
     public static void download(Context context, Domain.Item item) {
         Intent intent = new Intent(context, MediaDownloader.class);
         intent.putExtra(MediaDownloader.PARAM_SERVER_ID, item.serverId);
-        intent.putExtra(MediaDownloader.PARAM_FILE, item.getFile().target.getUri());
+        intent.putExtra(MediaDownloader.PARAM_FILE, item.getFile().getUri());
         context.startService(intent);
     }
 
@@ -73,12 +72,12 @@ public class MediaDownloader extends IntentService {
 
 
         final long serverId = intent.getLongExtra(PARAM_SERVER_ID, 0);
-        final FileBuilder target = new FileBuilder(DocumentFile.fromTreeUri(this, intent.<Uri>getParcelableExtra(PARAM_FILE)));
+        final FileBuilder target = new FileBuilder.Found(DocumentFile.fromTreeUri(this, intent.<Uri>getParcelableExtra(PARAM_FILE)));
         Log.d(TAG, "Downloading item "+ serverId +" to "+ target);
         // Make sure directory exists
         FileBuilder parent = target.getParent();
         parent.mkdirs();
-        if (!parent.target.canWrite()) {
+        if (!parent.canWrite()) {
             statusListener.updateMessage(StatusReport.Severity.ERROR, "Download directory not writable: "+ parent);
         }
 
@@ -89,7 +88,7 @@ public class MediaDownloader extends IntentService {
                         Log.d(TAG, "Received item "+ serverId);
                         OutputStream o = null;
                         try {
-                            o = getContentResolver().openOutputStream(target.target.getUri());
+                            o = getContentResolver().openOutputStream(target.getUri());
                             o.write(response);
                         } catch (IOException e) {
                             Log.e(TAG, "Writing "+ serverId +" to "+ target +" failed", e);
@@ -105,7 +104,7 @@ public class MediaDownloader extends IntentService {
                             }
                         }
                         /* At this point the file has been successfully downloaded. */
-                        statusListener.mediaReady(serverId, target);
+                        statusListener.mediaReady(serverId, target.getUri());
                     }
                 },
                 new Response.ErrorListener() {
