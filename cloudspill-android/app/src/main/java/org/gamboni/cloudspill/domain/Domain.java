@@ -111,8 +111,8 @@ public class Domain extends AbstractDomain {
             if (isLocal()) {
                 for (Folder folder : selectFolders()) {
                     if (folder.name.equals(this.folder)) {
-                        // Log.d(TAG, "Creating fileBuilder object");
                         file = folder.getFile().append(path);
+                        //Log.d(TAG, "Creating fileBuilder object "+ folder.getFile() +" -> "+ file);
                         return file;
                     }
                 }

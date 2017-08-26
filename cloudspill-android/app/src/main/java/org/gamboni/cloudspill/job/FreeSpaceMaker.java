@@ -93,14 +93,17 @@ public class FreeSpaceMaker {
         this.missingBytes = getMissingSpace(); // for progress report
 
         logSpace();
+        boolean needLog = true;
         while (getMissingSpace() > 0 && index < items.size()) {
             //Log.d(TAG, "Index "+ index +"/"+ items.size());
-            reportStatus();
+            reportStatus(needLog);
+            needLog = false;
             Domain.Item item = items.get(index);
             FileBuilder fb = item.getFile(); // TODO fb may be null?
-            Log.d(TAG, fb.toString());
+            // Log.d(TAG, fb.toString());
             if (getMissingSpace(fb) > 0) { // only delete file if its filesystem needs space
                 if (fb.exists()) {
+                    needLog = true;
                     Log.d(TAG, "Attempting to delete "+ fb);
                     long size = fb.length();
                     if (fb.delete()) {
@@ -110,6 +113,8 @@ public class FreeSpaceMaker {
                         Log.e(TAG, "Failed deleting " + fb +". canWrite:"+ fb.canWrite() +". canRead:"+ fb.canRead());
                         status.updateMessage(StatusReport.Severity.ERROR, "Failed deleting some files");
                     }
+                } else {
+                    Log.w(TAG, "Does not exist? "+ fb);
                 }
             }
             index++;
@@ -120,19 +125,22 @@ public class FreeSpaceMaker {
 
     private void addFileSystem(FileBuilder folder) {
         File f = folder.getFileEquivalent();
+        while (f != null && f.getUsableSpace() == 0) { f = f.getParentFile(); }
         if (f != null) {
             this.filesystems.add(f);
         }
     }
     long timer=0;
-    private void reportStatus() {
+    private void reportStatus(boolean needLog) {
         long now = System.currentTimeMillis();
         long missingNow = getMissingSpace();
         if (missingNow == 0) {
             Log.d(TAG, "Status: goal reached ("+ (now - timer) +"ms)");
             status.updatePercent(100);
         } else {
-            Log.d(TAG, "Status: missing "+ missingNow +" from initial "+ missingBytes +" ("+ (now - timer) +"ms)");
+            if (needLog) {
+                Log.d(TAG, "Status: missing " + missingNow + " from initial " + missingBytes + " (" + (now - timer) + "ms)");
+            }
             status.updateMessage(StatusReport.Severity.INFO, "Deleting files ("+ missingNow +" bytes over quota)");
             if (missingNow > missingBytes) {
                 status.updatePercent(0);

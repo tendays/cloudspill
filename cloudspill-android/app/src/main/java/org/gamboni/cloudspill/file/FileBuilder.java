@@ -183,7 +183,7 @@ public abstract class FileBuilder {
         @Override
         protected FileBuilder appendOne(String segment, boolean doc) {
             Uri uri = Uri.withAppendedPath(target.getUri(), segment);
-            DocumentFile requested = doc ?  DocumentFile.fromSingleUri(context, uri) : DocumentFile.fromTreeUri(context, uri);
+            DocumentFile requested = /*doc ? */ DocumentFile.fromSingleUri(context, uri) /*: DocumentFile.fromTreeUri(context, uri)*/;
             if (requested == null) {
                 return new NotFound(this, segment);
             } else {

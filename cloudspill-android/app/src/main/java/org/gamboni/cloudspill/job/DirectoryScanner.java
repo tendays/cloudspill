@@ -61,6 +61,14 @@ public class DirectoryScanner {
         Log.d(TAG, "hotfix output: "+ domain.hotfix());
 
         Log.d(TAG, "Starting run with queue "+ queue);
+
+        AbstractDomain.Query<Domain.Item> q = domain.selectItems();
+        for (Domain.Item item : q.list()) { // TODO select current user/folder only
+            pathsInDb.add(item.path); // TODO support single attribute selects
+        }
+        q.close();
+        Log.d(TAG, "Found "+ pathsInDb.size() +" items in database");
+
         for (Domain.Folder folder : domain.selectFolders()) {
             scan(folder, folder.getFile());
         }
@@ -86,12 +94,6 @@ public class DirectoryScanner {
             Log.e(TAG, "Path is not a directory: "+ folder);
             return;
         }
-        AbstractDomain.Query<Domain.Item> q = domain.selectItems();
-        for (Domain.Item item : q.list()) { // TODO select current user/folder only
-            pathsInDb.add(item.path); // TODO support single attribute selects
-        }
-        q.close();
-        Log.d(TAG, "Found "+ pathsInDb.size() +" items in database");
 
         int percentage = 0;
         int processed = 0;
@@ -102,7 +104,6 @@ public class DirectoryScanner {
                 Log.d(TAG, "Skipping "+ file +" because it starts with a dot");
                 continue;
             }
-            Log.d(TAG, file.toString());
             if (file.isDirectory()) {
                 scan(root, file);
             } else {
@@ -112,7 +113,7 @@ public class DirectoryScanner {
                     // Log.d(TAG, path +" already exists in DB");
                     continue;
                 }
-
+                Log.d(TAG, file.toString());
                 byte[] preamble = loadFile(file, 4);
                 if (preamble == null) {
                     continue;
