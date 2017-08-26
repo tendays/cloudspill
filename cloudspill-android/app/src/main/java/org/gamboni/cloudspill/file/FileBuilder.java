@@ -6,7 +6,10 @@ import android.support.v4.provider.DocumentFile;
 import android.util.Log;
 
 import java.io.File;
+import java.util.AbstractList;
 import java.util.Date;
+import java.util.Iterator;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -21,18 +24,94 @@ import java.util.regex.Pattern;
 
 public abstract class FileBuilder {
     private static final String TAG = "CloudSpill";
+    protected final Context context;
+
+    public static class FileBased extends FileBuilder {
+        private final File file;
+        public FileBased(Context context, File file) {
+            super(context);
+            this.file = file;
+        }
+        @Override
+        protected FileBuilder appendOne(String segment, boolean doc) {
+            return new FileBased(context, new File(this.file, segment));
+        }
+
+        @Override
+        public FileBuilder getParent() {
+            return new FileBased(context, file.getParentFile());
+        }
+
+        @Override
+        public Uri getUri() {
+            return Uri.fromFile(file);
+        }
+
+        @Override
+        public boolean exists() {
+            return file.exists();
+        }
+
+        @Override public boolean isDirectory() { return file.isDirectory(); }
+
+        @Override
+        public boolean canWrite() {
+            return file.canWrite();
+        }
+
+        @Override
+        public boolean canRead() {
+            return file.canRead();
+        }
+
+        @Override
+        public List<FileBuilder> listFiles() {
+            return new AbstractList<FileBuilder>() {
+                File[] files = file.listFiles();
+
+                public int size() {
+                    return files.length;
+                }
+
+                public FileBuilder get(int index) {
+                    return new FileBased(context, files[index]);
+                }
+            };
+        }
+
+        @Override
+        public String getName() {
+            return file.getName();
+        }
+
+        @Override
+        public Date lastModified() {
+            return new Date(file.lastModified());
+        }
+
+        @Override
+        public long length() {
+            return file.length();
+        }
+
+        @Override
+        public boolean delete() {
+            return file.delete();
+        }
+    }
 
     public static class NotFound extends FileBuilder {
         private final FileBuilder parent;
         private final String name;
 
         public NotFound(FileBuilder parent, String name) {
+            super(parent.context);
             this.parent = parent;
             this.name = name;
         }
 
         @Override
-        protected NotFound appendOne(String segment) {
+        protected NotFound appendOne(String segment, boolean doc) {
             return new NotFound(this, segment);
         }
 
@@ -51,6 +130,8 @@ public abstract class FileBuilder {
             return false; // WARN the file might have been created since this got instantiated
         }
 
+        @Override public boolean isDirectory() { return false; }
+
         @Override
         public boolean canWrite() {
             return true; // until proven otherwise...
@@ -67,7 +148,7 @@ public abstract class FileBuilder {
         }
 
         @Override
-        public DocumentFile[] listFiles() {
+        public List<FileBuilder> listFiles() {
             return null;
         }
 
@@ -88,24 +169,25 @@ public abstract class FileBuilder {
     }
 
     public static class Found extends FileBuilder {
-
         private final DocumentFile target;
 
         public Found(Context context, Uri target) {
-            this(DocumentFile.fromTreeUri(context, target));
+            this(context, DocumentFile.fromTreeUri(context, target));
         }
 
-        public Found(DocumentFile target) {
+        public Found(Context context, DocumentFile target) {
+            super(context);
             this.target = target;
         }
 
         @Override
-        protected FileBuilder appendOne(String segment) {
-            DocumentFile requested = target.findFile(segment);
+        protected FileBuilder appendOne(String segment, boolean doc) {
+            Uri uri = Uri.withAppendedPath(target.getUri(), segment);
+            DocumentFile requested = doc ?  DocumentFile.fromSingleUri(context, uri) : DocumentFile.fromTreeUri(context, uri);
             if (requested == null) {
                 return new NotFound(this, segment);
             } else {
-                return new Found(requested);
+                return new Found(context, requested);
             }
         }
 
@@ -116,7 +198,7 @@ public abstract class FileBuilder {
             if (parent == null) {
                 throw new IllegalStateException(this +".getParent() returned null");
             } else {
-                return new Found(parent);
+                return new Found(context, parent);
             }
         }
 
@@ -129,6 +211,9 @@ public abstract class FileBuilder {
         public boolean exists() {
             return target.exists();
         }
+
+        @Override
+        public boolean isDirectory() { return target.isDirectory(); }
 
         @Override
         public boolean canWrite() {
@@ -146,8 +231,18 @@ public abstract class FileBuilder {
         }
 
         @Override
-        public DocumentFile[] listFiles() {
-            return target.listFiles();
+        public List<FileBuilder> listFiles() {
+            return new AbstractList<FileBuilder>() {
+                final DocumentFile[] files = target.listFiles();
+
+                public int size() {
+                    return files.length;
+                }
+
+                public FileBuilder get(int index) {
+                    return new Found(context, files[index]);
+                }
+            };
         }
 
         @Override
@@ -166,31 +261,35 @@ public abstract class FileBuilder {
         }
     }
 
+    protected FileBuilder(Context context) {
+        this.context = context;
+    }
+
     public FileBuilder append(String path) {
-        //Log.d(TAG, this + " .append(" + path + ")");
         FileBuilder pointer = this;
         int cursor = -1;
         int next;
         while ((next = path.indexOf('/', cursor + 1)) != -1) {
-            pointer = pointer.appendOne(path.substring(cursor + 1, next));
+            pointer = pointer.appendOne(path.substring(cursor + 1, next), false);
             cursor = next;
         }
+        pointer = pointer.appendOne(path.substring(cursor + 1), true);
 
-        return pointer.appendOne(path.substring(cursor + 1));
+        return pointer;
     }
 
-    protected abstract FileBuilder appendOne(String segment);
+    protected abstract FileBuilder appendOne(String segment, boolean doc);
 
     public abstract FileBuilder getParent();
 
     public abstract Uri getUri();
 
-    public String getRelativePath(DocumentFile child) {
+    public String getRelativePath(FileBuilder child) {
         String targetPath = getUri().getPath();
         if (!targetPath.endsWith("/")) {
             targetPath += "/";
         }
-        String childPath = child.getUri().toString();
+        String childPath = child.getUri().getPath();
         if (!childPath.startsWith(targetPath)) {
             throw new IllegalArgumentException("Given file "+ child +" is not under "+ targetPath);
         }
@@ -226,11 +325,13 @@ public abstract class FileBuilder {
 
     public abstract boolean exists();
 
+    public abstract boolean isDirectory();
+
     public abstract boolean canWrite();
 
     public abstract boolean canRead();
 
-    public abstract DocumentFile[] listFiles();
+    public abstract List<FileBuilder> listFiles();
 
     public abstract String getName();
 
@@ -244,7 +345,7 @@ public abstract class FileBuilder {
         if (!exists()) {
             FileBuilder parent = getParent();
             Found foundParent = parent.mkdirs();
-            return new Found(foundParent.target.createDirectory(getName()));
+            return new Found(context, foundParent.target.createDirectory(getName()));
         } else {
             return (Found)this; // NotFound.exists always returns false so we must be Found
         }
@@ -258,15 +359,15 @@ public abstract class FileBuilder {
      */
     public long getMissingSpace(long required) {
         File file = getFileEquivalent();
-        Log.d(TAG, "File equivalent of "+ this +" is "+ file + (file == null ? "" : (" with "+ file.getUsableSpace() +" bytes usable.")));
-        if (file != null && file.getUsableSpace() == 0) {
+        //Log.d(TAG, "File equivalent of "+ this +" is "+ file + (file == null ? "" : (" with "+ file.getUsableSpace() +" bytes usable.")));
+        while (file != null && file.getUsableSpace() == 0) {
             file = file.getParentFile();
-            Log.d(TAG, "Using parent file "+ file);
+            //Log.d(TAG, "Using parent file "+ file);
         }
-        if (file == null || file.getUsableSpace() == 0) {
-            throw new IllegalStateException();
+        if (file == null) {
+            throw new IllegalStateException(this.toString() + " -> " + file); // TODO return 0 instead
         }
-        return (file == null) ? 0L : Math.max(0L, (required - file.getUsableSpace()));
+        return Math.max(0L, (required - file.getUsableSpace()));
     }
 
     public int hashCode() {

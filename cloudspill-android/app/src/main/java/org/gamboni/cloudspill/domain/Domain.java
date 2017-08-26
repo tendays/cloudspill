@@ -107,17 +107,17 @@ public class Domain extends AbstractDomain {
         FileBuilder file = null;
         public FileBuilder getFile() {
             if (file != null) { return file; }
-//            Log.d(TAG, "getFile: u "+ this.user +" /f "+ this.folder +" /p "+ this.path);
+            //Log.d(TAG, "getFile: u "+ this.user +" /f "+ this.folder +" /p "+ this.path);
             if (isLocal()) {
                 for (Folder folder : selectFolders()) {
-//                    Log.d(TAG, "Trying folder "+ folder.name);
                     if (folder.name.equals(this.folder)) {
+                        // Log.d(TAG, "Creating fileBuilder object");
                         file = folder.getFile().append(path);
                         return file;
                     }
                 }
             }
-//            Log.d(TAG, "(not local)");
+            //Log.d(TAG, "(not local)");
 
             file = SettingsActivity.getDownloadPath(context).append(user).append(folder).append(path);
             return file;

@@ -72,7 +72,7 @@ public class MediaDownloader extends IntentService {
 
 
         final long serverId = intent.getLongExtra(PARAM_SERVER_ID, 0);
-        final FileBuilder target = new FileBuilder.Found(DocumentFile.fromTreeUri(this, intent.<Uri>getParcelableExtra(PARAM_FILE)));
+        final FileBuilder target = new FileBuilder.Found(this, DocumentFile.fromSingleUri(this, intent.<Uri>getParcelableExtra(PARAM_FILE)));
         Log.d(TAG, "Downloading item "+ serverId +" to "+ target);
         // Make sure directory exists
         FileBuilder parent = target.getParent();

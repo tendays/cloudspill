@@ -68,7 +68,7 @@ public class GridViewAdapter extends RecyclerView.Adapter<GridViewAdapter.Simple
 
         @Override
         public void onBindViewHolder(SimpleViewHolder holder, final int position) {
-            Log.d(TAG, "bind "+ position +". View height: "+ holder.imageView.getHeight());
+/*            Log.d(TAG, "bind "+ position +". View height: "+ holder.imageView.getHeight());
             Domain.Item item = domain.get(position);
             holder.serverId = item.serverId;
             holder.target = GlideApp.with(context);
@@ -91,7 +91,7 @@ public class GridViewAdapter extends RecyclerView.Adapter<GridViewAdapter.Simple
 
             item.latestAccess = new Date();
             item.update();
-        }
+  */      }
 
         @Override
         public void onViewRecycled(SimpleViewHolder holder) {

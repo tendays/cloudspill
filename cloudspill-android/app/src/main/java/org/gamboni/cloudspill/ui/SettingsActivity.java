@@ -42,9 +42,10 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
     private static final String PREF_DOWNLOAD_PATH_KEY = "pref_dl_path";
     public static FileBuilder getDownloadPath(Context context) {
         // TODO use SAF here as well
-        return new FileBuilder.Found(
-                DocumentFile.fromFile(new File(
-                PreferenceManager.getDefaultSharedPreferences(context).getString(PREF_DOWNLOAD_PATH_KEY, ""))));
+        return new FileBuilder.FileBased(
+                context,
+                new File(
+                PreferenceManager.getDefaultSharedPreferences(context).getString(PREF_DOWNLOAD_PATH_KEY, "")));
     }
     private static final String PREF_FREESPACE_KEY = "pref_freespace";
     public static long getMinSpaceBytes(Context context) {

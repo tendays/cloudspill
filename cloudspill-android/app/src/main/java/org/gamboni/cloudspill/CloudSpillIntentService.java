@@ -7,6 +7,7 @@ import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.support.annotation.Nullable;
 import android.support.v17.leanback.system.Settings;
+import android.util.Log;
 
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.job.DirectoryScanner;
@@ -68,35 +69,49 @@ public class CloudSpillIntentService extends IntentService {
 
     @Override
     protected void onHandleIntent(@Nullable Intent intent) {
+        Log.i(TAG, "Starting batch");
         SettingsActivity.PrefMobileUpload mobileUpload = SettingsActivity.getMobileUpload(this);
         Trigger trigger = Trigger.valueOf(intent.getStringExtra(PARAM_TRIGGER));
 
-        FreeSpaceMaker fsm = new FreeSpaceMaker(CloudSpillIntentService.this, domain, listener);
                 /* Highest priority: free some space so user may take more pictures */
+        Log.i(TAG, "Running FreeSpaceMaker");
+        FreeSpaceMaker fsm = new FreeSpaceMaker(CloudSpillIntentService.this, domain, listener);
         fsm.run();
 
         /* - the rest of the batch needs server connectivity - */
 
+        Log.i(TAG, "Looking for server");
         CloudSpillServerProxy server = CloudSpillServerProxy.selectServer(this, listener, domain);
         // TODO use an exception instead
-        if (server == null) { return; }
+        if (server == null) {
+            Log.i(TAG, "No connectivity available, aborting batch");
+            return;
+        }
         // if selectServer reused an old url, check it is still up
         if (!server.checkLink()) {
             CloudSpillServerProxy.invalidateServer();
+            Log.i(TAG, "Lost connectivity, aborting batch");
             return;
         }
 
         if (mobileUpload.shouldRun(checkWifiOnAndConnected(), trigger)) {
+            Log.i(TAG, "Running DirectoryScanner");
                 /* Second highest: upload pictures so they are backed up and available to other users */
             final DirectoryScanner ds = new DirectoryScanner(this, domain, server, listener);
             ds.run();
+            Log.i(TAG, "Waiting for DirectoryScanner to complete");
             ds.waitForCompletion();
+        } else {
+            Log.i(TAG, "DirectoryScanner disabled by mobile upload policy");
         }
                 /* Finally: download pictures from other users. */
+        Log.i(TAG, "Running Downloader");
         Downloader dl = new Downloader(this, domain, fsm, server, listener);
         dl.run();
 
         domain.close();
+
+        Log.i(TAG, "Batch complete");
     }
 
     private SettingsActivity.ConnectionType checkWifiOnAndConnected() {

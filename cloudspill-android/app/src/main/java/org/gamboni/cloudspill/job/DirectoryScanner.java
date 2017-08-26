@@ -81,7 +81,7 @@ public class DirectoryScanner {
             return;
         }
 
-        DocumentFile[] files = folder.listFiles();
+        List<FileBuilder> files = folder.listFiles();
         if (files == null) {
             Log.e(TAG, "Path is not a directory: "+ folder);
             return;
@@ -97,29 +97,36 @@ public class DirectoryScanner {
         int processed = 0;
         listener.updatePercent(percentage);
 
-        for (DocumentFile file : files) {
+        for (FileBuilder file : files) {
             if (file.getName().startsWith(".")) {
                 Log.d(TAG, "Skipping "+ file +" because it starts with a dot");
                 continue;
             }
             Log.d(TAG, file.toString());
             if (file.isDirectory()) {
-                scan(root, new FileBuilder.Found(file));
+                scan(root, file);
             } else {
+
+                final String path = root.getFile().getRelativePath(file);
+                if (pathsInDb.remove(path)) {
+                    // Log.d(TAG, path +" already exists in DB");
+                    continue;
+                }
+
                 byte[] preamble = loadFile(file, 4);
                 if (preamble == null) {
                     continue;
                 }
                 if (new FileTypeChecker(preamble).isJpeg()) {
                     Log.d(TAG, "JPEG file");
-                    addFile(root, file);
+                    addFile(root, file, path);
                 } else { // TODO support videos as well
                     Log.d(TAG, "Not a JPEG file");
                 }
             }
 
             processed++;
-            int newPercentage = processed * 100 / files.length;
+            int newPercentage = processed * 100 / files.size();
             if (percentage != newPercentage) {
                 percentage = newPercentage;
                 listener.updatePercent(percentage);
@@ -129,7 +136,7 @@ public class DirectoryScanner {
         Log.d(TAG, "Added "+ addedCount +" items in total");
     }
 
-    private byte[] loadFile(DocumentFile f, int length) {
+    private byte[] loadFile(FileBuilder f, int length) {
         byte[] result = new byte[length];
 
         InputStream stream = null;
@@ -180,19 +187,14 @@ public class DirectoryScanner {
         return file.lastModified();
     }
 
-    private void addFile(Domain.Folder root, final DocumentFile file) {
-        final String path = root.getFile().getRelativePath(file);
-        if (pathsInDb.remove(path)) {
-            Log.d(TAG, path +" already exists in DB");
-            return;
-        }
+    private void addFile(Domain.Folder root, final FileBuilder file, final String path) {
         Log.d(TAG, "Queuing...");
         queue(file.getUri().getPath());
         Log.d(TAG, "Loading file...");
 
         final String folder = root.name;
         byte[] body = loadFile(file, (int)file.length());
-        final Date date = getMediaDate(new FileBuilder.Found(file), body);
+        final Date date = getMediaDate(file, body);
 
         server.upload(folder, path, date, body, new Response.Listener<Long>() {
             @Override

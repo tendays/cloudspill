@@ -70,25 +70,7 @@ public class FreeSpaceMaker {
      * This method may be called several times (after download, because there would be less free
      * space, and after upload because uploaded files may be deleted) */
     public void run() {
-        // Various attempts at writing to SD card follow:
-
-        /*Log.d(TAG, Environment.getExternalStorageDirectory() +" is instate "+ Environment.getExternalStorageState());
-        Log.d(TAG, "Write permission available: "+ (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                                == PackageManager.PERMISSION_GRANTED));
-
-        Log.i(TAG, "ExternalFilesDir is "+ context.getExternalFilesDir(null));
-
-        try {
-            FileWriter fw = new FileWriter("/storage/3563-3866/DCIM/Camera/test");
-            fw.write("test");
-            fw.flush();
-            fw.close();
-        } catch (IOException e) {
-            Log.w(TAG, "Can't write test file", e);
-        }
-
-        Log.d(TAG, "context.deleteFile: "+ context.deleteFile("/storage/3563-3866/DCIM/Camera/20160130_225811.jpg"));
-        */
+        Log.i(TAG, "Starting batch: creating folder list");
         this.filesystems = new HashSet<>();
         try {
             // Add filesystems of our folders
@@ -112,11 +94,14 @@ public class FreeSpaceMaker {
 
         logSpace();
         while (getMissingSpace() > 0 && index < items.size()) {
+            //Log.d(TAG, "Index "+ index +"/"+ items.size());
             reportStatus();
             Domain.Item item = items.get(index);
             FileBuilder fb = item.getFile(); // TODO fb may be null?
+            Log.d(TAG, fb.toString());
             if (getMissingSpace(fb) > 0) { // only delete file if its filesystem needs space
                 if (fb.exists()) {
+                    Log.d(TAG, "Attempting to delete "+ fb);
                     long size = fb.length();
                     if (fb.delete()) {
                         Log.d(TAG, "Deleted " + fb + " to save " + size + " bytes. Need "+ getMissingSpace(fb) +" more.");
@@ -130,6 +115,7 @@ public class FreeSpaceMaker {
             index++;
         }
         logSpace();
+        Log.i(TAG, "Batch complete at index "+ index +" of "+ items.size());
     }
 
     private void addFileSystem(FileBuilder folder) {
@@ -138,12 +124,15 @@ public class FreeSpaceMaker {
             this.filesystems.add(f);
         }
     }
-
+    long timer=0;
     private void reportStatus() {
+        long now = System.currentTimeMillis();
         long missingNow = getMissingSpace();
         if (missingNow == 0) {
+            Log.d(TAG, "Status: goal reached ("+ (now - timer) +"ms)");
             status.updatePercent(100);
         } else {
+            Log.d(TAG, "Status: missing "+ missingNow +" from initial "+ missingBytes +" ("+ (now - timer) +"ms)");
             status.updateMessage(StatusReport.Severity.INFO, "Deleting files ("+ missingNow +" bytes over quota)");
             if (missingNow > missingBytes) {
                 status.updatePercent(0);
@@ -151,6 +140,7 @@ public class FreeSpaceMaker {
                 status.updatePercent((int)((missingBytes - missingNow) * 100 / missingBytes));
             }
         }
+        timer = now;
     }
 
     private void logSpace() {
