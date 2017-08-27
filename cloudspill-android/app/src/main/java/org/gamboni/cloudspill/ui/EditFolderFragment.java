@@ -47,10 +47,15 @@ public class EditFolderFragment extends DialogFragment {
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         // Pass null as the parent view because its going in the dialog layout
         final View layout = getActivity().getLayoutInflater().inflate(R.layout.edit_folder, null);
+        final Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        // https://stackoverflow.com/questions/40197375/storage-access-framework-not-showing-external-storage-device
+        intent.putExtra("android.content.extra.SHOW_ADVANCED", true);
+        /*intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("* /*");*/
         ((Button)layout.findViewById(R.id.editFolderPath)).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), 42);
+                startActivityForResult(intent , 42);
             }
         });
         final TextView nameField = layout.findViewById(R.id.editFolderName);

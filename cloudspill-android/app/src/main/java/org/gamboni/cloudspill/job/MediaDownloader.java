@@ -16,6 +16,7 @@ import org.gamboni.cloudspill.message.SettableStatusListener;
 import org.gamboni.cloudspill.message.StatusReport;
 import org.gamboni.cloudspill.server.CloudSpillServerProxy;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 
@@ -70,9 +71,18 @@ public class MediaDownloader extends IntentService {
         CloudSpillServerProxy server = CloudSpillServerProxy.selectServer(this, statusListener, domain);
         if (server == null) { return; } // offline
 
-
         final long serverId = intent.getLongExtra(PARAM_SERVER_ID, 0);
-        final FileBuilder target = new FileBuilder.Found(this, DocumentFile.fromSingleUri(this, intent.<Uri>getParcelableExtra(PARAM_FILE)));
+        Uri uri = intent.getParcelableExtra(PARAM_FILE);
+        final FileBuilder target;
+        String FILE_URI = "file://";
+        if (uri.toString().startsWith(FILE_URI)) {
+            target = new FileBuilder.FileBased(this, new File(uri.toString().substring(FILE_URI.length())));
+        } else {
+            target = new FileBuilder.Found(this, DocumentFile.fromSingleUri(this, uri));
+            if (target.exists()) {
+                throw new IllegalStateException(uri +" already exists");
+            }
+        }
         Log.d(TAG, "Downloading item "+ serverId +" to "+ target);
         // Make sure directory exists
         FileBuilder parent = target.getParent();

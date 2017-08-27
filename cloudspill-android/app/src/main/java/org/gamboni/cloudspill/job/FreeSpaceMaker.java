@@ -27,6 +27,7 @@ import java.util.Set;
  */
 public class FreeSpaceMaker {
     private static final String TAG = "CloudSpill.FSM";
+    private static final int MEGA = 1048576;
 
     private final Context context;
     private final Domain domain;
@@ -113,8 +114,6 @@ public class FreeSpaceMaker {
                         Log.e(TAG, "Failed deleting " + fb +". canWrite:"+ fb.canWrite() +". canRead:"+ fb.canRead());
                         status.updateMessage(StatusReport.Severity.ERROR, "Failed deleting some files");
                     }
-                } else {
-                    Log.w(TAG, "Does not exist? "+ fb);
                 }
             }
             index++;
@@ -141,7 +140,7 @@ public class FreeSpaceMaker {
             if (needLog) {
                 Log.d(TAG, "Status: missing " + missingNow + " from initial " + missingBytes + " (" + (now - timer) + "ms)");
             }
-            status.updateMessage(StatusReport.Severity.INFO, "Deleting files ("+ missingNow +" bytes over quota)");
+            status.updateMessage(StatusReport.Severity.INFO, "Deleting files ("+ (missingNow/MEGA) +"M over quota)");
             if (missingNow > missingBytes) {
                 status.updatePercent(0);
             } else if (missingBytes > 0) {

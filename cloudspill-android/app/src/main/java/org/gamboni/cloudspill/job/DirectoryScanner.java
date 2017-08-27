@@ -78,7 +78,7 @@ public class DirectoryScanner {
     }
 
     private void scan(Domain.Folder root, FileBuilder folder) {
-        listener.updateMessage(StatusReport.Severity.INFO, "Scanning "+ folder);
+        listener.updateMessage(StatusReport.Severity.INFO, "Scanning "+ folder.getUri().getPath());
         Log.d(TAG, "Scanning "+ folder);
         if (!folder.exists()) {
             Log.e(TAG, "Folder does not exist: "+ folder);

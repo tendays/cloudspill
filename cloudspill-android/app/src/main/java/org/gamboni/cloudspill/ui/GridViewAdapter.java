@@ -68,7 +68,7 @@ public class GridViewAdapter extends RecyclerView.Adapter<GridViewAdapter.Simple
 
         @Override
         public void onBindViewHolder(SimpleViewHolder holder, final int position) {
-/*            Log.d(TAG, "bind "+ position +". View height: "+ holder.imageView.getHeight());
+            Log.d(TAG, "bind "+ position +". View height: "+ holder.imageView.getHeight());
             Domain.Item item = domain.get(position);
             holder.serverId = item.serverId;
             holder.target = GlideApp.with(context);
@@ -77,7 +77,7 @@ public class GridViewAdapter extends RecyclerView.Adapter<GridViewAdapter.Simple
                 df = item.getFile();
             } catch (IllegalArgumentException badUri) { return; }
             if (df.exists()) {
-                holder.target.load(df)
+                holder.target.load(df.getUri())
                         .override(1000)
                         .placeholder(R.drawable.lb_ic_in_app_search)
                         .into(holder.imageView);
@@ -91,7 +91,7 @@ public class GridViewAdapter extends RecyclerView.Adapter<GridViewAdapter.Simple
 
             item.latestAccess = new Date();
             item.update();
-  */      }
+        }
 
         @Override
         public void onViewRecycled(SimpleViewHolder holder) {

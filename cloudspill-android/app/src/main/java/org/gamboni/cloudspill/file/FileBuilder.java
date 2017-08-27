@@ -55,6 +55,11 @@ public abstract class FileBuilder {
         @Override public boolean isDirectory() { return file.isDirectory(); }
 
         @Override
+        public void mkdirs() {
+            file.mkdirs();
+        }
+
+        @Override
         public boolean canWrite() {
             return file.canWrite();
         }
@@ -114,6 +119,15 @@ public abstract class FileBuilder {
         protected NotFound appendOne(String segment, boolean doc) {
             return new NotFound(this, segment);
         }
+
+        public void mkdirs() {
+            throw new UnsupportedOperationException();
+/*            if (!exists()) {
+                FileBuilder parent = getParent();
+                parent.mkdirs();
+                return new Found(context, foundParent.target.createDirectory(getName()));
+            }
+  */      }
 
         @Override
         public FileBuilder getParent() {
@@ -182,7 +196,8 @@ public abstract class FileBuilder {
 
         @Override
         protected FileBuilder appendOne(String segment, boolean doc) {
-            Uri uri = Uri.withAppendedPath(target.getUri(), segment);
+            Uri uri = Uri.parse(target.getUri() + Uri.encode("/"+ segment));
+                    // inserts unencoded slashes, which is apparently not ok? Uri.withAppendedPath(target.getUri(), segment);
             DocumentFile requested = /*doc ? */ DocumentFile.fromSingleUri(context, uri) /*: DocumentFile.fromTreeUri(context, uri)*/;
             if (requested == null) {
                 return new NotFound(this, segment);
@@ -192,11 +207,26 @@ public abstract class FileBuilder {
         }
 
         @Override
-        public FileBuilder getParent() {
+        public void mkdirs() {
+            if (!exists()) {
+                Found parent = getParent();
+                parent.mkdirs();
+                parent.target.createDirectory(getName());
+            }
+        }
+
+        @Override
+        public Found getParent() {
             DocumentFile parent = target.getParentFile();
-            // TODO 1: check File.getParentFile may actually return null. 2: return a NotFound instead
+            // NOTE maybe we should just always do the below uri manipulation
             if (parent == null) {
-                throw new IllegalStateException(this +".getParent() returned null");
+                String uriString = getUri().toString();
+
+                int slash = Math.max(uriString.lastIndexOf("%2F"), uriString.lastIndexOf("/"));
+                if (slash != -1) {
+                    return new Found(context, DocumentFile.fromSingleUri(context, Uri.parse(uriString.substring(0, slash))));
+                }
+                throw new IllegalStateException(this +".getParent() returned null, path contains no slash");
             } else {
                 return new Found(context, parent);
             }
@@ -341,15 +371,7 @@ public abstract class FileBuilder {
 
     public abstract boolean delete();
 
-    public Found mkdirs() {
-        if (!exists()) {
-            FileBuilder parent = getParent();
-            Found foundParent = parent.mkdirs();
-            return new Found(context, foundParent.target.createDirectory(getName()));
-        } else {
-            return (Found)this; // NotFound.exists always returns false so we must be Found
-        }
-    }
+    public abstract void mkdirs();
 
     /** Return how many bytes are missing in order to be able to store the given number of bytes.
      * This only returns a non-zero value for local storage.
@@ -375,9 +397,8 @@ public abstract class FileBuilder {
     }
 
     public boolean equals(Object o) {
-        // NOTE: we don't expect to mix FileBuilders with nulls or other types. Fail early if that happens
-        // Also note that Found and NotFound may be equal if they represent the same file
-        return ((FileBuilder)o).getUri().equals(this.getUri());
+        // Note that Found and NotFound may be equal if they represent the same file
+        return (o instanceof FileBuilder) && ((FileBuilder)o).getUri().equals(this.getUri());
     }
 
     public String toString() {
