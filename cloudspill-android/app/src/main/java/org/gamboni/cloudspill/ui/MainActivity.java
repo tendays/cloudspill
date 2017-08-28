@@ -1,11 +1,14 @@
 package org.gamboni.cloudspill.ui;
 
 import android.Manifest;
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.v17.leanback.widget.HorizontalGridView;
@@ -55,6 +58,19 @@ public class MainActivity extends AppCompatActivity implements StatusReport {
                 .into((ImageView)findViewById(R.id.testImageView));
 */
         sync(CloudSpillIntentService.Trigger.FOREGROUND);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        PendingIntent pi = PendingIntent.getService(this, 0,
+                CloudSpillIntentService.newIntent(this, CloudSpillIntentService.Trigger.BACKGROUND),
+                0);
+        AlarmManager am = (AlarmManager) getSystemService(ALARM_SERVICE);
+        am.cancel(pi); // cancel any existing alarms
+        am.setInexactRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                SystemClock.elapsedRealtime() + AlarmManager.INTERVAL_HALF_DAY,
+                AlarmManager.INTERVAL_HALF_DAY, pi);
     }
 
     /** NOTE: method invoked from ui xml. */

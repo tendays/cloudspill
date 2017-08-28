@@ -112,6 +112,8 @@ public class CloudSpillIntentService extends IntentService {
         domain.close();
 
         Log.i(TAG, "Batch complete");
+
+
     }
 
     private SettingsActivity.ConnectionType checkWifiOnAndConnected() {
