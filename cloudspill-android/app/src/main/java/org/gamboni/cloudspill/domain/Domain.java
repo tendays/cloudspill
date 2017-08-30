@@ -150,7 +150,7 @@ public class Domain extends AbstractDomain {
 
     /** I don't know how to access the database on my android device so I put my commands here instead. */
     public int hotfix() {
-        return new ItemQuery().like(Item._PATH, "%.thumbnail%").delete();
+        return new ItemQuery().eq(Item._SERVER_ID, 12179).delete();
     }
 
     private static final String[] FOLDER_COLUMNS = {

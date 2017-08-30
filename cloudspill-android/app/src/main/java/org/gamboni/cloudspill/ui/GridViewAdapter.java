@@ -77,13 +77,16 @@ public class GridViewAdapter extends RecyclerView.Adapter<GridViewAdapter.Simple
                 df = item.getFile();
             } catch (IllegalArgumentException badUri) { return; }
             if (df.exists()) {
+                Log.d(TAG, "Displaying already existing "+ df);
                 holder.target.load(df.getUri())
                         .override(1000)
                         .placeholder(R.drawable.lb_ic_in_app_search)
                         .into(holder.imageView);
             } else {
-                Log.d(TAG, "Item#"+ item.serverId +" not found - issuing download");
                 // File doesn't exist - download it first
+                Log.d(TAG, "Item#"+ item.serverId +" not found - issuing download");
+                Log.d(TAG, "For: " + df);
+
                 MediaDownloader.setStatusListener(this); // make sure we get readiness notifications
                 pendingRequests.put(item.serverId, holder);
                 MediaDownloader.download(context, item);

@@ -49,7 +49,14 @@ public class MediaDownloader extends IntentService {
     public static void download(Context context, Domain.Item item) {
         Intent intent = new Intent(context, MediaDownloader.class);
         intent.putExtra(MediaDownloader.PARAM_SERVER_ID, item.serverId);
-        intent.putExtra(MediaDownloader.PARAM_FILE, item.getFile().getUri());
+        Uri uri = item.getFile().getUri();
+        intent.putExtra(MediaDownloader.PARAM_FILE, uri);
+
+         if (DocumentFile.fromSingleUri(context, uri).exists()) {
+             throw new IllegalStateException(uri +" already exists");
+         }
+
+
         context.startService(intent);
     }
 
@@ -98,7 +105,7 @@ public class MediaDownloader extends IntentService {
                         Log.d(TAG, "Received item "+ serverId);
                         OutputStream o = null;
                         try {
-                            o = getContentResolver().openOutputStream(target.getUri());
+                            o = target.write(MediaDownloader.this, "image/jpeg");
                             o.write(response);
                         } catch (IOException e) {
                             Log.e(TAG, "Writing "+ serverId +" to "+ target +" failed", e);

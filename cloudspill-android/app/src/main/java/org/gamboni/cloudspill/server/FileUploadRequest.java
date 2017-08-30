@@ -35,6 +35,7 @@ public class FileUploadRequest extends Request<Long> {
         this.body = body;
         this.listener = listener;
         this.date = date;
+        if (url.toString().contains("invalid")) { throw new IllegalArgumentException(); }
         Log.d(TAG, "Created request to "+ url);
     }
 

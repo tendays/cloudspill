@@ -6,6 +6,9 @@ import android.support.v4.provider.DocumentFile;
 import android.util.Log;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.util.AbstractList;
 import java.util.Date;
 import java.util.Iterator;
@@ -57,6 +60,11 @@ public abstract class FileBuilder {
         @Override
         public void mkdirs() {
             file.mkdirs();
+        }
+
+        @Override
+        public OutputStream write(Context context, String mime) throws FileNotFoundException {
+            return new FileOutputStream(file);
         }
 
         @Override
@@ -180,6 +188,11 @@ public abstract class FileBuilder {
         public boolean delete() {
             return false;
         }
+
+        @Override
+        public OutputStream write(Context context, String mime) throws FileNotFoundException {
+            throw new UnsupportedOperationException();
+        }
     }
 
     public static class Found extends FileBuilder {
@@ -224,12 +237,37 @@ public abstract class FileBuilder {
 
                 int slash = Math.max(uriString.lastIndexOf("%2F"), uriString.lastIndexOf("/"));
                 if (slash != -1) {
-                    return new Found(context, DocumentFile.fromSingleUri(context, Uri.parse(uriString.substring(0, slash))));
+                    return new Found(context, DocumentFile.fromTreeUri(context, Uri.parse(uriString.substring(0, slash))));
                 }
                 throw new IllegalStateException(this +".getParent() returned null, path contains no slash");
             } else {
                 return new Found(context, parent);
             }
+        }
+
+        public String getName() {
+            String uriString = Uri.decode(getUri().toString());
+
+            int slash = uriString.lastIndexOf("/")+1;
+            if (slash == -1) { throw new IllegalStateException("Can't create "+ this +": could not isolate name component"); }
+            return uriString.substring(slash);
+        }
+
+        public OutputStream write(Context context, String mime) throws FileNotFoundException {
+            final Uri uri;
+            if (exists()) {
+                uri = target.getUri();
+                Log.d(TAG, "Writing to existing uri "+ uri);
+            } else {
+                Found parent = getParent();
+                parent.mkdirs();
+
+                DocumentFile created = parent.target.createFile(mime, getName());
+                if (created == null) { throw new IllegalArgumentException("Failed creating "+ this); }
+                uri = created.getUri();
+                Log.d(TAG, "Writing to newly created uri "+ uri +" (initially "+ target.getUri() +")");
+            }
+            return context.getContentResolver().openOutputStream(uri);
         }
 
         @Override
@@ -253,11 +291,6 @@ public abstract class FileBuilder {
         @Override
         public boolean canRead() {
             return target.canRead();
-        }
-
-        @Override
-        public String getName() {
-            return target.getName();
         }
 
         @Override
@@ -370,6 +403,8 @@ public abstract class FileBuilder {
     public abstract long length();
 
     public abstract boolean delete();
+
+    public abstract OutputStream write(Context context, String mime) throws FileNotFoundException;
 
     public abstract void mkdirs();
 
