@@ -29,6 +29,8 @@ import com.google.common.io.ByteStreams;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 
+import spark.Spark;
+
 /**
  * @author tendays
  *
@@ -82,6 +84,11 @@ public class CloudSpillServer {
     	
     	File rootFolder = configuration.getRepositoryPath();
     	
+    	/* Access logging */
+    	Spark.before((req, res) -> {
+    		Log.info(req.ip() +" "+ req.uri());
+    	});
+    	
     	/* Used by clients to ensure connectivity is available. In the future this may
     	 * also return a version string to ensure compatibility. */
     	get("/ping", (req, res) ->
@@ -132,7 +139,7 @@ public class CloudSpillServer {
         	String user = req.params("user");
         	String folder = req.params("folder");
 			String path = req.splat()[0];
-			System.out.println("user is "+ user +", folder is "+ folder +" and path is "+ path);
+			Log.debug("user is "+ user +", folder is "+ folder +" and path is "+ path);
         	
 			// Normalise given path
         	File folderPath = append(append(rootFolder, user), folder);
