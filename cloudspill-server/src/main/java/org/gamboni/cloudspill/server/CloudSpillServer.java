@@ -10,6 +10,7 @@ import static spark.Spark.put;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -130,11 +131,12 @@ public class CloudSpillServer {
         
         /* Upload a file */
         put("/item/:user/:folder/*", (req, res) -> transacted(session -> {
-        	if (req.bodyAsBytes() == null) {
+        	
+        	/*if (req.bodyAsBytes() == null) {
         		Log.warn("Missing body");
         		res.status(400);
         		return null;
-        	}
+        	}*/
         	
         	String user = req.params("user");
         	String folder = req.params("folder");
@@ -180,10 +182,15 @@ public class CloudSpillServer {
 				session.flush(); // flush before writing to disk
 
 				requestedTarget.getParentFile().mkdirs();
-
-				Log.debug("Writing " + req.bodyAsBytes().length + " bytes to " + requestedTarget);
-				try (FileOutputStream out = new FileOutputStream(requestedTarget)) {
-					out.write(req.bodyAsBytes());
+				// TODO return 40x error in case content-length is missing or invalid
+				long contentLength = Long.parseLong(req.headers("Content-Length"));
+				Log.debug("Writing " + contentLength + " bytes to " + requestedTarget);
+				try (InputStream in = req.raw().getInputStream();
+						FileOutputStream out = new FileOutputStream(requestedTarget)) {
+					long copied = ByteStreams.copy(in, out);
+					if (copied != contentLength) {
+						throw new IllegalArgumentException("Expected "+ contentLength +" bytes, got "+ copied);
+					}
 				}
 				Log.debug("Returning id "+ item.getId());
 				return item.getId();

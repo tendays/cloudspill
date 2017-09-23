@@ -1,5 +1,6 @@
 package org.gamboni.cloudspill.ui;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
@@ -39,12 +40,12 @@ public class GridViewAdapter extends RecyclerView.Adapter<GridViewAdapter.Simple
 
     private static final String TAG = "CloudSpill."+ GridViewAdapter.class.getSimpleName();
 
-    private final Context context;
+    private final Activity context;
     private final List<Domain.Item> domain;
     /** Maps item serverId to the corresponding view holder. */
     private final Map<Long, SimpleViewHolder> pendingRequests = new HashMap<>();
 
-        public GridViewAdapter(Context context, Domain domain) {
+        public GridViewAdapter(Activity context, Domain domain) {
             this.context = context;
             this.domain = domain.selectItems().orderDesc(Domain.Item._DATE).list();
         }

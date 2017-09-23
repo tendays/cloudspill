@@ -20,6 +20,7 @@ import org.gamboni.cloudspill.ui.SettingsActivity;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.ParseException;
@@ -114,15 +115,18 @@ public class DirectoryScanner {
                     continue;
                 }
                 Log.d(TAG, file.toString());
-                byte[] preamble = loadFile(file, 4);
+                byte[] preamble = loadFile(file, FileTypeChecker.PREAMBLE_LENGTH);
                 if (preamble == null) {
                     continue;
                 }
-                if (new FileTypeChecker(preamble).isJpeg()) {
+                FileTypeChecker ftc = new FileTypeChecker(preamble);
+                if (ftc.isJpeg()) {
                     Log.d(TAG, "JPEG file");
                     addFile(root, file, path);
-                } else { // TODO support videos as well
-                    Log.d(TAG, "Not a JPEG file");
+                } else if (ftc.isVideo()) {
+                    streamFile(root, file ,path);
+                } else {
+                    Log.d(TAG, "Not any recognised format");
                 }
             }
 
@@ -228,6 +232,58 @@ public class DirectoryScanner {
         }
         );
     }
+
+    private InputStream getInputStream(FileBuilder file) {
+        try {
+            return context.getContentResolver().openInputStream(file.getUri());
+        } catch (FileNotFoundException e) {
+            Log.e(TAG, "file unreadable :"+ file, e);
+            return null;
+        }
+    }
+
+    private void streamFile(Domain.Folder root, final FileBuilder file, final String path) {
+        Log.d(TAG, "Queuing...");
+        queue(file.getUri().getPath());
+        Log.d(TAG, "Loading file...");
+
+        final String folder = root.name;
+        InputStream body = getInputStream(file);
+        final Date date = getMediaDate(file, /*body (unused)*/null);
+
+        server.upload(folder, path, date, body, file.length(), new Response.Listener<Long>() {
+                    @Override
+                    public void onResponse(Long response) {
+                        Log.d(TAG, "Received new id "+ response);
+
+                        Domain.Item i = domain.new Item();
+                        i.serverId = response;
+                        i.folder = folder;
+                        i.date = date;
+                        i.latestAccess = date;
+                        i.user = SettingsActivity.getUser(context);
+                        i.path = path;
+
+                        long id = i.insert();
+
+                        Log.d(TAG, "Added Item with id "+ id);
+
+                        addedCount++;
+                        unqueue(file.getUri().getPath());
+
+                        listener.updateMessage(StatusReport.Severity.INFO, "Scanning "+ folder +": "+ addedCount +" files uploaded");
+                    }
+                },
+                new Response.ErrorListener() {
+                    public void onErrorResponse(VolleyError e) {
+                        Log.e(TAG, "Failed uploading "+ path);
+                        unqueue(file.getUri().getPath());
+                    }
+                }
+        );
+    }
+
+
 
     private void queue(String item) {
         waitForQueueSize(item, 2);
