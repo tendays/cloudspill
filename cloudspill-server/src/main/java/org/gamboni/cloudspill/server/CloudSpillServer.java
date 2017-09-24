@@ -183,14 +183,15 @@ public class CloudSpillServer {
 
 				requestedTarget.getParentFile().mkdirs();
 				// TODO return 40x error in case content-length is missing or invalid
-				long contentLength = Long.parseLong(req.headers("Content-Length"));
-				Log.debug("Writing " + contentLength + " bytes to " + requestedTarget);
+				/*long contentLength = Long.parseLong(req.headers("Content-Length")); */
+				Log.debug("Writing bytes to " + requestedTarget);
 				try (InputStream in = req.raw().getInputStream();
 						FileOutputStream out = new FileOutputStream(requestedTarget)) {
 					long copied = ByteStreams.copy(in, out);
-					if (copied != contentLength) {
+					Log.debug("Wrote "+ copied +" bytes to "+ requestedTarget);
+/*					if (copied != contentLength) {
 						throw new IllegalArgumentException("Expected "+ contentLength +" bytes, got "+ copied);
-					}
+					}*/
 				}
 				Log.debug("Returning id "+ item.getId());
 				return item.getId();

@@ -139,7 +139,9 @@ public class CloudSpillServerProxy {
         try {
             connection = (HttpURLConnection)new URL(url +"/item/"+ user +"/" + folder +"/"+ path).openConnection();
             connection.setRequestMethod("PUT");
-            connection.setFixedLengthStreamingMode(bytes);
+            // Using chunked transfer to prevent caching at server side :(
+            connection.setChunkedStreamingMode(1048576);
+            //connection.setFixedLengthStreamingMode(bytes);
             connection.setDoOutput(true);
             out = connection.getOutputStream();
             byte[] buffer = new byte[BUF_SIZE];
