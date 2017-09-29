@@ -11,6 +11,8 @@ import java.time.ZoneOffset;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.EnumType;
+import javax.persistence.Enumerated;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
@@ -31,6 +33,7 @@ public class Item {
 	String folder;
 	String path;
 	LocalDateTime date;
+	ItemType type;
 	
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -75,6 +78,15 @@ public class Item {
 		this.date = date;
 	}
 	
+	@Column(name="TYPE")
+	@Enumerated(EnumType.STRING)
+	public ItemType getType() {
+		return type;
+	}
+	public void setType(ItemType type) {
+		this.type = type;
+	}
+	
 	public File getFile(File rootFolder) {
 		return append(append(append(rootFolder, user), folder), path);
 	}
@@ -90,7 +102,9 @@ public class Item {
 		+ ";"
 		+ getPath()
 		+ ";"
-		+ serialise(getDate());
+		+ serialise(getDate())
+		+ ";"
+		+ getType();
 	}
 	
 	private static String serialise(LocalDateTime time) {

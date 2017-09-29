@@ -122,9 +122,9 @@ public class DirectoryScanner {
                 FileTypeChecker ftc = new FileTypeChecker(preamble);
                 if (ftc.isJpeg()) {
                     Log.d(TAG, "JPEG file");
-                    addFile(root, file, path);
+                    addFile(root, file, path, Domain.ItemType.IMAGE);
                 } else if (ftc.isVideo()) {
-                    streamFile(root, file ,path);
+                    streamFile(root, file ,path, Domain.ItemType.VIDEO);
                 } else {
                     Log.d(TAG, "Not any recognised format");
                 }
@@ -192,7 +192,7 @@ public class DirectoryScanner {
         return file.lastModified();
     }
 
-    private void addFile(Domain.Folder root, final FileBuilder file, final String path) {
+    private void addFile(Domain.Folder root, final FileBuilder file, final String path, final Domain.ItemType type) {
         Log.d(TAG, "Queuing...");
         queue(file.getUri().getPath());
         Log.d(TAG, "Loading file...");
@@ -213,6 +213,7 @@ public class DirectoryScanner {
                 i.latestAccess = date;
                 i.user = SettingsActivity.getUser(context);
                 i.path = path;
+                i.type = type;
 
                 long id = i.insert();
 
@@ -242,7 +243,7 @@ public class DirectoryScanner {
         }
     }
 
-    private void streamFile(Domain.Folder root, final FileBuilder file, final String path) {
+    private void streamFile(Domain.Folder root, final FileBuilder file, final String path, final Domain.ItemType type) {
         Log.d(TAG, "Queuing...");
         queue(file.getUri().getPath());
         Log.d(TAG, "Loading file...");
@@ -263,6 +264,7 @@ public class DirectoryScanner {
                         i.latestAccess = date;
                         i.user = SettingsActivity.getUser(context);
                         i.path = path;
+                        i.type = type;
 
                         long id = i.insert();
 

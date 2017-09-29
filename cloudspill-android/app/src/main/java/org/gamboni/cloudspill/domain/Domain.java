@@ -28,7 +28,7 @@ public class Domain extends AbstractDomain {
     private static final String TAG = "CloudSpill.Domain";
 
     // If you change the database schema, you must increment the database version.
-    private static final int DATABASE_VERSION = 4;
+    private static final int DATABASE_VERSION = 5;
     private static final String DATABASE_NAME = "CloudSpill.db";
 
     private static final String[] ITEM_COLUMNS = new String[]{
@@ -41,15 +41,31 @@ public class Domain extends AbstractDomain {
             Item._DATE
     };
 
+    public enum ItemType {
+        IMAGE, VIDEO
+    }
+
     public class Item implements BaseColumns {
         private static final String TABLE_NAME = "ITEM";
+        /** Table exists since this version. */
+        private static final int SINCE = 1;
         /* Columns */
-        private static final String _SERVER_ID = "SERVER_ID";
-        private static final String _USER = "USER";
-        private static final String _FOLDER = "FOLDER";
-        private static final String _PATH = "PATH";
+        public static final String _SERVER_ID = "SERVER_ID";
+        public static final String _USER = "USER";
+        /** Folder name. The folder does not need to exist in the "folder" table
+         * in case it's an "external" folder.
+         */
+        public static final String _FOLDER = "FOLDER";
+
+        public static final String _PATH = "PATH";
+        /** The time the item was last opened in the application.
+         * This is used to decide when it may be deleted locally.
+         */
         public static final String _LATEST_ACCESS = "LATEST_ACCESS";
+        /** The time the item was created (for a photo, that would be the time the photo was taken). */
         public static final String _DATE = "DATE";
+        /** The type of media in this item, as an {@link ItemType}. */
+        public static final String _TYPE = "TYPE";
 
         private static final String SQL_CREATE_ENTRIES =
                 "CREATE TABLE " + TABLE_NAME + " (" +
@@ -59,7 +75,8 @@ public class Domain extends AbstractDomain {
                         _FOLDER + " TEXT, " +
                         _PATH + " TEXT, " +
                         _LATEST_ACCESS + " INTEGER," +
-                        _DATE +" INTEGER" +
+                        _DATE +" INTEGER," +
+                        _TYPE +" TEXT" +
                         ")";
 
         private static final String SQL_DELETE_ENTRIES =
@@ -72,6 +89,7 @@ public class Domain extends AbstractDomain {
         public String path;
         public Date latestAccess;
         public Date date;
+        public ItemType type;
 
         public Item() {}
 
@@ -83,6 +101,7 @@ public class Domain extends AbstractDomain {
             path = cursor.getString(4);
             latestAccess = toDate(cursor.getLong(5));
             date = toDate(cursor.getLong(6));
+            type = ItemType.valueOf(cursor.getString(7));
         }
 
         /** Construct an Item from its serialized form as constructed by the server. */
@@ -93,6 +112,7 @@ public class Domain extends AbstractDomain {
             folder = splitter.getString();
             path = splitter.getString();
             date = toDate(splitter.getLong()); // TODO this is supposed to be UTC - check!
+            type = ItemType.valueOf(splitter.getString());
         }
 
         private Boolean local = null;
@@ -273,10 +293,27 @@ public class Domain extends AbstractDomain {
 
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         Log.d(TAG, "Current version: "+ oldVersion +". New version: "+ newVersion);
-        newTable(db, oldVersion, newVersion, 1, Item.SQL_CREATE_ENTRIES, Item.SQL_DELETE_ENTRIES);
+        newTable(db, oldVersion, newVersion, Item.SINCE, Item.SQL_CREATE_ENTRIES, Item.SQL_DELETE_ENTRIES);
         newTable(db, oldVersion, newVersion, 2, Folder.SQL_CREATE_ENTRIES, Folder.SQL_DELETE_ENTRIES);
         newTable(db, oldVersion, newVersion, 3, Server.SQL_CREATE_ENTRIES, Server.SQL_DELETE_ENTRIES);
-        newColumn(db, oldVersion, newVersion, 4, Item.TABLE_NAME, Item._DATE, "INTEGER");
+        newColumn(db, oldVersion, newVersion, Item.SINCE, 4, Item.TABLE_NAME, Item._DATE, "INTEGER");
+        newColumn(db, oldVersion, newVersion, Item.SINCE, 5, Item.TABLE_NAME, Item._TYPE, "TEXT");
+
+        if (oldVersion < 5 && newVersion >= 5) {
+            // populate type column
+            Query<Item> query = selectItems();
+            for (Item i : query.list()) {
+                if (i.path.endsWith(".jpg")) {
+                    i.type = ItemType.IMAGE;
+                } else if (i.path.endsWith(".mp4")) {
+                    i.type = ItemType.VIDEO;
+                } else {
+                    throw new IllegalArgumentException("Unrecognised extension "+ i.path);
+                }
+                i.update();
+            }
+            query.close();
+        }
     }
 
     public Query<Item> selectItems() {

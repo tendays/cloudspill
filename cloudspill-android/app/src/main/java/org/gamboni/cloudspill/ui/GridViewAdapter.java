@@ -47,7 +47,7 @@ public class GridViewAdapter extends RecyclerView.Adapter<GridViewAdapter.Simple
 
         public GridViewAdapter(Activity context, Domain domain) {
             this.context = context;
-            this.domain = domain.selectItems().orderDesc(Domain.Item._DATE).list();
+            this.domain = domain.selectItems().like(Domain.Item._PATH, "%.jpg").orderDesc(Domain.Item._DATE).list();
         }
 
         public static class SimpleViewHolder extends RecyclerView.ViewHolder {

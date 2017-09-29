@@ -24,8 +24,10 @@ public abstract class AbstractDomain extends SQLiteOpenHelper {
         this.context = context;
     }
 
-    protected static void newColumn(SQLiteDatabase db, int oldVersion, int newVersion, int since, String table, String column, String type) {
-        if (oldVersion < since && newVersion >= since) {
+    protected static void newColumn(SQLiteDatabase db, int oldVersion, int newVersion, int tableSince, int since, String table, String column, String type) {
+        // If table did not exist in oldVersion then newTable created it with all required columns
+        // so we don't need to add the column here
+        if (oldVersion < since && newVersion >= since && oldVersion >= tableSince) {
             db.execSQL("ALTER TABLE "+ table +" ADD COLUMN "+ column +" "+ type);
         } // TODO remove column on downgrade
     }
