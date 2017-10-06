@@ -146,10 +146,13 @@ public class CloudSpillServer {
 			final int scaledHeight = height * size / min;
 			image = image.getScaledInstance(scaledWidth, scaledHeight, Image.SCALE_SMOOTH);
 			
-        	// Convert abstract Image into RenderedImage
-        	BufferedImage renderedImage = new BufferedImage(scaledWidth, scaledHeight, BufferedImage.TYPE_3BYTE_BGR);
+        	// Convert abstract Image into RenderedImage. 
+        	BufferedImage renderedImage = new BufferedImage(size, size, BufferedImage.TYPE_3BYTE_BGR);
         	boolean[] ready = new boolean[]{false};
-        	ready[0] = renderedImage.createGraphics().drawImage(image,0,0,
+        	ready[0] = renderedImage.createGraphics().drawImage(image,
+        			/* Center 'image' on 'renderedImage' (which may be smaller if 'image' is not square) */
+        			(size - scaledWidth) / 2,
+        			(size - scaledHeight) / 2,
         			(these, infoflags, parameters, are, not, needed) -> {
         				if ((infoflags | ImageObserver.ALLBITS) == ImageObserver.ALLBITS) {
         					synchronized (ready) {
