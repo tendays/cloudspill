@@ -7,6 +7,11 @@ import static org.gamboni.cloudspill.util.Files.append;
 import static spark.Spark.get;
 import static spark.Spark.put;
 
+import java.awt.Graphics2D;
+import java.awt.Image;
+import java.awt.image.BufferedImage;
+import java.awt.image.ImageObserver;
+import java.awt.image.RenderedImage;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -15,10 +20,12 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 
+import javax.imageio.ImageIO;
 import javax.inject.Inject;
 
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.Item;
+import org.gamboni.cloudspill.domain.ItemType;
 import org.gamboni.cloudspill.util.Log;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -115,6 +122,56 @@ public class CloudSpillServer {
         	return true;
         }));
         
+        /* Download a thumbnail */
+        get("/thumbs/:size/:id", (req, res) -> transacted(session -> {
+        	Item item = session.get(Item.class, Long.parseLong(req.params("id")));
+        	int size = Integer.parseInt(req.params("size"));
+        	File file = item.getFile(rootFolder);
+        	res.header("Content-Type", "image/jpeg");
+        	// load an image
+        	Image image = ImageIO.read(file);
+        	
+        	final ImageObserver imageObserver = (Image img, int infoflags, int x, int y, int newWidth, int height) ->
+        		((infoflags | ImageObserver.ALLBITS) == ImageObserver.ALLBITS);
+        	
+			int width = image.getWidth(imageObserver);
+			int height = image.getHeight(imageObserver);
+			int min = Math.min(width, height);
+			
+			// Not clear if this happens in real life?
+			if (min < 0) { throw new IllegalStateException("Asynchronous image io is not supported"); }
+			
+        	// Have the *smallest* dimension of the image be the requested 'size'
+        	final int scaledWidth = width * size / min;
+			final int scaledHeight = height * size / min;
+			image = image.getScaledInstance(scaledWidth, scaledHeight, Image.SCALE_SMOOTH);
+			
+        	// Convert abstract Image into RenderedImage
+        	BufferedImage renderedImage = new BufferedImage(scaledWidth, scaledHeight, BufferedImage.TYPE_3BYTE_BGR);
+        	boolean[] ready = new boolean[]{false};
+        	ready[0] = renderedImage.createGraphics().drawImage(image,0,0,
+        			(these, infoflags, parameters, are, not, needed) -> {
+        				if ((infoflags | ImageObserver.ALLBITS) == ImageObserver.ALLBITS) {
+        					synchronized (ready) {
+        						ready[0] = true;
+        						ready.notify();
+        					}
+        					return false;
+        				} else {
+        					return true; // need more data
+        				}
+        			}
+        	);
+        	
+        	synchronized (ready) {
+        		while (!ready[0]) {
+        			ready.wait();
+        		}
+        	}
+        	ImageIO.write(renderedImage, "jpeg", res.raw().getOutputStream());
+        	return true;
+        }));
+        
         /* Get list of items whose id is larger than the given one. */
         get("item/since/:id", (req, res) -> transacted(domain -> {
         	StringBuilder result = new StringBuilder();
@@ -177,6 +234,15 @@ public class CloudSpillServer {
 					item.setDate(Instant.ofEpochMilli(Long.valueOf(timestampHeader))
 						.atOffset(ZoneOffset.UTC)
 						.toLocalDateTime());
+				}
+				final String typeHeader = req.headers("X-CloudSpill-Type");
+				if (typeHeader != null) {
+					try {
+						item.setType(ItemType.valueOf(typeHeader));
+					} catch (IllegalArgumentException e) {
+						Log.warn("Received invalid item type "+ typeHeader);
+						// Then just leave it blank
+					}
 				}
 				session.persist(item);
 				session.flush(); // flush before writing to disk

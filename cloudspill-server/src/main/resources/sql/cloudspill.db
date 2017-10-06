@@ -28,6 +28,7 @@ CREATE TABLE `item` (
   `user` varchar(100) DEFAULT NULL,
   `folder` varchar(100) DEFAULT NULL,
   `upload` date DEFAULT NULL,
+  `type` varchar(20) DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
