@@ -1,5 +1,7 @@
 package org.gamboni.cloudspill.file;
 
+import org.gamboni.cloudspill.domain.ItemType;
+
 /**
  * Created by tendays on 25.06.17.
  */
@@ -13,12 +15,22 @@ public class FileTypeChecker {
         this.preamble = preamble;
     }
 
-    public boolean isJpeg() {
+    public ItemType getType() {
+        if (isJpeg()) {
+            return ItemType.IMAGE;
+        } else if (isVideo()) {
+            return ItemType.VIDEO;
+        } else {
+            return ItemType.UNKNOWN;
+        }
+    }
+
+    private boolean isJpeg() {
         return at(0, 0xff, 0xd8, 0xff) &&
                 (at(3, 0xe0) || at(3, 0xdb) || at(3, 0xe1));
     }
 
-    public boolean isVideo() {
+    private boolean isVideo() {
         // Source: http://www.garykessler.net/library/file_sigs.html
 
         // nn nn nn nn  66 74 79 70  71 74 20 20 - QuickTime movie file

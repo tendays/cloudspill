@@ -3,18 +3,14 @@ package org.gamboni.cloudspill.domain;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
-import android.database.DatabaseUtils;
 import android.database.sqlite.SQLiteDatabase;
-import android.database.sqlite.SQLiteOpenHelper;
 import android.net.Uri;
 import android.provider.BaseColumns;
-import android.support.v4.provider.DocumentFile;
 import android.util.Log;
 
 import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.ui.SettingsActivity;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -40,10 +36,6 @@ public class Domain extends AbstractDomain {
             Item._LATEST_ACCESS,
             Item._DATE
     };
-
-    public enum ItemType {
-        IMAGE, VIDEO
-    }
 
     public class Item implements BaseColumns {
         private static final String TABLE_NAME = "ITEM";

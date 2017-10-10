@@ -2,7 +2,7 @@ package org.gamboni.cloudspill.job;
 
 import android.content.Context;
 import android.media.ExifInterface;
-import android.support.v4.provider.DocumentFile;
+import android.media.MediaMetadataRetriever;
 import android.util.Log;
 
 import com.android.volley.Response;
@@ -10,16 +10,14 @@ import com.android.volley.VolleyError;
 
 import org.gamboni.cloudspill.domain.AbstractDomain;
 import org.gamboni.cloudspill.domain.Domain;
+import org.gamboni.cloudspill.domain.ItemType;
 import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.file.FileTypeChecker;
 import org.gamboni.cloudspill.message.StatusReport;
 import org.gamboni.cloudspill.server.CloudSpillServerProxy;
-import org.gamboni.cloudspill.server.ConnectivityTestRequest;
 import org.gamboni.cloudspill.ui.SettingsActivity;
 
-import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -120,13 +118,18 @@ public class DirectoryScanner {
                     continue;
                 }
                 FileTypeChecker ftc = new FileTypeChecker(preamble);
-                if (ftc.isJpeg()) {
-                    Log.d(TAG, "JPEG file");
-                    addFile(root, file, path, Domain.ItemType.IMAGE);
-                } else if (ftc.isVideo()) {
-                    streamFile(root, file ,path, Domain.ItemType.VIDEO);
-                } else {
-                    Log.d(TAG, "Not any recognised format");
+                final ItemType type = ftc.getType();
+                switch (type) {
+                    case IMAGE:
+                        addFile(root, file, path, type);
+                        break;
+                    case VIDEO:
+                        // videos tend to be large, and 'addFile' requires them to fit in memory
+                        streamFile(root, file, path, type);
+                        break;
+                    case UNKNOWN:
+                        Log.d(TAG, "Not any recognised format");
+                        break;
                 }
             }
 
@@ -169,8 +172,19 @@ public class DirectoryScanner {
     }
 
     private Date getMediaDate(FileBuilder file, byte[] content) {
-            // WTF: using Files to access external storage is "essentially deprecated", we have to use SAF instead.
-            // However ExifInterface does not support either DocumentFile or InputStreams, so we have to use Files instead.
+        // TODO experimental re-implementation using mediaMetadataRetriever (which should support videos)
+        final MediaMetadataRetriever metadataRetriever = new MediaMetadataRetriever();
+        metadataRetriever.setDataSource(this.context, file.getUri());
+
+            String mdDate = metadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DATE);
+            if (mdDate != null) {
+                try {
+                    return exifTimestampFormat.parse(mdDate);
+                } catch (ParseException e) {
+                    Log.w(TAG, "Media date not in expected format: "+ mdDate);
+                }
+            }
+        metadataRetriever.release();
 
             File f = file.getFileEquivalent();
             if (f != null) {
@@ -192,7 +206,7 @@ public class DirectoryScanner {
         return file.lastModified();
     }
 
-    private void addFile(Domain.Folder root, final FileBuilder file, final String path, final Domain.ItemType type) {
+    private void addFile(Domain.Folder root, final FileBuilder file, final String path, final ItemType type) {
         Log.d(TAG, "Queuing...");
         queue(file.getUri().getPath());
         Log.d(TAG, "Loading file...");
@@ -243,7 +257,7 @@ public class DirectoryScanner {
         }
     }
 
-    private void streamFile(Domain.Folder root, final FileBuilder file, final String path, final Domain.ItemType type) {
+    private void streamFile(Domain.Folder root, final FileBuilder file, final String path, final ItemType type) {
         Log.d(TAG, "Queuing...");
         queue(file.getUri().getPath());
         Log.d(TAG, "Loading file...");
