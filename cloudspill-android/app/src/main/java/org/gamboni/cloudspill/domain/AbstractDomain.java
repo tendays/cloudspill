@@ -5,6 +5,7 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -16,8 +17,9 @@ import java.util.List;
  */
 public abstract class AbstractDomain extends SQLiteOpenHelper {
 
-    protected final Context context;
+    protected static final String TAG = "CloudSpill.Domain";
 
+    protected final Context context;
 
     protected AbstractDomain(Context context, String dbName, int dbVersion) {
         super(context, dbName, null, dbVersion);
@@ -133,12 +135,17 @@ public abstract class AbstractDomain extends SQLiteOpenHelper {
         }
         if (connection == null || !connection.isOpen()) {
             connection = getWritableDatabase();
+            afterConnect();
         }
         return connection;
     }
 
     public void onDowngrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         onUpgrade(db, oldVersion, newVersion);
+    }
+
+    protected void afterConnect() {
+
     }
 
     public void close() {

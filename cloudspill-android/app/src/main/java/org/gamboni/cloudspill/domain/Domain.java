@@ -21,8 +21,6 @@ import java.util.List;
  */
 public class Domain extends AbstractDomain {
 
-    private static final String TAG = "CloudSpill.Domain";
-
     // If you change the database schema, you must increment the database version.
     private static final int DATABASE_VERSION = 5;
     private static final String DATABASE_NAME = "CloudSpill.db";
@@ -34,7 +32,8 @@ public class Domain extends AbstractDomain {
             Item._FOLDER,
             Item._PATH,
             Item._LATEST_ACCESS,
-            Item._DATE
+            Item._DATE,
+            Item._TYPE
     };
 
     public class Item implements BaseColumns {
@@ -93,7 +92,7 @@ public class Domain extends AbstractDomain {
             path = cursor.getString(4);
             latestAccess = toDate(cursor.getLong(5));
             date = toDate(cursor.getLong(6));
-            type = ItemType.valueOf(cursor.getString(7));
+            type = ItemType.valueOfOptional(cursor.getString(7));
         }
 
         /** Construct an Item from its serialized form as constructed by the server. */
@@ -282,9 +281,11 @@ public class Domain extends AbstractDomain {
     public void onCreate(SQLiteDatabase db) {
         onUpgrade(db, 0, DATABASE_VERSION);
     }
+    private boolean mustPopulateTypes = false;
 
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        Log.d(TAG, "Current version: "+ oldVersion +". New version: "+ newVersion);
+        Log.d(TAG, "Current version: " + oldVersion + ". New version: " + newVersion);
+
         newTable(db, oldVersion, newVersion, Item.SINCE, Item.SQL_CREATE_ENTRIES, Item.SQL_DELETE_ENTRIES);
         newTable(db, oldVersion, newVersion, 2, Folder.SQL_CREATE_ENTRIES, Folder.SQL_DELETE_ENTRIES);
         newTable(db, oldVersion, newVersion, 3, Server.SQL_CREATE_ENTRIES, Server.SQL_DELETE_ENTRIES);
@@ -292,12 +293,20 @@ public class Domain extends AbstractDomain {
         newColumn(db, oldVersion, newVersion, Item.SINCE, 5, Item.TABLE_NAME, Item._TYPE, "TEXT");
 
         if (oldVersion < 5 && newVersion >= 5) {
-            // populate type column
+            mustPopulateTypes = true;
+        }
+    }
+
+    protected void afterConnect() {
+        if (mustPopulateTypes) {
+            mustPopulateTypes = false;
+            Log.d(TAG, "Upgrading database...");
             Query<Item> query = selectItems();
             for (Item i : query.list()) {
-                if (i.path.endsWith(".jpg")) {
+                if (i.type != ItemType.UNKNOWN) { continue; }
+                if (i.path.toLowerCase().endsWith(".jpg")) {
                     i.type = ItemType.IMAGE;
-                } else if (i.path.endsWith(".mp4")) {
+                } else if (i.path.toLowerCase().endsWith(".mp4")) {
                     i.type = ItemType.VIDEO;
                 } else {
                     throw new IllegalArgumentException("Unrecognised extension "+ i.path);
@@ -305,6 +314,7 @@ public class Domain extends AbstractDomain {
                 i.update();
             }
             query.close();
+            Log.d(TAG, "Upgrading database complete.");
         }
     }
 

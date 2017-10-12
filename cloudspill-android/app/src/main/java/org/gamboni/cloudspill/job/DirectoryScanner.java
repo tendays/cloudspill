@@ -174,17 +174,20 @@ public class DirectoryScanner {
     private Date getMediaDate(FileBuilder file, byte[] content) {
         // TODO experimental re-implementation using mediaMetadataRetriever (which should support videos)
         final MediaMetadataRetriever metadataRetriever = new MediaMetadataRetriever();
-        metadataRetriever.setDataSource(this.context, file.getUri());
+        try {
+            metadataRetriever.setDataSource(this.context, file.getUri());
 
             String mdDate = metadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DATE);
             if (mdDate != null) {
                 try {
                     return exifTimestampFormat.parse(mdDate);
                 } catch (ParseException e) {
-                    Log.w(TAG, "Media date not in expected format: "+ mdDate);
+                    Log.w(TAG, "Media date not in expected format: " + mdDate);
                 }
             }
-        metadataRetriever.release();
+        } finally {
+            metadataRetriever.release();
+        }
 
             File f = file.getFileEquivalent();
             if (f != null) {
