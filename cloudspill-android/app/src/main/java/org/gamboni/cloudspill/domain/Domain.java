@@ -103,7 +103,7 @@ public class Domain extends AbstractDomain {
             folder = splitter.getString();
             path = splitter.getString();
             date = toDate(splitter.getLong()); // TODO this is supposed to be UTC - check!
-            type = ItemType.valueOf(splitter.getString());
+            type = ItemType.valueOfOptional(splitter.getString());
         }
 
         private Boolean local = null;
