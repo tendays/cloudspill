@@ -36,6 +36,7 @@ import java.util.Set;
 public class DirectoryScanner {
     // not static because not threadsafe
     private final SimpleDateFormat exifTimestampFormat = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss");
+    private final SimpleDateFormat mdTimestampFormat = new SimpleDateFormat("yyyy MM dd");
 
     private final Context context;
     private final Domain domain;
@@ -180,7 +181,7 @@ public class DirectoryScanner {
             String mdDate = metadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DATE);
             if (mdDate != null) {
                 try {
-                    return exifTimestampFormat.parse(mdDate);
+                    return mdTimestampFormat.parse(mdDate);
                 } catch (ParseException e) {
                     Log.w(TAG, "Media date not in expected format: " + mdDate);
                 }
