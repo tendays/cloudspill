@@ -35,6 +35,9 @@
             android:name=".ui.SettingsActivity"
             android:label="@string/title_activity_settings"
             android:parentActivityName=".ui.MainActivity" />
+        <activity
+            android:name=".ui.GalleryActivity"
+            android:parentActivityName=".ui.MainActivity" />
     </application>
 
 </manifest>

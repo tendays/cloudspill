@@ -78,6 +78,11 @@ public class MainActivity extends AppCompatActivity implements StatusReport {
         sync(CloudSpillIntentService.Trigger.MANUAL);
     }
 
+    /** NOTE: method invoked from ui.xml. */
+    public void openGallery(View view) {
+        startActivity(new Intent(this, GalleryActivity.class));
+    }
+
     /** Check if necessary permissions are available, then start the synchronisation service. */
     private void sync(CloudSpillIntentService.Trigger trigger) {
         // TODO [NICETOHAVE] work in read-only mode if write is denied but read is allowed...

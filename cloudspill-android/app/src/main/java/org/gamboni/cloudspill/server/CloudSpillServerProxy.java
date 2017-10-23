@@ -74,6 +74,8 @@ public class CloudSpillServerProxy {
      * @return a server, or null if no server could be found.
      */
     public static CloudSpillServerProxy selectServer(Context context, StatusReport listener, Domain domain) {
+        // TODO don't spam the servers if they're offline - put a minimal delay before retrying
+        // (to reset if user requests refresh)
         synchronized (urlMonitor) {
             if (verifiedUrl != null) {
                 return new CloudSpillServerProxy(context, domain, verifiedUrl);
