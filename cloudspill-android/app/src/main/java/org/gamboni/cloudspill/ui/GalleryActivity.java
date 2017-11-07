@@ -79,7 +79,7 @@ public class GalleryActivity extends AppCompatActivity {
 
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
-            Log.d(TAG, "Filling view "+ position);
+            Log.d(TAG, "Filling view " + position);
             final ImageView imageView;
             if (convertView == null) {
                 imageView = new ImageView(GalleryActivity.this);
@@ -90,30 +90,23 @@ public class GalleryActivity extends AppCompatActivity {
                 imageView = (ImageView) convertView;
             }
 
-            final int firstVisible = gridView.getFirstVisiblePosition();
-            final int lastVisible = gridView.getLastVisiblePosition();
-            // "+1" new views are never in the 'visible' portion before they're created
-            if (firstVisible <= position && position <= lastVisible+1) {
-                final AbstractDomain.Query<Domain.Item> itemQuery = domain.selectItems();
-                final List<Domain.Item> itemList = itemQuery.orderDesc(Domain.Item._DATE).list();
-                final FileBuilder file = itemList.get(position).getFile();
-                itemQuery.close();
+            imageView.setImageBitmap(null);
 
-                // TODO cancel callback when the view is closed
-                ThumbnailIntentService.loadThumbnail(GalleryActivity.this, file, new ThumbnailIntentService.Callback() {
-                    @Override
-                    public void setThumbnail(final Bitmap bitmap) {
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                imageView.setImageBitmap(bitmap);
-                            }
-                        });
-                    }
-                });
-            } else {
-                Log.d(TAG, "Skipped - not between "+ firstVisible +" and "+ lastVisible +"+1");
-            }
+//            final int firstVisible = gridView.getFirstVisiblePosition();
+//            final int lastVisible = gridView.getLastVisiblePosition();
+
+            // TODO cancel callback when the view is closed
+            ThumbnailIntentService.loadThumbnail(GalleryActivity.this, position, new ThumbnailIntentService.Callback() {
+                @Override
+                public void setThumbnail(final Bitmap bitmap) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            imageView.setImageBitmap(bitmap);
+                        }
+                    });
+                }
+            });
             return imageView;
         }
     }
