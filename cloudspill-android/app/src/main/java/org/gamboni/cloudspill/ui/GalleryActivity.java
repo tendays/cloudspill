@@ -19,6 +19,7 @@ import org.gamboni.cloudspill.R;
 import org.gamboni.cloudspill.domain.AbstractDomain;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.file.FileBuilder;
+import org.gamboni.cloudspill.job.ThumbnailIntentService;
 
 import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
@@ -79,7 +80,7 @@ public class GalleryActivity extends AppCompatActivity {
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
             Log.d(TAG, "Filling view "+ position);
-            ImageView imageView;
+            final ImageView imageView;
             if (convertView == null) {
                 imageView = new ImageView(GalleryActivity.this);
                 imageView.setLayoutParams((new GridView.LayoutParams(512, 384)));
@@ -92,40 +93,24 @@ public class GalleryActivity extends AppCompatActivity {
             final int firstVisible = gridView.getFirstVisiblePosition();
             final int lastVisible = gridView.getLastVisiblePosition();
             // "+1" new views are never in the 'visible' portion before they're created
-            // 11: temporary to investigate why it doesn't work at all
-            if (firstVisible <= position && position <= lastVisible+1 && position < 11) {
+            if (firstVisible <= position && position <= lastVisible+1) {
                 final AbstractDomain.Query<Domain.Item> itemQuery = domain.selectItems();
                 final List<Domain.Item> itemList = itemQuery.orderDesc(Domain.Item._DATE).list();
                 final FileBuilder file = itemList.get(position).getFile();
                 itemQuery.close();
-                if (file.exists()) {
-                    try {
-                        // TODO I could not find documentation for that Thumbnails class
-                        //MediaStore.Images.Thumbnails.getThumbnail(getContentResolver(), itemList.get(position),
-                        //        MediaStore.Images.Thumbnails.MINI_KIND, null);
 
-                        // This works, but seems to keep the entire image in memory: imageView.setImageURI(file.getUri());
-
-                    /* from https://stackoverflow.com/questions/13653526/how-to-find-origid-for-getthumbnail-when-taking-a-picture-with-camera-takepictur */
-
-                        // Thumbnails are 90dp wide. Convert that to the pixel equivalent:
-                        final float smallPx = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 90, getResources().getDisplayMetrics());
-
-                        Bitmap bitmap = BitmapFactory.decodeStream(getContentResolver().openInputStream(file.getUri()));
-                        // scale the *shortest* dimension to 'smallPx' so (after cropping) the image fills the whole thumbnail
-                        float ratio = smallPx / Math.min(bitmap.getWidth(), bitmap.getHeight());
-
-                        bitmap = Bitmap.createScaledBitmap(bitmap,
-                                (int) (bitmap.getWidth() * ratio),
-                                (int) (bitmap.getHeight() * ratio), false);
-
-                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, 10, baos); //What image format and level of compression to use.
-                        imageView.setImageBitmap(bitmap);
-                    } catch (FileNotFoundException fnf) {
-                        Log.e(TAG, "Could not load file but exists returns true", fnf);
+                // TODO cancel callback when the view is closed
+                ThumbnailIntentService.loadThumbnail(GalleryActivity.this, file, new ThumbnailIntentService.Callback() {
+                    @Override
+                    public void setThumbnail(final Bitmap bitmap) {
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                imageView.setImageBitmap(bitmap);
+                            }
+                        });
                     }
-                }
+                });
             } else {
                 Log.d(TAG, "Skipped - not between "+ firstVisible +" and "+ lastVisible +"+1");
             }

@@ -6,8 +6,10 @@ import android.support.v4.provider.DocumentFile;
 import android.util.Log;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.AbstractList;
 import java.util.Date;
@@ -60,6 +62,11 @@ public abstract class FileBuilder {
         @Override
         public void mkdirs() {
             file.mkdirs();
+        }
+
+        @Override
+        public InputStream read() throws FileNotFoundException {
+            return new FileInputStream(file);
         }
 
         @Override
@@ -190,6 +197,11 @@ public abstract class FileBuilder {
         }
 
         @Override
+        public InputStream read() throws FileNotFoundException {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public OutputStream write(Context context, String mime) throws FileNotFoundException {
             throw new UnsupportedOperationException();
         }
@@ -251,6 +263,11 @@ public abstract class FileBuilder {
             int slash = uriString.lastIndexOf("/")+1;
             if (slash == -1) { throw new IllegalStateException("Can't create "+ this +": could not isolate name component"); }
             return uriString.substring(slash);
+        }
+
+        @Override
+        public InputStream read() throws FileNotFoundException {
+            return context.getContentResolver().openInputStream(getUri());
         }
 
         public OutputStream write(Context context, String mime) throws FileNotFoundException {
@@ -340,6 +357,8 @@ public abstract class FileBuilder {
 
         return pointer;
     }
+
+    public abstract InputStream read() throws FileNotFoundException;
 
     protected abstract FileBuilder appendOne(String segment, boolean doc);
 

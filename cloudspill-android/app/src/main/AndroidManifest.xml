@@ -15,6 +15,7 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <service android:name="CloudSpillIntentService" />
+        <service android:name=".job.ThumbnailIntentService" />
         <service android:name=".job.MediaDownloader" />
         <activity android:name=".ui.MainActivity">
             <intent-filter>
