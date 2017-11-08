@@ -45,6 +45,7 @@ public class ThumbnailIntentService extends IntentService {
 
     // Using a Set in case callbacks define equality, to avoid redundant invocations
     private static final Map<String, Set<Callback>> callbacks = new HashMap<>();
+    private static final Map<Callback, String> callbackKeys = new HashMap<>();
 
     private static String key(int position) {
         return String.valueOf(position);
@@ -59,6 +60,17 @@ public class ThumbnailIntentService extends IntentService {
                 callbacks.put(key, set);
             }
             set.add(callback);
+            callbackKeys.put(callback, key);
+        }
+    }
+
+    public static void cancelCallback(Callback callback) {
+        synchronized (callbacks) {
+            String key = callbackKeys.remove(callback);
+            Set<Callback> set = callbacks.get(key);
+            if (set != null) {
+                set.remove(callback);
+            }
         }
     }
 

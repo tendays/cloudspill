@@ -95,19 +95,38 @@ public class GalleryActivity extends AppCompatActivity {
 //            final int firstVisible = gridView.getFirstVisiblePosition();
 //            final int lastVisible = gridView.getLastVisiblePosition();
 
-            // TODO cancel callback when the view is closed
-            ThumbnailIntentService.loadThumbnail(GalleryActivity.this, position, new ThumbnailIntentService.Callback() {
+            final BitmapSetter callback = new BitmapSetter(imageView);
+            // Cancel any existing callback registered on the same view (note that callback equality is defined on the bitmap)
+            // TODO [NICETOHAVE] Maybe the concept of 'target' should instead be explicit in the thumbnailIntentService API, so it could
+            // auto-delete old tasks pointing to the same target
+            ThumbnailIntentService.cancelCallback(callback);
+            ThumbnailIntentService.loadThumbnail(GalleryActivity.this, position, callback);
+            return imageView;
+        }
+    }
+
+    private class BitmapSetter implements ThumbnailIntentService.Callback {
+        final ImageView imageView;
+
+        BitmapSetter(ImageView imageView) {
+            this.imageView = imageView;
+        }
+        @Override
+        public void setThumbnail(final Bitmap bitmap) {
+            runOnUiThread(new Runnable() {
                 @Override
-                public void setThumbnail(final Bitmap bitmap) {
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            imageView.setImageBitmap(bitmap);
-                        }
-                    });
+                public void run() {
+                    imageView.setImageBitmap(bitmap);
                 }
             });
-            return imageView;
+        }
+
+        public int hashCode() {
+            return imageView.hashCode();
+        }
+
+        public boolean equals(Object o) {
+            return (o instanceof BitmapSetter) && (((BitmapSetter)o).imageView == this.imageView);
         }
     }
 }
