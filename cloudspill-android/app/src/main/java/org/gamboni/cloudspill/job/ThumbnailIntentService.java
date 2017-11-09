@@ -106,6 +106,7 @@ public class ThumbnailIntentService extends IntentService {
         final AbstractDomain.Query<Domain.Item> itemQuery = domain.selectItems();
         final List<Domain.Item> itemList = itemQuery.orderDesc(Domain.Item._DATE).list();
         final int position = intent.getIntExtra(POSITION_PARAM, -1);
+        if (itemList.size() <= position) { return; }
         final FileBuilder file = itemList.get(position).getFile();
         itemQuery.close();
 

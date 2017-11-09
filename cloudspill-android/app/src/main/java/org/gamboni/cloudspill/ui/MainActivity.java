@@ -5,6 +5,7 @@ import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
@@ -21,6 +22,10 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.BaseAdapter;
+import android.widget.GridView;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -28,6 +33,7 @@ import android.widget.Toast;
 import org.gamboni.cloudspill.CloudSpillIntentService;
 import org.gamboni.cloudspill.R;
 import org.gamboni.cloudspill.domain.Domain;
+import org.gamboni.cloudspill.job.ThumbnailIntentService;
 import org.gamboni.cloudspill.message.StatusReport;
 
 public class MainActivity extends AppCompatActivity implements StatusReport {
@@ -44,19 +50,15 @@ public class MainActivity extends AppCompatActivity implements StatusReport {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        this.domain = new Domain(MainActivity.this);
 
-        HorizontalGridView gridView = (HorizontalGridView) findViewById(R.id.gridView);
-        GridViewAdapter adapter = new GridViewAdapter(this, domain);
+        this.domain = new Domain(this);
+
+        GridView gridView = (GridView) findViewById(R.id.gallery_grid);
+        GalleryAdapter adapter = new GalleryAdapter(gridView);
         gridView.setAdapter(adapter);
 
         PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
 
-/*        Domain.Item item = domain.selectItems().get(3);
-        GlideApp.with(this).load(Uri.fromFile(new File(new File(localFolder), item.path)))
-                .placeholder(R.drawable.lb_ic_in_app_search)
-                .into((ImageView)findViewById(R.id.testImageView));
-*/
         sync(CloudSpillIntentService.Trigger.FOREGROUND);
     }
 
@@ -73,14 +75,16 @@ public class MainActivity extends AppCompatActivity implements StatusReport {
                 AlarmManager.INTERVAL_HALF_DAY, pi);
     }
 
+    @Override
+    protected void onDestroy() {
+        domain.close();
+        domain = null;
+        super.onDestroy();
+    }
+
     /** NOTE: method invoked from ui xml. */
     public void manualSync(View view) {
         sync(CloudSpillIntentService.Trigger.MANUAL);
-    }
-
-    /** NOTE: method invoked from ui.xml. */
-    public void openGallery(View view) {
-        startActivity(new Intent(this, GalleryActivity.class));
     }
 
     /** Check if necessary permissions are available, then start the synchronisation service. */
@@ -214,6 +218,83 @@ public class MainActivity extends AppCompatActivity implements StatusReport {
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
+        }
+    }
+
+
+    private class GalleryAdapter extends BaseAdapter {
+        GridView gridView;
+
+        GalleryAdapter(GridView gridView) {
+            this.gridView = gridView;
+        }
+
+        @Override
+        public int getCount() {
+            return 100; // TODO can we have an 'infinite' count?
+        }
+
+        @Override
+        public Object getItem(int position) {
+            return null; // TODO What is this for?
+        }
+
+        @Override
+        public long getItemId(int position) {
+            return position;
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            Log.d(TAG, "Filling view " + position);
+            final ImageView imageView;
+            if (convertView == null) {
+                imageView = new ImageView(MainActivity.this);
+                imageView.setLayoutParams((new GridView.LayoutParams(512, 384)));
+                imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                imageView.setPadding(8, 8, 8, 8);
+            } else {
+                imageView = (ImageView) convertView;
+            }
+
+            imageView.setImageBitmap(null);
+
+//            final int firstVisible = gridView.getFirstVisiblePosition();
+//            final int lastVisible = gridView.getLastVisiblePosition();
+
+            final BitmapSetter callback = new BitmapSetter(imageView);
+            // Cancel any existing callback registered on the same view (note that callback equality is defined on the bitmap)
+            // TODO [NICETOHAVE] Maybe the concept of 'target' should instead be explicit in the thumbnailIntentService API, so it could
+            // auto-delete old tasks pointing to the same target
+            ThumbnailIntentService.cancelCallback(callback);
+            ThumbnailIntentService.loadThumbnail(MainActivity.this, position, callback);
+            return imageView;
+        }
+    }
+
+
+    private class BitmapSetter implements ThumbnailIntentService.Callback {
+        final ImageView imageView;
+
+        BitmapSetter(ImageView imageView) {
+            this.imageView = imageView;
+        }
+        @Override
+        public void setThumbnail(final Bitmap bitmap) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    imageView.setImageBitmap(bitmap);
+                }
+            });
+        }
+
+        public int hashCode() {
+            return imageView.hashCode();
+        }
+
+        public boolean equals(Object o) {
+            return (o instanceof BitmapSetter) && (((BitmapSetter)o).imageView == this.imageView);
         }
     }
 }
