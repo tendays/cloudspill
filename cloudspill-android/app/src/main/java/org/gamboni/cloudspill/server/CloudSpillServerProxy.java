@@ -202,9 +202,14 @@ public class CloudSpillServerProxy {
                 onError));
     }
 
-    public void download(long serverId, FileBuilder target, Response.Listener<byte[]> listener, Response.ErrorListener onError) {
-        Log.d(TAG, "Downloading item#"+ serverId +" to "+ target);
-        queue.add(new MediaDownloadRequest(url, serverId, listener, onError));
+    public void download(long serverId, Response.Listener<byte[]> listener, Response.ErrorListener onError) {
+        Log.d(TAG, "Downloading item#"+ serverId);
+        queue.add(new MediaDownloadRequest(url, serverId, listener, onError, null));
+    }
+
+    public void downloadThumb(long serverId, int thumbSize, Response.Listener<byte[]> listener, Response.ErrorListener onError) {
+        Log.d(TAG, "Downloading thumb#"+ serverId);
+        queue.add(new MediaDownloadRequest(url, serverId, listener, onError, thumbSize));
     }
 
     /** Get information about the server. This method may only be called after {@link #checkLink} or {@link #recheckLink}

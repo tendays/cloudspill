@@ -4,8 +4,10 @@
 package org.gamboni.cloudspill.server;
 
 import static org.gamboni.cloudspill.util.Files.append;
+import static spark.Spark.before;
 import static spark.Spark.get;
 import static spark.Spark.put;
+import static spark.Spark.threadPool;
 
 import java.awt.Graphics2D;
 import java.awt.Image;
@@ -92,8 +94,12 @@ public class CloudSpillServer {
     	
     	File rootFolder = configuration.getRepositoryPath();
     	
+    	/* Thumbnail construction is memory intensive... */
+    	// TODO make this configurable
+    	threadPool(4);
+    	
     	/* Access logging */
-    	Spark.before((req, res) -> {
+    	before((req, res) -> {
     		Log.info(req.ip() +" "+ req.uri());
     	});
     	

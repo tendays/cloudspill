@@ -98,7 +98,7 @@ public class MediaDownloader extends IntentService {
             statusListener.updateMessage(StatusReport.Severity.ERROR, "Download directory not writable: "+ parent);
         }
 
-        server.download(serverId, target,
+        server.download(serverId,
                 new Response.Listener<byte[]>() {
                     @Override
                     public void onResponse(byte[] response) {

@@ -384,6 +384,11 @@ public abstract class FileBuilder {
             "content://com.android.externalstorage.documents/tree/([^/]*)/document/\\1(.*)");
 
     private static final String PRIMARY_STORAGE_NAME = "primary:";
+
+    /** Attempt to construct a {@link java.io.File} pointing to the same resource as this object.
+     *
+     * @return a {@link File} pointing to the same resource as this object, or null if matching failed.
+     */
     public synchronized File getFileEquivalent() {
         String uriString = getUri().toString();
         Matcher matcher = FILE_EQUIVALENT_URI.matcher(uriString);

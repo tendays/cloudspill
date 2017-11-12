@@ -9,9 +9,15 @@ import android.support.annotation.Nullable;
 import android.util.Log;
 import android.util.TypedValue;
 
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+
 import org.gamboni.cloudspill.domain.AbstractDomain;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.file.FileBuilder;
+import org.gamboni.cloudspill.message.SettableStatusListener;
+import org.gamboni.cloudspill.message.StatusReport;
+import org.gamboni.cloudspill.server.CloudSpillServerProxy;
 
 import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
@@ -22,7 +28,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
+/** This service is responsible for acquiring thumbnails for local or remote items and passing them to
+ * callbacks in the form of {@link Bitmap} objects.
+ *
  * @author tendays
  */
 
@@ -31,12 +39,14 @@ public class ThumbnailIntentService extends IntentService {
     private static final String TAG = "CloudSpill.Thumbnails";
 
     public static final String POSITION_PARAM = "position";
+    private static final int THUMB_SIZE = 90;
 
     private Domain domain;
+    private List<Domain.Item> itemList;
+    private AbstractDomain.Query<Domain.Item> itemQuery;
 
     public ThumbnailIntentService() {
         super(ThumbnailIntentService.class.getSimpleName());
-        this.domain = new Domain(this);
     }
 
     public interface Callback {
@@ -46,6 +56,27 @@ public class ThumbnailIntentService extends IntentService {
     // Using a Set in case callbacks define equality, to avoid redundant invocations
     private static final Map<String, Set<Callback>> callbacks = new HashMap<>();
     private static final Map<Callback, String> callbackKeys = new HashMap<>();
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        this.domain = new Domain(this);
+        itemQuery = domain.selectItems();
+        this.itemList = itemQuery.orderDesc(Domain.Item._DATE).list();
+    }
+
+    @Override
+    public void onDestroy() {
+        itemList = null;
+
+        itemQuery.close();
+        itemQuery = null;
+
+        domain.close();
+        domain = null;
+
+        super.onDestroy();
+    }
 
     private static String key(int position) {
         return String.valueOf(position);
@@ -71,6 +102,14 @@ public class ThumbnailIntentService extends IntentService {
             if (set != null) {
                 set.remove(callback);
             }
+        }
+    }
+
+    private static boolean hasCallbacks(int position) {
+        String key = key(position);
+        synchronized (callbacks) {
+            Set<Callback> result = callbacks.get(key);
+            return (result != null) && result.size() > 0;
         }
     }
 
@@ -103,15 +142,13 @@ public class ThumbnailIntentService extends IntentService {
     protected void onHandleIntent(@Nullable Intent intent) {
         if (intent == null) { return; } // Intent should not be null, but well there's nothing to do if it is
 
-        final AbstractDomain.Query<Domain.Item> itemQuery = domain.selectItems();
-        final List<Domain.Item> itemList = itemQuery.orderDesc(Domain.Item._DATE).list();
         final int position = intent.getIntExtra(POSITION_PARAM, -1);
-        if (itemList.size() <= position) { return; }
-        final FileBuilder file = itemList.get(position).getFile();
-        itemQuery.close();
+        if (!hasCallbacks(position)) { return; } // callbacks got cancelled
+        if (itemList.size() <= position) { return; } // asking thumbnails beyond the end of the list
+        final Domain.Item item = itemList.get(position);
+        final FileBuilder file = item.getFile();
 
         if (file.exists()) {
-            // NOTE: this prints "it's a file" Log.d(TAG, DocumentFile.fromSingleUri(this, uri).isFile() ? "service: it's a file" : "service: it's not a file");
             try {
                 // TODO I could not find documentation for that Thumbnails class
                 //MediaStore.Images.Thumbnails.getThumbnail(getContentResolver(), itemList.get(position),
@@ -122,7 +159,7 @@ public class ThumbnailIntentService extends IntentService {
                     /* from https://stackoverflow.com/questions/13653526/how-to-find-origid-for-getthumbnail-when-taking-a-picture-with-camera-takepictur */
 
                 // Thumbnails are 90dp wide. Convert that to the pixel equivalent:
-                final float smallPx = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 90, getResources().getDisplayMetrics());
+                final float smallPx = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, THUMB_SIZE, getResources().getDisplayMetrics());
 
                 // NOTE: this fails with "read failed: ESIDIR (Is a directory)
                 Bitmap bitmap = BitmapFactory.decodeStream(file.read());
@@ -148,7 +185,28 @@ public class ThumbnailIntentService extends IntentService {
             }
         } else {
             Log.i(TAG, "File does not exist: "+ file);
-            invokeCallbacks(position, null);
+
+            // TODO allow actually setting status report..
+            CloudSpillServerProxy server = CloudSpillServerProxy.selectServer(this, new SettableStatusListener<>(), domain);
+            if (server == null) { // offline
+                Log.i(TAG, "Thumbnail download disabled because offline");
+                invokeCallbacks(position, null);
+            } else { // online
+                server.downloadThumb(item.serverId, THUMB_SIZE, new Response.Listener<byte[]>() {
+                    @Override
+                    public void onResponse(byte[] response) {
+                        invokeCallbacks(position,
+                                BitmapFactory.decodeByteArray(response, 0, response.length));
+                    }
+                }, new Response.ErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        Log.e(TAG, "Failed downloading thumbnail: "+ error);
+                        invokeCallbacks(position, null);
+                    }
+                });
+                invokeCallbacks(position, null);
+            }
         }
     }
 }

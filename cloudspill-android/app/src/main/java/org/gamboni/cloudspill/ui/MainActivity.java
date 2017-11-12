@@ -21,6 +21,7 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
@@ -33,8 +34,11 @@ import android.widget.Toast;
 import org.gamboni.cloudspill.CloudSpillIntentService;
 import org.gamboni.cloudspill.R;
 import org.gamboni.cloudspill.domain.Domain;
+import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.job.ThumbnailIntentService;
 import org.gamboni.cloudspill.message.StatusReport;
+
+import java.io.File;
 
 public class MainActivity extends AppCompatActivity implements StatusReport {
     private static final String TAG = "CloudSpill.Main";
@@ -231,7 +235,7 @@ public class MainActivity extends AppCompatActivity implements StatusReport {
 
         @Override
         public int getCount() {
-            return 100; // TODO can we have an 'infinite' count?
+            return 1000; // TODO can we have an 'infinite' count?
         }
 
         @Override
@@ -245,7 +249,7 @@ public class MainActivity extends AppCompatActivity implements StatusReport {
         }
 
         @Override
-        public View getView(int position, View convertView, ViewGroup parent) {
+        public View getView(final int position, View convertView, ViewGroup parent) {
             Log.d(TAG, "Filling view " + position);
             final ImageView imageView;
             if (convertView == null) {
@@ -258,9 +262,32 @@ public class MainActivity extends AppCompatActivity implements StatusReport {
             }
 
             imageView.setImageBitmap(null);
+            imageView.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    // TODO somehow record the uri together with the view so we don't need to reload it
+                    Domain.Query<Domain.Item> itemQuery = domain.selectItems();
+                    final FileBuilder file = itemQuery.orderDesc(Domain.Item._DATE).list().get(position).getFile();
+                    itemQuery.close();
+                    Log.d(TAG, "Attempting to display "+ file);
+                    if (file.exists()) {
+                        Intent viewIntent = new Intent();
+                        viewIntent.setAction(Intent.ACTION_VIEW);
+                        // try the java.io.File, as it is more reliable
+                        File javaFile = file.getFileEquivalent();
 
-//            final int firstVisible = gridView.getFirstVisiblePosition();
-//            final int lastVisible = gridView.getLastVisiblePosition();
+                        Log.d(TAG, "File exists. Java File equivalent: "+ javaFile);
+                        if (javaFile != null) {
+                            final Uri fileUri = Uri.fromFile(javaFile);
+                            Log.d(TAG, "Uri: "+ fileUri);
+                            viewIntent.setDataAndType(fileUri, "image/jpeg");
+                        } else {
+                            viewIntent.setData(file.getUri());
+                        }
+                        startActivity(viewIntent);
+                    }
+                }
+            });
 
             final BitmapSetter callback = new BitmapSetter(imageView);
             // Cancel any existing callback registered on the same view (note that callback equality is defined on the bitmap)
