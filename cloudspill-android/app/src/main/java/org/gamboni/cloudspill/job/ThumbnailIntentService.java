@@ -50,6 +50,7 @@ public class ThumbnailIntentService extends IntentService {
     }
 
     public interface Callback {
+        void setItem(Domain.Item item);
         void setThumbnail(Bitmap bitmap);
     }
 
@@ -113,6 +114,18 @@ public class ThumbnailIntentService extends IntentService {
         }
     }
 
+    private static Set<Callback> peekCallbacks(int position) {
+        String key = key(position);
+        synchronized (callbacks) {
+            Set<Callback> result = callbacks.get(key);
+            Set<Callback> copy = new HashSet<>();
+            if (result != null) {
+                copy.addAll(result);
+            }
+            return copy;
+        }
+    }
+
     private static Set<Callback> getCallbacks(int position) {
         String key = key(position);
         synchronized (callbacks) {
@@ -121,8 +134,14 @@ public class ThumbnailIntentService extends IntentService {
         }
     }
 
-    private static void invokeCallbacks(int position, Bitmap bitmap) {
-        for (Callback callback : getCallbacks(position)) {
+    private static void publishItem(Set<Callback> callbacks, Domain.Item item) {
+        for (Callback callback : callbacks) {
+            callback.setItem(item);
+        }
+    }
+
+    private static void publishBitmap(Set<Callback> callbacks, Bitmap bitmap) {
+        for (Callback callback : callbacks) {
             callback.setThumbnail(bitmap);
         }
     }
@@ -146,6 +165,8 @@ public class ThumbnailIntentService extends IntentService {
         if (!hasCallbacks(position)) { return; } // callbacks got cancelled
         if (itemList.size() <= position) { return; } // asking thumbnails beyond the end of the list
         final Domain.Item item = itemList.get(position);
+
+        publishItem(peekCallbacks(position), item);
         final FileBuilder file = item.getFile();
 
         if (file.exists()) {
@@ -179,7 +200,7 @@ public class ThumbnailIntentService extends IntentService {
 
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 bitmap.compress(Bitmap.CompressFormat.JPEG, 10, baos); //What image format and level of compression to use.
-                invokeCallbacks(position, bitmap);
+                publishBitmap(getCallbacks(position), bitmap);
             } catch (FileNotFoundException fnf) {
                 Log.e(TAG, "Could not load file but exists returns true", fnf);
             }
@@ -190,22 +211,21 @@ public class ThumbnailIntentService extends IntentService {
             CloudSpillServerProxy server = CloudSpillServerProxy.selectServer(this, new SettableStatusListener<>(), domain);
             if (server == null) { // offline
                 Log.i(TAG, "Thumbnail download disabled because offline");
-                invokeCallbacks(position, null);
+                publishBitmap(getCallbacks(position), null);
             } else { // online
                 server.downloadThumb(item.serverId, THUMB_SIZE, new Response.Listener<byte[]>() {
                     @Override
                     public void onResponse(byte[] response) {
-                        invokeCallbacks(position,
+                        publishBitmap(getCallbacks(position),
                                 BitmapFactory.decodeByteArray(response, 0, response.length));
                     }
                 }, new Response.ErrorListener() {
                     @Override
                     public void onErrorResponse(VolleyError error) {
                         Log.e(TAG, "Failed downloading thumbnail: "+ error);
-                        invokeCallbacks(position, null);
+                        publishBitmap(getCallbacks(position), null);
                     }
                 });
-                invokeCallbacks(position, null);
             }
         }
     }

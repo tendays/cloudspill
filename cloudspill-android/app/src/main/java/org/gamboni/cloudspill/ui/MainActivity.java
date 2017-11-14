@@ -251,77 +251,18 @@ public class MainActivity extends AppCompatActivity implements StatusReport {
         @Override
         public View getView(final int position, View convertView, ViewGroup parent) {
             Log.d(TAG, "Filling view " + position);
-            final ImageView imageView;
+            final ThumbnailView imageView;
             if (convertView == null) {
-                imageView = new ImageView(MainActivity.this);
+                imageView = new ThumbnailView(MainActivity.this, domain);
                 imageView.setLayoutParams((new GridView.LayoutParams(512, 384)));
-                imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
                 imageView.setPadding(8, 8, 8, 8);
             } else {
-                imageView = (ImageView) convertView;
+                imageView = (ThumbnailView) convertView;
             }
 
-            imageView.setImageBitmap(null);
-            imageView.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    // TODO somehow record the uri together with the view so we don't need to reload it
-                    Domain.Query<Domain.Item> itemQuery = domain.selectItems();
-                    final FileBuilder file = itemQuery.orderDesc(Domain.Item._DATE).list().get(position).getFile();
-                    itemQuery.close();
-                    Log.d(TAG, "Attempting to display "+ file);
-                    if (file.exists()) {
-                        Intent viewIntent = new Intent();
-                        viewIntent.setAction(Intent.ACTION_VIEW);
-                        // try the java.io.File, as it is more reliable
-                        File javaFile = file.getFileEquivalent();
+            imageView.setPosition(position);
 
-                        Log.d(TAG, "File exists. Java File equivalent: "+ javaFile);
-                        if (javaFile != null) {
-                            final Uri fileUri = Uri.fromFile(javaFile);
-                            Log.d(TAG, "Uri: "+ fileUri);
-                            viewIntent.setDataAndType(fileUri, "image/jpeg");
-                        } else {
-                            viewIntent.setData(file.getUri());
-                        }
-                        startActivity(viewIntent);
-                    }
-                }
-            });
-
-            final BitmapSetter callback = new BitmapSetter(imageView);
-            // Cancel any existing callback registered on the same view (note that callback equality is defined on the bitmap)
-            // TODO [NICETOHAVE] Maybe the concept of 'target' should instead be explicit in the thumbnailIntentService API, so it could
-            // auto-delete old tasks pointing to the same target
-            ThumbnailIntentService.cancelCallback(callback);
-            ThumbnailIntentService.loadThumbnail(MainActivity.this, position, callback);
             return imageView;
-        }
-    }
-
-
-    private class BitmapSetter implements ThumbnailIntentService.Callback {
-        final ImageView imageView;
-
-        BitmapSetter(ImageView imageView) {
-            this.imageView = imageView;
-        }
-        @Override
-        public void setThumbnail(final Bitmap bitmap) {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    imageView.setImageBitmap(bitmap);
-                }
-            });
-        }
-
-        public int hashCode() {
-            return imageView.hashCode();
-        }
-
-        public boolean equals(Object o) {
-            return (o instanceof BitmapSetter) && (((BitmapSetter)o).imageView == this.imageView);
         }
     }
 }
