@@ -12,7 +12,10 @@ import android.widget.ImageView;
 
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.file.FileBuilder;
+import org.gamboni.cloudspill.job.MediaDownloader;
 import org.gamboni.cloudspill.job.ThumbnailIntentService;
+import org.gamboni.cloudspill.message.StatusReport;
+import org.gamboni.cloudspill.server.CloudSpillServerProxy;
 
 import java.io.File;
 
@@ -53,20 +56,25 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
                 final FileBuilder file = item.getFile();
                 Log.d(TAG, "Attempting to display "+ file);
                 if (file.exists()) {
-                    Intent viewIntent = new Intent();
-                    viewIntent.setAction(Intent.ACTION_VIEW);
                     // try the java.io.File, as it is more reliable
                     File javaFile = file.getFileEquivalent();
 
                     Log.d(TAG, "File exists. Java File equivalent: "+ javaFile);
                     if (javaFile != null) {
-                        final Uri fileUri = Uri.fromFile(javaFile);
-                        Log.d(TAG, "Uri: "+ fileUri);
-                        viewIntent.setDataAndType(fileUri, "image/jpeg");
+                        openItem(Uri.fromFile(javaFile), "image/jpeg");
                     } else {
-                        viewIntent.setData(file.getUri());
+                        openItem(file.getUri(), /*mime=auto*/null);
                     }
-                    activity.startActivity(viewIntent);
+                } else {
+                    // File doesn't exist - download it first
+                    Log.d(TAG, "Item#"+ item.serverId +" not found - issuing download");
+
+                    MediaDownloader.download(activity, item, new MediaDownloader.MediaListener() {
+                        @Override
+                        public void mediaReady(Uri location) {
+                            openItem(location, "image/jpeg");
+                        }
+                    });
                 }
             }
         });
@@ -77,6 +85,19 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
         ThumbnailIntentService.cancelCallback(this);
         ThumbnailIntentService.loadThumbnail(activity, position, this);
 
+    }
+
+    private void openItem(Uri uri, String mime) {
+        Log.d(TAG, "Uri: "+ uri);
+        Intent viewIntent = new Intent();
+        viewIntent.setAction(Intent.ACTION_VIEW);
+        if (mime == null) {
+            viewIntent.setData(uri);
+        } else {
+            viewIntent.setDataAndType(uri, mime);
+        }
+
+        activity.startActivity(viewIntent);
     }
 
     @Override

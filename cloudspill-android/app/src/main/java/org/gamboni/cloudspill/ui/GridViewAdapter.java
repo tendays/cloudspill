@@ -33,10 +33,10 @@ import java.util.List;
 import java.util.Map;
 
 /** Adapter responsible for displaying images in the main gallery
- *
+ * @deprecated Replaced by MainActivity.GalleryAdapter
  * @author tendays
  */
-public class GridViewAdapter extends RecyclerView.Adapter<GridViewAdapter.SimpleViewHolder> implements MediaDownloader.MediaListener {
+public class GridViewAdapter extends RecyclerView.Adapter<GridViewAdapter.SimpleViewHolder> implements StatusReport {
 
     private static final String TAG = "CloudSpill."+ GridViewAdapter.class.getSimpleName();
 
@@ -70,7 +70,7 @@ public class GridViewAdapter extends RecyclerView.Adapter<GridViewAdapter.Simple
         @Override
         public void onBindViewHolder(SimpleViewHolder holder, final int position) {
             Log.d(TAG, "bind "+ position +". View height: "+ holder.imageView.getHeight());
-            Domain.Item item = domain.get(position);
+            final Domain.Item item = domain.get(position);
             holder.serverId = item.serverId;
             holder.target = GlideApp.with(context);
             FileBuilder df;
@@ -90,7 +90,19 @@ public class GridViewAdapter extends RecyclerView.Adapter<GridViewAdapter.Simple
 
                 MediaDownloader.setStatusListener(this); // make sure we get readiness notifications
                 pendingRequests.put(item.serverId, holder);
-                MediaDownloader.download(context, item);
+                MediaDownloader.download(context, item, new MediaDownloader.MediaListener() {
+                    @Override
+                    public void mediaReady(Uri location) {
+
+                        Log.d(TAG, item.serverId +" ready. Updating view");
+                        SimpleViewHolder holder = pendingRequests.get(item.serverId);
+                        if (holder == null) { return; } // in case the view was recycled already
+                        holder.target.load(location)
+                                .override(1000)
+                                .placeholder(R.drawable.lb_ic_in_app_search)
+                                .into(holder.imageView);
+                    }
+                });
             }
 
             item.latestAccess = new Date();
@@ -122,16 +134,5 @@ public class GridViewAdapter extends RecyclerView.Adapter<GridViewAdapter.Simple
     @Override
     public void updatePercent(int percent) {
         /* We don't expect percentage display for media download */
-    }
-
-    @Override
-    public void mediaReady(long serverId, Uri location) {
-        Log.d(TAG, serverId +" ready. Updating view");
-        SimpleViewHolder holder = pendingRequests.get(serverId);
-        if (holder == null) { return; } // in case the view was recycled already
-        holder.target.load(location)
-                .override(1000)
-                .placeholder(R.drawable.lb_ic_in_app_search)
-                .into(holder.imageView);
     }
 }

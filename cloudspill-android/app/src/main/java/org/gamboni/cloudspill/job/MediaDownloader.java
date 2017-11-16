@@ -19,6 +19,10 @@ import org.gamboni.cloudspill.server.CloudSpillServerProxy;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 /** This IntentService is responsible for downloading pictures that spring into view in the ui.
  * @author tendays
@@ -29,24 +33,17 @@ public class MediaDownloader extends IntentService {
     private static final String PARAM_SERVER_ID = "serverId";
     private static final String PARAM_FILE = "file";
 
-    private static final SettableMediaListener statusListener = new SettableMediaListener();
+    private static final SettableStatusListener<StatusReport> statusListener = new SettableStatusListener<>();
 
-    public interface MediaListener extends StatusReport {
-        void mediaReady(long serverId, Uri location);
-    }
+    private static final Map<Long, Set<MediaListener>> callbacks = new HashMap<>();
 
-    private static class SettableMediaListener extends SettableStatusListener<MediaListener> implements MediaListener {
-        public void mediaReady(long serverId, Uri location) {
-            MediaListener delegate = listener;
-            if (delegate != null) {
-                delegate.mediaReady(serverId, location);
-            }
-        }
+    public interface MediaListener {
+        void mediaReady(Uri location);
     }
 
     Domain domain = new Domain(this);
 
-    public static void download(Context context, Domain.Item item) {
+    public static void download(Context context, Domain.Item item, MediaListener callback) {
         Intent intent = new Intent(context, MediaDownloader.class);
         intent.putExtra(MediaDownloader.PARAM_SERVER_ID, item.serverId);
         Uri uri = item.getFile().getUri();
@@ -56,6 +53,18 @@ public class MediaDownloader extends IntentService {
              throw new IllegalStateException(uri +" already exists");
          }
 
+         synchronized (callbacks) {
+             Set<MediaListener> set = callbacks.get(item.serverId);
+             if (set == null) {
+                 set = new HashSet<>();
+                 callbacks.put(item.serverId, set);
+                 set.add(callback);
+             } else {
+                 set.add(callback);
+                 // existing download already running, will invoke the callback when ready
+                 return;
+             }
+         }
 
         context.startService(intent);
     }
@@ -64,17 +73,16 @@ public class MediaDownloader extends IntentService {
         super(MediaDownloader.class.getName());
     }
 
-    public static void setStatusListener(MediaListener listener) {
+    public static void setStatusListener(StatusReport listener) {
         statusListener.set(listener);
     }
 
-    public static void unsetStatusListener(MediaListener listener) {
+    public static void unsetStatusListener(StatusReport listener) {
         statusListener.unset(listener);
     }
 
     @Override
     protected void onHandleIntent(Intent intent) {
-        // TODO allow actually setting status report..
         CloudSpillServerProxy server = CloudSpillServerProxy.selectServer(this, statusListener, domain);
         if (server == null) { return; } // offline
 
@@ -121,7 +129,13 @@ public class MediaDownloader extends IntentService {
                             }
                         }
                         /* At this point the file has been successfully downloaded. */
-                        statusListener.mediaReady(serverId, target.getUri());
+                        final Set<MediaListener> set;
+                        synchronized (callbacks) {
+                            set = callbacks.remove(serverId);
+                        }
+                        for (MediaListener callback : set) {
+                            callback.mediaReady(target.getUri());
+                        }
                     }
                 },
                 new Response.ErrorListener() {
