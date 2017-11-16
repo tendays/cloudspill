@@ -3,7 +3,7 @@
     <string name="starting">Starting up...</string>
 
     <!-- button labels -->
-    <string name="sync">Sync</string>
+    <string name="sync">Sync now</string>
     <string name="save">Save</string>
     <string name="cancel">Cancel</string>
     <string name="delete">Delete</string>

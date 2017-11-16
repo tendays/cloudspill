@@ -6,4 +6,6 @@
         android:title="@string/title_activity_folders" />
     <item android:id="@+id/servers"
         android:title="@string/title_activity_servers" />
+    <item android:id="@+id/sync"
+        android:title="@string/sync" />
 </menu>

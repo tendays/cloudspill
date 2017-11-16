@@ -18,6 +18,7 @@ import android.support.v4.content.ContextCompat;
 import android.support.v4.provider.DocumentFile;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -84,11 +85,6 @@ public class MainActivity extends AppCompatActivity implements StatusReport {
         domain.close();
         domain = null;
         super.onDestroy();
-    }
-
-    /** NOTE: method invoked from ui xml. */
-    public void manualSync(View view) {
-        sync(CloudSpillIntentService.Trigger.MANUAL);
     }
 
     /** Check if necessary permissions are available, then start the synchronisation service. */
@@ -220,6 +216,9 @@ public class MainActivity extends AppCompatActivity implements StatusReport {
             case R.id.servers:
                 startActivity(new Intent(this, ServersActivity.class));
                 return true;
+            case R.id.sync:
+                sync(CloudSpillIntentService.Trigger.MANUAL);
+                return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
@@ -254,8 +253,8 @@ public class MainActivity extends AppCompatActivity implements StatusReport {
             final ThumbnailView imageView;
             if (convertView == null) {
                 imageView = new ThumbnailView(MainActivity.this, domain);
-                imageView.setLayoutParams((new GridView.LayoutParams(512, 384)));
-                imageView.setPadding(8, 8, 8, 8);
+                float size = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, /*THUMB_SIZE*/90, getResources().getDisplayMetrics());
+                imageView.setLayoutParams((new GridView.LayoutParams((int)size, (int)size)));
             } else {
                 imageView = (ThumbnailView) convertView;
             }
