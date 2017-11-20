@@ -43,6 +43,7 @@ dependencies {
     compile 'org.hibernate:hibernate-entitymanager:5.1.0.Final'
     compile 'mysql:mysql-connector-java:5.1.31'
 	compile 'com.google.inject:guice:4.1.0'
+    compile 'org.mindrot:jbcrypt:0.3m'
     
 }
 

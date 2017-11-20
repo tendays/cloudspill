@@ -20,9 +20,13 @@ public class Domain {
 	public Domain(Session session) {
 		this.session = session;
 	}
-	
+
 	public Query<Item> selectItem() {
 		return new Query<>(Item.class);
+	}
+	
+	public Query<User> selectUser() {
+		return new Query<>(User.class);
 	}
 
 	public class Query<T> {
@@ -47,7 +51,6 @@ public class Domain {
 		}
 	}
 
-	@SuppressWarnings("unchecked")
 	public <T> T get(Class<T> persistentClass, long id) {
 		return (T) session.get(persistentClass, id);
 	}

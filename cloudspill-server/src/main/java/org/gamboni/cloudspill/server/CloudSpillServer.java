@@ -6,20 +6,20 @@ package org.gamboni.cloudspill.server;
 import static org.gamboni.cloudspill.util.Files.append;
 import static spark.Spark.before;
 import static spark.Spark.get;
+import static spark.Spark.post;
 import static spark.Spark.put;
 import static spark.Spark.threadPool;
 
-import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
 import java.awt.image.ImageObserver;
-import java.awt.image.RenderedImage;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Base64;
 import java.util.List;
 
 import javax.imageio.ImageIO;
@@ -28,18 +28,20 @@ import javax.inject.Inject;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.ItemType;
+import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.util.Log;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
+import org.mindrot.jbcrypt.BCrypt;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
-
-import spark.Spark;
 
 /**
  * @author tendays
@@ -63,7 +65,12 @@ public class CloudSpillServer {
     	}
     	Injector injector = Guice.createInjector(new ServerModule(args[0]));
     	
-    	injector.getInstance(CloudSpillServer.class).run();
+    	try {
+    		injector.getInstance(CloudSpillServer.class).run();
+    	} catch (Throwable t) {
+    		t.printStackTrace();
+    		System.exit(1);
+    	}
     }
     
     private interface TransactionBody<R> {
@@ -90,18 +97,68 @@ public class CloudSpillServer {
     	}
     }
     
+    private static final <T> T requireNotNull(T value) {
+    	if (value == null) {
+    		throw new NullPointerException();
+    	} else {
+    		return value;
+    	}
+    }
+    
     public void run() {
     	
     	File rootFolder = configuration.getRepositoryPath();
     	
     	/* Thumbnail construction is memory intensive... */
     	// TODO make this configurable
-    	threadPool(4);
+    	threadPool(6);
     	
     	/* Access logging */
     	before((req, res) -> {
     		Log.info(req.ip() +" "+ req.uri());
+    		final String authHeader = req.headers("Authorization");
+    		if (authHeader == null) {
+    			return;
+    		} else if (authHeader.startsWith("Basic ")) {
+    			final String token = authHeader.substring("Basic ".length()).trim();
+    			final String credentials = new String(Base64.getDecoder().decode(token));
+    			int colon = credentials.indexOf(':');
+    			if (colon == -1) {
+    				throw new IllegalArgumentException("Invalid credentials");
+    			}
+    			String username = credentials.substring(0, colon);
+    			String password = credentials.substring(colon+1);
+    			transacted(session -> {
+    				final List<User> users = session.selectUser().add(Restrictions.eq("name", username)).list();
+    				if (users.isEmpty()) {
+    					Log.error("Unknown user "+ username);
+    					return null;
+    				}
+    				User user = Iterables.getOnlyElement(users);
+    				final String queryHash = BCrypt.hashpw(password, user.getSalt());
+    				if (!queryHash.equals(user.getPass())) {
+    					Log.error("Invalid credentials for user "+ username);
+    				} else {
+    					Log.info("User "+ username +" authenticated");
+    				}
+    				return null;
+    			});
+    		}
     	});
+    	
+    	post("/user/:name", (req, res) -> transacted(session -> {
+    		User u = new User();
+    		u.setName(requireNotNull(req.params("name")));
+    		
+    		String salt = BCrypt.gensalt();
+    		u.setSalt(salt);
+    		
+    		u.setPass(BCrypt.hashpw(requireNotNull(req.queryParams("pass")), salt));
+    		
+    		session.persist(u);
+    		
+    		return true;
+    	}));
     	
     	/* Used by clients to ensure connectivity is available. In the future this may
     	 * also return a version string to ensure compatibility. */

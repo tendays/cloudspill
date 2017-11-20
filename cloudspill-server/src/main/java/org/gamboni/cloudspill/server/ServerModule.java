@@ -3,6 +3,7 @@ package org.gamboni.cloudspill.server;
 import java.util.Properties;
 
 import org.gamboni.cloudspill.domain.Item;
+import org.gamboni.cloudspill.domain.User;
 import org.hibernate.SessionFactory;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 import org.hibernate.c3p0.internal.C3P0ConnectionProvider;
@@ -50,6 +51,7 @@ public class ServerModule extends AbstractModule {
 				.addPackage("org.gamboni.cloudspill.domain")
 			   .addProperties(prop)
 			   .addAnnotatedClass(Item.class)
+			   .addAnnotatedClass(User.class)
 			   .buildSessionFactory(serviceRegistry);
 	}
 	
