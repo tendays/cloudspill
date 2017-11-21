@@ -1,10 +1,17 @@
 package org.gamboni.cloudspill.server;
 
+import android.util.Base64;
+
+import com.android.volley.AuthFailureError;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.StringRequest;
 
 import org.gamboni.cloudspill.domain.ServerInfo;
+
+import java.nio.charset.Charset;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * @author tendays
@@ -51,6 +58,13 @@ public class ConnectivityTestRequest extends StringRequest {
     private ConnectivityTestRequest(String pingUrl, Listener listener) {
         super(pingUrl, listener, listener);
         this.listener = listener;
+    }
+
+    @Override
+    public Map<String, String> getHeaders() throws AuthFailureError {
+        Map<String, String> result = new HashMap<>();
+        result.put("Authorization", "Basic "+ Base64.encodeToString("test:secret".getBytes(), Base64.NO_WRAP));
+        return result;
     }
 
     public ServerInfo getResponse() {
