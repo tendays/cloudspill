@@ -39,6 +39,12 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
     public static String getUser(Context context) {
         return PreferenceManager.getDefaultSharedPreferences(context).getString(PREF_USER_KEY, "");
     }
+
+    private static final String PREF_PASS_KEY = "pref_pass";
+    public static String getPassword(Context context) {
+        return PreferenceManager.getDefaultSharedPreferences(context).getString(PREF_PASS_KEY, "");
+    }
+
     private static final String PREF_DOWNLOAD_PATH_KEY = "pref_dl_path";
     public static FileBuilder getDownloadPath(Context context) {
         // TODO use SAF here as well

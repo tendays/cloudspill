@@ -30,6 +30,9 @@
     <string name="pref_user_summ">The user to use when connecting to the server</string>
     <string name="pref_user_default">guest</string>
 
+    <string name="pref_pass">Password</string>
+    <string name="pref_pass_summ">The password to use when connecting to the server</string>
+
     <string name="pref_dl_path">Download path</string>
     <string name="pref_dl_path_summ">Where to place downloaded media</string>
     <string name="pref_dl_path_default">/storage/emulated/0/CloudSpill</string>

@@ -1,5 +1,6 @@
 package org.gamboni.cloudspill.server;
 
+import android.content.Context;
 import android.util.Log;
 
 import com.android.volley.AuthFailureError;
@@ -18,8 +19,7 @@ import java.util.Map;
  * Created by tendays on 25.06.17.
  */
 
-public class FileUploadRequest extends Request<Long> {
-    private final Response.Listener<Long> listener;
+public class FileUploadRequest extends AuthenticatingRequest<Long> {
     private final Date date;
     private final byte[] body;
 
@@ -30,18 +30,17 @@ public class FileUploadRequest extends Request<Long> {
      *
      * @param url URL of the request to make
      */
-    public FileUploadRequest(String url, Date date, byte[] body, Response.Listener<Long> listener, Response.ErrorListener errorListener) {
-        super(Method.PUT, url, loggingWrapper(url, errorListener));
+    public FileUploadRequest(Context context, String url, Date date, byte[] body, Response.Listener<Long> listener, Response.ErrorListener errorListener) {
+        super(context, Method.PUT, url, listener, loggingWrapper(url, errorListener));
         this.body = body;
-        this.listener = listener;
         this.date = date;
         if (url.contains("invalid")) { throw new IllegalArgumentException(); }
         Log.d(TAG, "Created request to "+ url);
     }
 
     @Override
-    public Map<String, String> getHeaders() throws AuthFailureError {
-        Map<String, String> headers = new HashMap<>();
+    public Map<String, String> getHeaders() {
+        Map<String, String> headers = super.getHeaders();
         headers.put("X-CloudSpill-Timestamp", Long.toString(date.getTime()));
         return headers;
     }
@@ -81,6 +80,6 @@ public class FileUploadRequest extends Request<Long> {
     protected void deliverResponse(Long response) {
         Log.d(TAG, "Received response "+ response +" from server");
 
-        listener.onResponse(response);
+        super.deliverResponse(response);
     }
 }

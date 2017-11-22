@@ -23,16 +23,14 @@ import java.util.Iterator;
  *
  * @author tendays
  */
-public class ItemsSinceRequest extends Request<Iterable<Domain.Item>> {
+public class ItemsSinceRequest extends AuthenticatingRequest<Iterable<Domain.Item>> {
 
     private static final String TAG = "CloudSpill.itemsSince";
 
-    private final Response.Listener<Iterable<Domain.Item>> listener;
     private final Domain domain;
 
-    public ItemsSinceRequest(String url, Context context, Domain domain, long id, Response.Listener<Iterable<Domain.Item>> listener, Response.ErrorListener errorListener) {
-        super(Method.GET, url +  "/item/since/"+ id, errorListener);
-        this.listener = listener;
+    public ItemsSinceRequest(Context context, String url, Domain domain, long id, Response.Listener<Iterable<Domain.Item>> listener, Response.ErrorListener errorListener) {
+        super(context, Method.GET, url +  "/item/since/"+ id, listener, errorListener);
         this.domain = domain;
     }
 
@@ -89,6 +87,6 @@ public class ItemsSinceRequest extends Request<Iterable<Domain.Item>> {
     protected void deliverResponse(Iterable<Domain.Item> response) {
         Log.d(TAG, "Received response "+ response +" from server");
 
-        listener.onResponse(response);
+        super.deliverResponse(response);
     }
 }

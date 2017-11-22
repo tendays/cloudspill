@@ -6,6 +6,11 @@
         android:summary="@string/pref_user_summ"
         android:defaultValue="@string/pref_user_default"/>
     <EditTextPreference
+        android:key="pref_pass"
+        android:title="@string/pref_pass"
+        android:summary="@string/pref_pass_summ"
+        android:inputType="textPassword"/>
+    <EditTextPreference
         android:key="pref_dl_path"
         android:title="@string/pref_dl_path"
         android:summary="@string/pref_dl_path_summ"
