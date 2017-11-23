@@ -88,6 +88,7 @@ public class CloudSpillServer {
     private Route secured(SecuredBody task) {
     	return (req, res) -> transacted(session -> {
     		final String authHeader = req.headers("Authorization");
+    		//Log.debug("Authorization header: "+ authHeader);
     		final User user;
     		if (authHeader == null) {
     			user = null; // anonymous
@@ -97,35 +98,41 @@ public class CloudSpillServer {
     			int colon = credentials.indexOf(':');
     			if (colon == -1) {
     				Log.error("Invalid Authorization header");
-					res.status(HttpServletResponse.SC_BAD_REQUEST);
-					return null;
+					return badRequest(res);
     			}
     			String username = credentials.substring(0, colon);
     			String password = credentials.substring(colon+1);
     			final List<User> users = session.selectUser().add(Restrictions.eq("name", username)).list();
     			if (users.isEmpty()) {
     				Log.error("Unknown user "+ username);
-    				res.status(HttpServletResponse.SC_FORBIDDEN);
-    				return null;
+    				return forbidden(res);
     			}
     			user = Iterables.getOnlyElement(users);
     			final String queryHash = BCrypt.hashpw(password, user.getSalt());
     			if (!queryHash.equals(user.getPass())) {
     				Log.error("Invalid credentials for user "+ username);
-    				res.status(HttpServletResponse.SC_FORBIDDEN);
-    				return null;
+    				return forbidden(res);
     			} else {
     				Log.info("User "+ username +" authenticated");
     			}
     		} else {
 				Log.error("Unsupported Authorization scheme");
-				res.status(HttpServletResponse.SC_BAD_REQUEST);
-				return null;
+				return badRequest(res);
     		}
     		
     		return task.handle(req, res, session, user);
     	});
     }
+
+	private Object badRequest(Response res) {
+		res.status(HttpServletResponse.SC_BAD_REQUEST);
+		return "Bad Request";
+	}
+
+	private Object forbidden(Response res) {
+		res.status(HttpServletResponse.SC_FORBIDDEN);
+		return "Forbidden";
+	}
     
     private <R> R transacted(TransactionBody<R> task) throws Exception {
     	Session session = null;
@@ -184,10 +191,10 @@ public class CloudSpillServer {
     	
     	/* Used by clients to ensure connectivity is available. In the future this may
     	 * also return a version string to ensure compatibility. */
-    	get("/ping", (req, res) ->
+    	get("/ping", secured((req, res, session, user) ->
     		// WARN: currently the frontend requires precisely this syntax, spaces included
     		"CloudSpill server.\n"
-    		+ "Data-Version: "+ DATA_VERSION);
+    		+ "Data-Version: "+ DATA_VERSION));
     	
     	/* Just for testing */
         get("/item/:id/path", secured((req, res, session, user) -> {

@@ -61,7 +61,7 @@ public class ConnectivityTestRequest extends AuthenticatingRequest<String> {
     }
 
     private ConnectivityTestRequest(Context context, String pingUrl, Listener listener) {
-        super(context, pingUrl, listener, listener);
+        super(context, Method.GET, pingUrl, listener, listener);
         this.listener = listener;
     }
 

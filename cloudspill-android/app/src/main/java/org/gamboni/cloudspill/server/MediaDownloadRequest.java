@@ -16,7 +16,7 @@ public class MediaDownloadRequest extends AuthenticatingRequest<byte[]> {
     public MediaDownloadRequest(Context context, String serverUrl, long serverId,
                                 Response.Listener<byte[]> listener, Response.ErrorListener errorListener,
                                 Integer thumbnailSize) {
-        super(context, buildUrl(serverUrl, serverId, thumbnailSize), listener, errorListener);
+        super(context, Method.GET, buildUrl(serverUrl, serverId, thumbnailSize), listener, errorListener);
         setRetryPolicy(new DefaultRetryPolicy(/*timeout*/30_000, /*retries*/3, /*backoff multiplier*/2));
     }
 
