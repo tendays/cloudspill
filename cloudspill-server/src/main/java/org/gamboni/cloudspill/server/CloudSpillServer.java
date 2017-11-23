@@ -24,6 +24,7 @@ import java.util.List;
 
 import javax.imageio.ImageIO;
 import javax.inject.Inject;
+import javax.servlet.http.HttpServletResponse;
 
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.Item;
@@ -37,11 +38,14 @@ import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.mindrot.jbcrypt.BCrypt;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
+
+import spark.Request;
+import spark.Response;
+import spark.Route;
 
 /**
  * @author tendays
@@ -75,6 +79,52 @@ public class CloudSpillServer {
     
     private interface TransactionBody<R> {
     	R run(Domain s) throws Exception;
+    }
+    
+    private interface SecuredBody {
+    	Object handle(Request request, Response response, Domain session, User user) throws Exception;
+    }
+    
+    private Route secured(SecuredBody task) {
+    	return (req, res) -> transacted(session -> {
+    		final String authHeader = req.headers("Authorization");
+    		final User user;
+    		if (authHeader == null) {
+    			user = null; // anonymous
+    		} else if (authHeader.startsWith("Basic ")) {
+    			final String token = authHeader.substring("Basic ".length()).trim();
+    			final String credentials = new String(Base64.getDecoder().decode(token));
+    			int colon = credentials.indexOf(':');
+    			if (colon == -1) {
+    				Log.error("Invalid Authorization header");
+					res.status(HttpServletResponse.SC_BAD_REQUEST);
+					return null;
+    			}
+    			String username = credentials.substring(0, colon);
+    			String password = credentials.substring(colon+1);
+    			final List<User> users = session.selectUser().add(Restrictions.eq("name", username)).list();
+    			if (users.isEmpty()) {
+    				Log.error("Unknown user "+ username);
+    				res.status(HttpServletResponse.SC_FORBIDDEN);
+    				return null;
+    			}
+    			user = Iterables.getOnlyElement(users);
+    			final String queryHash = BCrypt.hashpw(password, user.getSalt());
+    			if (!queryHash.equals(user.getPass())) {
+    				Log.error("Invalid credentials for user "+ username);
+    				res.status(HttpServletResponse.SC_FORBIDDEN);
+    				return null;
+    			} else {
+    				Log.info("User "+ username +" authenticated");
+    			}
+    		} else {
+				Log.error("Unsupported Authorization scheme");
+				res.status(HttpServletResponse.SC_BAD_REQUEST);
+				return null;
+    		}
+    		
+    		return task.handle(req, res, session, user);
+    	});
     }
     
     private <R> R transacted(TransactionBody<R> task) throws Exception {
@@ -116,34 +166,6 @@ public class CloudSpillServer {
     	/* Access logging */
     	before((req, res) -> {
     		Log.info(req.ip() +" "+ req.uri());
-    		final String authHeader = req.headers("Authorization");
-    		if (authHeader == null) {
-    			return;
-    		} else if (authHeader.startsWith("Basic ")) {
-    			final String token = authHeader.substring("Basic ".length()).trim();
-    			final String credentials = new String(Base64.getDecoder().decode(token));
-    			int colon = credentials.indexOf(':');
-    			if (colon == -1) {
-    				throw new IllegalArgumentException("Invalid credentials");
-    			}
-    			String username = credentials.substring(0, colon);
-    			String password = credentials.substring(colon+1);
-    			transacted(session -> {
-    				final List<User> users = session.selectUser().add(Restrictions.eq("name", username)).list();
-    				if (users.isEmpty()) {
-    					Log.error("Unknown user "+ username);
-    					return null;
-    				}
-    				User user = Iterables.getOnlyElement(users);
-    				final String queryHash = BCrypt.hashpw(password, user.getSalt());
-    				if (!queryHash.equals(user.getPass())) {
-    					Log.error("Invalid credentials for user "+ username);
-    				} else {
-    					Log.info("User "+ username +" authenticated");
-    				}
-    				return null;
-    			});
-    		}
     	});
     	
     	post("/user/:name", (req, res) -> transacted(session -> {
@@ -168,13 +190,13 @@ public class CloudSpillServer {
     		+ "Data-Version: "+ DATA_VERSION);
     	
     	/* Just for testing */
-        get("/item/:id/path", (req, res) -> transacted(session -> {
+        get("/item/:id/path", secured((req, res, session, user) -> {
         	Item item = session.get(Item.class, Long.parseLong(req.params("id")));
         	return item.getPath();
         }));
         
         /* Download a file */
-        get("/item/:id", (req, res) -> transacted(session -> {
+        get("/item/:id", secured((req, res, session, user) -> {
         	Item item = session.get(Item.class, Long.parseLong(req.params("id")));
         	File file = item.getFile(rootFolder);
         	res.header("Content-Type", "image/jpeg");
