@@ -88,10 +88,11 @@ public class CloudSpillServer {
     private Route secured(SecuredBody task) {
     	return (req, res) -> transacted(session -> {
     		final String authHeader = req.headers("Authorization");
-    		//Log.debug("Authorization header: "+ authHeader);
     		final User user;
     		if (authHeader == null) {
-    			user = null; // anonymous
+    			Log.error("Missing Authorization header");
+    			return unauthorized(res);
+    			// Other option: user = null; // anonymous
     		} else if (authHeader.startsWith("Basic ")) {
     			final String token = authHeader.substring("Basic ".length()).trim();
     			final String credentials = new String(Base64.getDecoder().decode(token));
@@ -105,13 +106,13 @@ public class CloudSpillServer {
     			final List<User> users = session.selectUser().add(Restrictions.eq("name", username)).list();
     			if (users.isEmpty()) {
     				Log.error("Unknown user "+ username);
-    				return forbidden(res);
+    				return forbidden(res, true);
     			}
     			user = Iterables.getOnlyElement(users);
     			final String queryHash = BCrypt.hashpw(password, user.getSalt());
     			if (!queryHash.equals(user.getPass())) {
     				Log.error("Invalid credentials for user "+ username);
-    				return forbidden(res);
+    				return forbidden(res, true);
     			} else {
     				Log.info("User "+ username +" authenticated");
     			}
@@ -123,13 +124,40 @@ public class CloudSpillServer {
     		return task.handle(req, res, session, user);
     	});
     }
+    
+    private Object notFound(Response res, long item) {
+    	Log.error("Not found: item "+ item);
+    	res.status(HttpServletResponse.SC_NOT_FOUND);
+    	return "Not Found";
+    }
+    
+    private Object gone(Response res, long item, File file) {
+    	Log.error("Gone: "+ file +" for item "+ item);
+    	res.status(HttpServletResponse.SC_GONE);
+    	return "Gone";
+    }
 
 	private Object badRequest(Response res) {
 		res.status(HttpServletResponse.SC_BAD_REQUEST);
 		return "Bad Request";
 	}
 
-	private Object forbidden(Response res) {
+	private Object unauthorized(Response res) {
+		res.status(HttpServletResponse.SC_UNAUTHORIZED);
+		loginPrompt(res);
+		return "Unauthorized";
+	}
+
+	private void loginPrompt(Response res) {
+		res.header("WWW-Authenticate", "Basic realm=\"CloudSpill\"");
+	}
+
+	private Object forbidden(Response res, boolean loginPrompt) {
+		if (loginPrompt) {
+			return unauthorized(res);
+			// I was hoping that a 403 with a www-authenticate would prompt the browser to show a login dialog, but it does not (Firefox)
+			//loginPrompt(res);
+		}
 		res.status(HttpServletResponse.SC_FORBIDDEN);
 		return "Forbidden";
 	}
@@ -175,6 +203,7 @@ public class CloudSpillServer {
     		Log.info(req.ip() +" "+ req.uri());
     	});
     	
+    	// TODO secure this one (but must allow to somehow create a first user when none exist yet)
     	post("/user/:name", (req, res) -> transacted(session -> {
     		User u = new User();
     		u.setName(requireNotNull(req.params("name")));
@@ -215,10 +244,19 @@ public class CloudSpillServer {
         }));
         
         /* Download a thumbnail */
-        get("/thumbs/:size/:id", (req, res) -> transacted(session -> {
-        	Item item = session.get(Item.class, Long.parseLong(req.params("id")));
+        get("/thumbs/:size/:id", secured((req, res, session, user) -> {
+        	final long id = Long.parseLong(req.params("id"));
+			Item item = session.get(Item.class, id);
+        	if (item == null) {
+        		return notFound(res, id);
+        	}
         	int size = Integer.parseInt(req.params("size"));
         	File file = item.getFile(rootFolder);
+        	
+        	if (!file.exists()) {
+        		return gone(res, item.getId(), file);
+        	}
+        	
         	res.header("Content-Type", "image/jpeg");
         	// load an image
         	Image image = ImageIO.read(file);
@@ -268,7 +306,7 @@ public class CloudSpillServer {
         }));
         
         /* Get list of items whose id is larger than the given one. */
-        get("item/since/:id", (req, res) -> transacted(domain -> {
+        get("item/since/:id", secured((req, res, domain, user) -> {
         	StringBuilder result = new StringBuilder();
         	
 			for (Item item : domain.selectItem()
@@ -282,7 +320,7 @@ public class CloudSpillServer {
         }));
         
         /* Upload a file */
-        put("/item/:user/:folder/*", (req, res) -> transacted(session -> {
+        put("/item/:user/:folder/*", secured((req, res, session, user) -> {
         	
         	/*if (req.bodyAsBytes() == null) {
         		Log.warn("Missing body");
@@ -290,13 +328,17 @@ public class CloudSpillServer {
         		return null;
         	}*/
         	
-        	String user = req.params("user");
+        	String username = req.params("user");
+        	if (!user.getName().equals(username)) {
+        		Log.error("User "+ user.getName() +" attempted to upload to folder of user "+ username);
+        		return forbidden(res, false);
+        	}
         	String folder = req.params("folder");
 			String path = req.splat()[0];
-			Log.debug("user is "+ user +", folder is "+ folder +" and path is "+ path);
+			Log.debug("user is "+ username +", folder is "+ folder +" and path is "+ path);
         	
 			// Normalise given path
-        	File folderPath = append(append(rootFolder, user), folder);
+        	File folderPath = append(append(rootFolder, username), folder);
 			File requestedTarget = append(folderPath, path);
         	
         	if (requestedTarget == null) {
@@ -312,7 +354,7 @@ public class CloudSpillServer {
         	
         	/* First see if the path already exists. */
         	List<Item> existing = session.selectItem()
-        		.add(Restrictions.eq("user", user))
+        		.add(Restrictions.eq("user", username))
         		.add(Restrictions.eq("folder", folder))
         		.add(Restrictions.eq("path", normalisedPath))
         		.list();
@@ -322,7 +364,7 @@ public class CloudSpillServer {
 				Item item = new Item();
 				item.setFolder(folder);
 				item.setPath(normalisedPath);
-				item.setUser(user);
+				item.setUser(username);
 				// TODO create shared artifact between backend and frontend to hold this kind of constants
 				final String timestampHeader = req.headers("X-CloudSpill-Timestamp");
 				if (timestampHeader != null) {
