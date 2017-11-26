@@ -7,6 +7,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.support.annotation.Nullable;
 import android.util.Log;
+import android.util.LruCache;
 import android.util.TypedValue;
 
 import com.android.volley.Response;
@@ -48,6 +49,39 @@ public class ThumbnailIntentService extends IntentService {
     private Domain domain;
     private List<Domain.Item> itemList;
     private AbstractDomain.Query<Domain.Item> itemQuery;
+
+    private static final LruCache<Integer, BitmapWithItem> memoryCache;
+
+    static {
+        // Source: https://developer.android.com/topic/performance/graphics/cache-bitmap.html
+
+        // Get max available VM memory, exceeding this amount will throw an
+        // OutOfMemory exception. Stored in kilobytes as LruCache takes an
+        // int in its constructor.
+        final int maxMemory = (int) (Runtime.getRuntime().maxMemory() / 1024);
+
+        // Use 1/8th of the available memory for this memory cache.
+        final int cacheSize = maxMemory / 8;
+
+        memoryCache = new LruCache<Integer, BitmapWithItem>(cacheSize) {
+            @Override
+            protected int sizeOf(Integer key, BitmapWithItem entry) {
+                // The cache size will be measured in kilobytes rather than
+                // number of items.
+                return entry.bitmap.getByteCount() / 1024;
+            }
+        };
+    }
+
+    private static class BitmapWithItem {
+        final Domain.Item item;
+        final Bitmap bitmap;
+
+        public BitmapWithItem(Domain.Item item, Bitmap bitmap) {
+            this.item = item;
+            this.bitmap = bitmap;
+        }
+    }
 
     public ThumbnailIntentService() {
         super(ThumbnailIntentService.class.getSimpleName());
@@ -151,6 +185,14 @@ public class ThumbnailIntentService extends IntentService {
     }
 
     public static void loadThumbnail(Context context, int position, Callback callback) {
+        BitmapWithItem cached = memoryCache.get(position);
+
+        if (cached != null) {
+            final Set<Callback> callbackSet = Collections.singleton(callback);
+            publishItem(callbackSet, cached.item);
+            publishBitmap(callbackSet, cached.bitmap);
+            return;
+        }
 
         Log.d(TAG, "Loading "+ position);//file);
         Intent intent = new Intent(context, ThumbnailIntentService.class);
@@ -171,17 +213,6 @@ public class ThumbnailIntentService extends IntentService {
         final Domain.Item item = itemList.get(position);
 
         publishItem(peekCallbacks(position), item);
-
-        final File thumbFile = new File(getCacheDir(), "thumbs/"+ item.id +".jpeg");
-
-        if (thumbFile.exists()) {
-            Bitmap bitmap = BitmapFactory.decodeFile(thumbFile.getPath());
-            if (bitmap == null) {
-                Log.w(TAG, "decodeFile("+ thumbFile.getPath() +") returned null");
-            } else {
-                publishBitmap(getCallbacks(position), bitmap);
-            }
-        }
 
         final FileBuilder file = item.getFile();
 
@@ -204,7 +235,7 @@ public class ThumbnailIntentService extends IntentService {
                         (int) (bitmap.getHeight() * ratio), false);
                 publishBitmap(getCallbacks(position), bitmap);
 
-                cacheThumb(thumbFile, bitmap);
+                cacheThumb(position, item, bitmap);
             } catch (FileNotFoundException fnf) {
                 Log.e(TAG, "Could not load file but exists returns true", fnf);
             }
@@ -222,7 +253,7 @@ public class ThumbnailIntentService extends IntentService {
                     public void onResponse(byte[] response) {
                         final Bitmap bitmap = BitmapFactory.decodeByteArray(response, 0, response.length);
                         publishBitmap(getCallbacks(position), bitmap);
-                        cacheThumb(thumbFile, bitmap);
+                        cacheThumb(position, item, bitmap);
                     }
                 }, new Response.ErrorListener() {
                     @Override
@@ -235,20 +266,7 @@ public class ThumbnailIntentService extends IntentService {
         }
     }
 
-    private void cacheThumb(File target, Bitmap bitmap) {
-        if (!target.getParentFile().exists()) {
-            target.getParentFile().mkdir();
-        }
-        try {
-            OutputStream out = new FileOutputStream(target);
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 10, out); //What image format and level of compression to use.
-            try {
-                out.close();
-            } catch (IOException io) {
-                Log.e(TAG, "Failed closing thumbnail file", io);
-            }
-        } catch (FileNotFoundException e) {
-            Log.e(TAG, "Failed creating thumbnail file", e);
-        }
+    private void cacheThumb(int position, Domain.Item item, Bitmap bitmap) {
+        memoryCache.put(position, new BitmapWithItem(item, bitmap));
     }
 }
