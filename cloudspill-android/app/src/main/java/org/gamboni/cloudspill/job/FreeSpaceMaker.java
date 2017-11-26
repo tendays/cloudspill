@@ -25,10 +25,10 @@ import java.util.Set;
  *
  * @author tendays
  */
+// TODO [MAJOR] Delete files from (thumbnail) cache as well
 public class FreeSpaceMaker {
     private static final String TAG = "CloudSpill.FSM";
     private static final int MEGA = 1048576;
-
     private final Context context;
     private final Domain domain;
     private final List<Domain.Item> items;

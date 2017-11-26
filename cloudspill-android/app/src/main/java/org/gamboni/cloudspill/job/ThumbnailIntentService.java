@@ -20,7 +20,11 @@ import org.gamboni.cloudspill.message.StatusReport;
 import org.gamboni.cloudspill.server.CloudSpillServerProxy;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -167,25 +171,26 @@ public class ThumbnailIntentService extends IntentService {
         final Domain.Item item = itemList.get(position);
 
         publishItem(peekCallbacks(position), item);
+
+        final File thumbFile = new File(getCacheDir(), "thumbs/"+ item.id +".jpeg");
+
+        if (thumbFile.exists()) {
+            Bitmap bitmap = BitmapFactory.decodeFile(thumbFile.getPath());
+            if (bitmap == null) {
+                Log.w(TAG, "decodeFile("+ thumbFile.getPath() +") returned null");
+            } else {
+                publishBitmap(getCallbacks(position), bitmap);
+            }
+        }
+
         final FileBuilder file = item.getFile();
 
         if (file.exists()) {
             try {
-                // TODO I could not find documentation for that Thumbnails class
-                //MediaStore.Images.Thumbnails.getThumbnail(getContentResolver(), itemList.get(position),
-                //        MediaStore.Images.Thumbnails.MINI_KIND, null);
-
-                // This works, but seems to keep the entire image in memory: imageView.setImageURI(file.getUri());
-
-                    /* from https://stackoverflow.com/questions/13653526/how-to-find-origid-for-getthumbnail-when-taking-a-picture-with-camera-takepictur */
-
                 // Thumbnails are 90dp wide. Convert that to the pixel equivalent:
                 final float smallPx = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, THUMB_SIZE, getResources().getDisplayMetrics());
 
-                // NOTE: this fails with "read failed: ESIDIR (Is a directory)
                 Bitmap bitmap = BitmapFactory.decodeStream(file.read());
-
-                //Bitmap bitmap = BitmapFactory.decodeFile(file.getFileEquivalent().getPath());
 
                 if (bitmap == null) {
                     Log.w(TAG, "decodeStream returned null for "+ file);
@@ -197,10 +202,9 @@ public class ThumbnailIntentService extends IntentService {
                 bitmap = Bitmap.createScaledBitmap(bitmap,
                         (int) (bitmap.getWidth() * ratio),
                         (int) (bitmap.getHeight() * ratio), false);
-
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 10, baos); //What image format and level of compression to use.
                 publishBitmap(getCallbacks(position), bitmap);
+
+                cacheThumb(thumbFile, bitmap);
             } catch (FileNotFoundException fnf) {
                 Log.e(TAG, "Could not load file but exists returns true", fnf);
             }
@@ -216,8 +220,9 @@ public class ThumbnailIntentService extends IntentService {
                 server.downloadThumb(item.serverId, THUMB_SIZE, new Response.Listener<byte[]>() {
                     @Override
                     public void onResponse(byte[] response) {
-                        publishBitmap(getCallbacks(position),
-                                BitmapFactory.decodeByteArray(response, 0, response.length));
+                        final Bitmap bitmap = BitmapFactory.decodeByteArray(response, 0, response.length);
+                        publishBitmap(getCallbacks(position), bitmap);
+                        cacheThumb(thumbFile, bitmap);
                     }
                 }, new Response.ErrorListener() {
                     @Override
@@ -227,6 +232,23 @@ public class ThumbnailIntentService extends IntentService {
                     }
                 });
             }
+        }
+    }
+
+    private void cacheThumb(File target, Bitmap bitmap) {
+        if (!target.getParentFile().exists()) {
+            target.getParentFile().mkdir();
+        }
+        try {
+            OutputStream out = new FileOutputStream(target);
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 10, out); //What image format and level of compression to use.
+            try {
+                out.close();
+            } catch (IOException io) {
+                Log.e(TAG, "Failed closing thumbnail file", io);
+            }
+        } catch (FileNotFoundException e) {
+            Log.e(TAG, "Failed creating thumbnail file", e);
         }
     }
 }
