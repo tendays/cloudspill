@@ -2,6 +2,7 @@ package org.gamboni.cloudspill.server;
 
 import android.content.Context;
 import android.support.annotation.NonNull;
+import android.util.Base64;
 import android.util.Log;
 
 import com.android.volley.RequestQueue;
@@ -141,7 +142,10 @@ public class CloudSpillServerProxy {
         try {
             connection = (HttpURLConnection)new URL(url +"/item/"+ user +"/" + folder +"/"+ path).openConnection();
             connection.setRequestMethod("PUT");
-            // TODO [MAJOR][Security] include authentication header
+            // include authentication header
+            final String credentials = SettingsActivity.getUser(context) + ":" + SettingsActivity.getPassword(context);
+            connection.setRequestProperty("Authorization", "Basic "+ Base64.encodeToString(credentials.getBytes(), Base64.NO_WRAP));
+
             // Using chunked transfer to prevent caching at server side :(
             connection.setChunkedStreamingMode(1048576);
             //connection.setFixedLengthStreamingMode(bytes);
