@@ -5,6 +5,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.os.AsyncTask;
+import android.os.Environment;
 import android.support.annotation.Nullable;
 import android.util.Log;
 import android.util.LruCache;
@@ -12,6 +14,7 @@ import android.util.TypedValue;
 
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
+import com.bumptech.glide.disklrucache.DiskLruCache;
 
 import org.gamboni.cloudspill.domain.AbstractDomain;
 import org.gamboni.cloudspill.domain.Domain;
@@ -33,6 +36,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static android.os.Environment.isExternalStorageRemovable;
+
 /** This service is responsible for acquiring thumbnails for local or remote items and passing them to
  * callbacks in the form of {@link Bitmap} objects.
  *
@@ -51,6 +56,11 @@ public class ThumbnailIntentService extends IntentService {
     private AbstractDomain.Query<Domain.Item> itemQuery;
 
     private static final LruCache<Integer, BitmapWithItem> memoryCache;
+
+    // Source: https://developer.android.com/topic/performance/graphics/cache-bitmap.html
+    // TODO relies on Glide. Replace by copy-pasted implementation when removing Glide dependency
+    private static DiskLruCache diskLruCache;
+    private static final int DISK_CACHE_SIZE = 1024 * 1024 * 10; // 10MB
 
     static {
         // Source: https://developer.android.com/topic/performance/graphics/cache-bitmap.html
@@ -73,11 +83,41 @@ public class ThumbnailIntentService extends IntentService {
         };
     }
 
+    /** Ensure disk cache is ready and return it (must be done on service thread).
+     * If cache could not be created, returns null. */
+    private @Nullable DiskLruCache getDiskCache() {
+        if (diskLruCache == null) {
+
+// Creates a unique subdirectory of the designated app cache directory. Tries to use external
+// but if not mounted, falls back on internal storage.
+            // Check if media is mounted or storage is built-in, if so, try and use external cache dir
+            // otherwise use internal cache dir
+
+            final File externalCacheDir = getExternalCacheDir();
+            final String cachePath;
+            if ((Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED) ||
+                    !isExternalStorageRemovable()) && externalCacheDir != null) {
+                cachePath = externalCacheDir.getPath();
+            } else {
+                cachePath = this.getCacheDir().getPath();
+            }
+
+            File cacheDir = new File(cachePath + File.separator + "thumbs");
+
+            try {
+                diskLruCache = DiskLruCache.open(cacheDir, 0, 1, DISK_CACHE_SIZE);
+            } catch (IOException e) {
+                Log.e(TAG, "Failed initialising cache directory " + cacheDir, e);
+            }
+        }
+        return diskLruCache;
+    }
+
     private static class BitmapWithItem {
         final Domain.Item item;
         final Bitmap bitmap;
 
-        public BitmapWithItem(Domain.Item item, Bitmap bitmap) {
+        BitmapWithItem(Domain.Item item, Bitmap bitmap) {
             this.item = item;
             this.bitmap = bitmap;
         }
@@ -211,8 +251,20 @@ public class ThumbnailIntentService extends IntentService {
         if (!hasCallbacks(position)) { return; } // callbacks got cancelled
         if (itemList.size() <= position) { return; } // asking thumbnails beyond the end of the list
         final Domain.Item item = itemList.get(position);
+        final String diskCacheKey = String.valueOf(item.serverId);
 
         publishItem(peekCallbacks(position), item);
+
+        final DiskLruCache diskCache = getDiskCache();
+
+        if (diskCache != null) {
+            try {
+                diskCache.get(diskCacheKey).;
+            } catch (IOException e) {
+                Log.w(TAG, "Failed reading item " + item.serverId + " from disk cache" +, e);
+                // Behave as if missing from cache
+            }
+        }
 
         final FileBuilder file = item.getFile();
 
