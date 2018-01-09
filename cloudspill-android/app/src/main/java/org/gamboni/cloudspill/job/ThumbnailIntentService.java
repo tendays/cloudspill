@@ -14,10 +14,10 @@ import android.util.TypedValue;
 
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
-import com.bumptech.glide.disklrucache.DiskLruCache;
 
 import org.gamboni.cloudspill.domain.AbstractDomain;
 import org.gamboni.cloudspill.domain.Domain;
+import org.gamboni.cloudspill.file.DiskLruCache;
 import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.message.SettableStatusListener;
 import org.gamboni.cloudspill.message.StatusReport;
@@ -28,6 +28,8 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
 import java.io.OutputStream;
 import java.util.Collections;
 import java.util.HashMap;
@@ -61,6 +63,10 @@ public class ThumbnailIntentService extends IntentService {
     // TODO relies on Glide. Replace by copy-pasted implementation when removing Glide dependency
     private static DiskLruCache diskLruCache;
     private static final int DISK_CACHE_SIZE = 1024 * 1024 * 10; // 10MB
+    /** This disk cache key stores the size of the data record in bytes. */
+    private static final int DISK_CACHE_SIZE_KEY = 0;
+    /** This disk cache key stores the binary image compressed data. */
+    private static final int DISK_CACHE_DATA_KEY = 1;
 
     static {
         // Source: https://developer.android.com/topic/performance/graphics/cache-bitmap.html
@@ -85,7 +91,8 @@ public class ThumbnailIntentService extends IntentService {
 
     /** Ensure disk cache is ready and return it (must be done on service thread).
      * If cache could not be created, returns null. */
-    private @Nullable DiskLruCache getDiskCache() {
+    private @Nullable
+    DiskLruCache getDiskCache() {
         if (diskLruCache == null) {
 
 // Creates a unique subdirectory of the designated app cache directory. Tries to use external
@@ -249,7 +256,7 @@ public class ThumbnailIntentService extends IntentService {
 
         final int position = intent.getIntExtra(POSITION_PARAM, -1);
         if (!hasCallbacks(position)) { return; } // callbacks got cancelled
-        if (itemList.size() <= position) { return; } // asking thumbnails beyond the end of the list
+        if (position >= itemList.size()) { return; } // asking thumbnails beyond the end of the list
         final Domain.Item item = itemList.get(position);
         final String diskCacheKey = String.valueOf(item.serverId);
 
@@ -259,9 +266,24 @@ public class ThumbnailIntentService extends IntentService {
 
         if (diskCache != null) {
             try {
-                diskCache.get(diskCacheKey).;
+                final DiskLruCache.Snapshot cacheEntry = diskCache.get(diskCacheKey);
+                if (cacheEntry != null) {
+                    Log.d(TAG, "Found disk cache entry for id "+ diskCacheKey);
+                    // Inspired by https://stackoverflow.com/a/36519516
+                    byte[] bytes = new byte[Integer.parseInt(cacheEntry.getString(DISK_CACHE_SIZE_KEY))];
+                    final InputStream inputStream = cacheEntry.getInputStream(DISK_CACHE_DATA_KEY);
+                    int off=0;
+                    int len;
+                    while ((len = inputStream.read(bytes, off, bytes.length - off)) > 0) {
+                        off += len;
+                    }
+                    final Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0, off);
+
+                    publishBitmap(getCallbacks(position), bitmap);
+                    cacheThumb(position, item, bitmap);
+                }
             } catch (IOException e) {
-                Log.w(TAG, "Failed reading item " + item.serverId + " from disk cache" +, e);
+                Log.w(TAG, "Failed reading item " + item.serverId + " from disk cache", e);
                 // Behave as if missing from cache
             }
         }
@@ -287,6 +309,7 @@ public class ThumbnailIntentService extends IntentService {
                         (int) (bitmap.getHeight() * ratio), false);
                 publishBitmap(getCallbacks(position), bitmap);
 
+                /* Don't bother caching thumbnail if full image exists on disk. */
                 cacheThumb(position, item, bitmap);
             } catch (FileNotFoundException fnf) {
                 Log.e(TAG, "Could not load file but exists returns true", fnf);
@@ -306,6 +329,19 @@ public class ThumbnailIntentService extends IntentService {
                         final Bitmap bitmap = BitmapFactory.decodeByteArray(response, 0, response.length);
                         publishBitmap(getCallbacks(position), bitmap);
                         cacheThumb(position, item, bitmap);
+                        if (diskCache != null) {
+                            try {
+                                final DiskLruCache.Editor cacheEditor = diskCache.edit(diskCacheKey);
+                                ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                                bitmap.compress(Bitmap.CompressFormat.PNG, 5, bytes);
+                                cacheEditor.set(DISK_CACHE_SIZE_KEY, String.valueOf(bytes.size()));
+                                cacheEditor.newOutputStream(DISK_CACHE_DATA_KEY).write(bytes.toByteArray(), 0, bytes.size());
+                                cacheEditor.commit();
+                                Log.d(TAG, "Created disk cache entry for id "+ diskCacheKey);
+                            } catch (IOException e) {
+                                Log.e(TAG, "Failed writing to disk cache", e);
+                            }
+                        }
                     }
                 }, new Response.ErrorListener() {
                     @Override
