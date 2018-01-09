@@ -31,4 +31,9 @@ public class ServerConfiguration {
 	public File getRepositoryPath() {
 		return new File(prop.getProperty("repositoryPath"));
 	}
+	
+	public boolean allowAnonymousUserCreation() {
+		String value = prop.getProperty("allowAnonymousUserCreation");
+		return (prop != null) && prop.equals("true");
+	}
 }

@@ -203,23 +203,26 @@ public class CloudSpillServer {
     		Log.info(req.ip() +" "+ req.uri());
     	});
     	
-    	// TODO secure this one (but must allow to somehow create a first user when none exist yet)
-    	post("/user/:name", (req, res) -> transacted(session -> {
-    		User u = new User();
-    		u.setName(requireNotNull(req.params("name")));
-    		
-    		String salt = BCrypt.gensalt();
-    		u.setSalt(salt);
-    		
-    		u.setPass(BCrypt.hashpw(requireNotNull(req.queryParams("pass")), salt));
-    		
-    		session.persist(u);
-    		
-    		return true;
-    	}));
-    	
-    	/* Used by clients to ensure connectivity is available. In the future this may
-    	 * also return a version string to ensure compatibility. */
+		SecuredBody createUser = (req, res, session, user) -> {
+			User u = new User();
+			u.setName(requireNotNull(req.params("name")));
+
+			String salt = BCrypt.gensalt();
+			u.setSalt(salt);
+
+			u.setPass(BCrypt.hashpw(requireNotNull(req.queryParams("pass")), salt));
+
+			session.persist(u);
+
+			return true;
+		};
+
+		post("/user/:name",
+				configuration.allowAnonymousUserCreation() ?
+						(req, res) -> transacted(session -> createUser.handle(req, res, session, /* user */null))
+						: secured(createUser));
+
+    	/* Used by clients to ensure connectivity is available and check API compatibility. */
     	get("/ping", secured((req, res, session, user) ->
     		// WARN: currently the frontend requires precisely this syntax, spaces included
     		"CloudSpill server.\n"
