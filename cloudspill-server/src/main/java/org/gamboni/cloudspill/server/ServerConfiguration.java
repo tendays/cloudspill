@@ -34,6 +34,6 @@ public class ServerConfiguration {
 	
 	public boolean allowAnonymousUserCreation() {
 		String value = prop.getProperty("allowAnonymousUserCreation");
-		return (prop != null) && prop.equals("true");
+		return (value != null) && value.equals("true");
 	}
 }
