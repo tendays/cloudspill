@@ -244,13 +244,10 @@ public final class DiskLruCache implements Closeable {
                         + magic + ", " + version + ", " + valueCountString + ", " + blank + "]");
             }
             int lineCount = 0;
-            while (true) {
-                try {
-                    readJournalLine(reader.readLine());
-                    lineCount++;
-                } catch (EOFException endOfJournal) {
-                    break;
-                }
+            String line;
+            while ((line = reader.readLine()) != null) {
+                readJournalLine(line);
+                lineCount++;
             }
             redundantOpCount = lineCount - lruEntries.size();
         } finally {

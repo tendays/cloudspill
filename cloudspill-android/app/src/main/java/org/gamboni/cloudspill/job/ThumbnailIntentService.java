@@ -60,7 +60,6 @@ public class ThumbnailIntentService extends IntentService {
     private static final LruCache<Integer, BitmapWithItem> memoryCache;
 
     // Source: https://developer.android.com/topic/performance/graphics/cache-bitmap.html
-    // TODO relies on Glide. Replace by copy-pasted implementation when removing Glide dependency
     private static DiskLruCache diskLruCache;
     private static final int DISK_CACHE_SIZE = 1024 * 1024 * 10; // 10MB
     /** This disk cache key stores the size of the data record in bytes. */
@@ -112,7 +111,7 @@ public class ThumbnailIntentService extends IntentService {
             File cacheDir = new File(cachePath + File.separator + "thumbs");
 
             try {
-                diskLruCache = DiskLruCache.open(cacheDir, 0, 1, DISK_CACHE_SIZE);
+                diskLruCache = DiskLruCache.open(cacheDir, 0, 2, DISK_CACHE_SIZE);
             } catch (IOException e) {
                 Log.e(TAG, "Failed initialising cache directory " + cacheDir, e);
             }

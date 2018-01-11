@@ -33,6 +33,7 @@ public class ServerConfiguration {
 	}
 	
 	public boolean allowAnonymousUserCreation() {
+		// TODO this should actually be a command line option so it has less chance to stick
 		String value = prop.getProperty("allowAnonymousUserCreation");
 		return (value != null) && value.equals("true");
 	}
