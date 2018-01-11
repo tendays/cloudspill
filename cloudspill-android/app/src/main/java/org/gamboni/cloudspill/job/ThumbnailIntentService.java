@@ -280,6 +280,7 @@ public class ThumbnailIntentService extends IntentService {
 
                     publishBitmap(getCallbacks(position), bitmap);
                     cacheThumb(position, item, bitmap);
+                    return;
                 }
             } catch (IOException e) {
                 Log.w(TAG, "Failed reading item " + item.serverId + " from disk cache", e);
