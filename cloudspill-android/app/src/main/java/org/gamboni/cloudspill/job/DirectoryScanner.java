@@ -88,7 +88,6 @@ public class DirectoryScanner {
             Log.e(TAG, "Folder is not readable: "+ folder);
             return;
         }
-
         List<FileBuilder> files = folder.listFiles();
         if (files == null) {
             Log.e(TAG, "Path is not a directory: "+ folder);
@@ -100,45 +99,48 @@ public class DirectoryScanner {
         listener.updatePercent(percentage);
 
         for (FileBuilder file : files) {
-            if (file.getName().startsWith(".")) {
-                Log.d(TAG, "Skipping "+ file +" because it starts with a dot");
-                continue;
-            }
-            if (file.isDirectory()) {
-                scan(root, file);
-            } else {
-
-                final String path = root.getFile().getRelativePath(file);
-                if (pathsInDb.remove(path)) {
-                    // Log.d(TAG, path +" already exists in DB");
+            try {
+                if (file.getName().startsWith(".")) {
+                    Log.d(TAG, "Skipping " + file + " because it starts with a dot");
                     continue;
                 }
-                Log.d(TAG, file.toString());
-                byte[] preamble = loadFile(file, FileTypeChecker.PREAMBLE_LENGTH);
-                if (preamble == null) {
-                    continue;
-                }
-                FileTypeChecker ftc = new FileTypeChecker(preamble);
-                final ItemType type = ftc.getType();
-                switch (type) {
-                    case IMAGE:
-                        addFile(root, file, path, type);
-                        break;
-                    case VIDEO:
-                        // videos tend to be large, and 'addFile' requires them to fit in memory
-                        streamFile(root, file, path, type);
-                        break;
-                    case UNKNOWN:
-                        Log.d(TAG, "Not any recognised format");
-                        break;
-                }
-            }
 
-            processed++;
-            int newPercentage = processed * 100 / files.size();
-            if (percentage != newPercentage) {
-                percentage = newPercentage;
-                listener.updatePercent(percentage);
+                if (file.isDirectory()) {
+                    scan(root, file);
+                } else {
+
+                    final String path = root.getFile().getRelativePath(file);
+                    if (pathsInDb.remove(path)) {
+                        // Log.d(TAG, path +" already exists in DB");
+                        continue;
+                    }
+                    Log.d(TAG, file.toString());
+                    byte[] preamble = loadFile(file, FileTypeChecker.PREAMBLE_LENGTH);
+                    if (preamble == null) {
+                        continue;
+                    }
+                    FileTypeChecker ftc = new FileTypeChecker(preamble);
+                    final ItemType type = ftc.getType();
+                    switch (type) {
+                        case IMAGE:
+                            addFile(root, file, path, type);
+                            break;
+                        case VIDEO:
+                            // videos tend to be large, and 'addFile' requires them to fit in memory
+                            streamFile(root, file, path, type);
+                            break;
+                        case UNKNOWN:
+                            Log.d(TAG, "Not any recognised format");
+                            break;
+                    }
+                }
+            } finally {
+                processed++;
+                int newPercentage = processed * 100 / files.size();
+                if (percentage != newPercentage) {
+                    percentage = newPercentage;
+                    listener.updatePercent(percentage);
+                }
             }
         }
 
