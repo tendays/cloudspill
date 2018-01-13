@@ -69,9 +69,9 @@ public class CloudSpillIntentService extends IntentService {
 
     @Override
     protected void onHandleIntent(@Nullable Intent intent) {
-        Log.i(TAG, "Starting batch");
         SettingsActivity.PrefMobileUpload mobileUpload = SettingsActivity.getMobileUpload(this);
         Trigger trigger = Trigger.valueOf(intent.getStringExtra(PARAM_TRIGGER));
+        Log.i(TAG, "Starting batch after "+ trigger +" Trigger");
 
                 /* Highest priority: free some space so user may take more pictures */
         Log.i(TAG, "Running FreeSpaceMaker");

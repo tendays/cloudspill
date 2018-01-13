@@ -10,6 +10,7 @@ import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.Volley;
 
+import org.gamboni.cloudspill.domain.ItemType;
 import org.gamboni.cloudspill.domain.ServerInfo;
 import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.message.StatusReport;
@@ -129,7 +130,7 @@ public class CloudSpillServerProxy {
 
     private static final int BUF_SIZE = 4096;
 
-    public void upload(String folder, String path, Date date, InputStream body, long bytes, Response.Listener<Long> listener, Response.ErrorListener onError) {
+    public void upload(String folder, String path, Date date, ItemType type, InputStream body, long bytes, Response.Listener<Long> listener, Response.ErrorListener onError) {
         // TODO [MAJOR][Performance] run all this in a separate thread
         Log.d(TAG, "UploadingVideo "+ folder +"/"+ path);
 //        String url = "http://192.168.44.189:4567"; // Temporary replacement for testing
@@ -145,7 +146,8 @@ public class CloudSpillServerProxy {
             // include authentication header
             final String credentials = SettingsActivity.getUser(context) + ":" + SettingsActivity.getPassword(context);
             connection.setRequestProperty("Authorization", "Basic "+ Base64.encodeToString(credentials.getBytes(), Base64.NO_WRAP));
-
+            connection.setRequestProperty("X-CloudSpill-Timestamp", Long.toString(date.getTime()));
+            connection.setRequestProperty("X-CloudSpill-Type", type.name());
             // Using chunked transfer to prevent caching at server side :(
             connection.setChunkedStreamingMode(1048576);
             //connection.setFixedLengthStreamingMode(bytes);
@@ -198,10 +200,11 @@ public class CloudSpillServerProxy {
         }
     }
 
-    public void upload(String folder, String path, Date date, byte[] body, Response.Listener<Long> listener, Response.ErrorListener onError) {
+    public void upload(String folder, String path, Date date, ItemType type, byte[] body, Response.Listener<Long> listener, Response.ErrorListener onError) {
         Log.d(TAG, "Uploading "+ body.length +" bytes");
         queue.add(new FileUploadRequest(context, url +"/item/"+ user +"/" + folder +"/"+ path,
                 date,
+                type,
                 body,
                 listener,
                 onError));

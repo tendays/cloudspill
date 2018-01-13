@@ -10,6 +10,8 @@ import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.HttpHeaderParser;
 
+import org.gamboni.cloudspill.domain.ItemType;
+
 import java.io.UnsupportedEncodingException;
 import java.util.Date;
 import java.util.HashMap;
@@ -21,6 +23,7 @@ import java.util.Map;
 
 public class FileUploadRequest extends AuthenticatingRequest<Long> {
     private final Date date;
+    private final ItemType type;
     private final byte[] body;
 
     private static final String TAG = "CloudSpill.Upload";
@@ -30,10 +33,11 @@ public class FileUploadRequest extends AuthenticatingRequest<Long> {
      *
      * @param url URL of the request to make
      */
-    public FileUploadRequest(Context context, String url, Date date, byte[] body, Response.Listener<Long> listener, Response.ErrorListener errorListener) {
+    public FileUploadRequest(Context context, String url, Date date, ItemType type, byte[] body, Response.Listener<Long> listener, Response.ErrorListener errorListener) {
         super(context, Method.PUT, url, listener, loggingWrapper(url, errorListener));
         this.body = body;
         this.date = date;
+        this.type = type;
         if (url.contains("invalid")) { throw new IllegalArgumentException(); }
         Log.d(TAG, "Created request to "+ url);
     }
@@ -42,6 +46,7 @@ public class FileUploadRequest extends AuthenticatingRequest<Long> {
     public Map<String, String> getHeaders() {
         Map<String, String> headers = super.getHeaders();
         headers.put("X-CloudSpill-Timestamp", Long.toString(date.getTime()));
+        headers.put("X-CloudSpill-Type", type.name());
         return headers;
     }
 

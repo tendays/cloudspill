@@ -58,6 +58,15 @@ public class DirectoryScanner {
     }
 
     public void run() {
+        // Trying to understand why videos have wrong timestamps
+        final File mediaDateTestFile = new File("/storage/emulated/0/DCIM/Tnotecamera/VID_20180110_182900.mp4");
+        if (mediaDateTestFile.exists()) {
+            Log.d(TAG,
+                    "getMediaDate test: " + this.getMediaDate(
+                            new FileBuilder.FileBased(context, mediaDateTestFile),
+                            null));
+        }
+
         Log.d(TAG, "hotfix output: "+ domain.hotfix());
 
         Log.d(TAG, "Starting run with queue "+ queue);
@@ -221,7 +230,7 @@ public class DirectoryScanner {
         byte[] body = loadFile(file, (int)file.length());
         final Date date = getMediaDate(file, body);
 
-        server.upload(folder, path, date, body, new Response.Listener<Long>() {
+        server.upload(folder, path, date, type, body, new Response.Listener<Long>() {
             @Override
             public void onResponse(Long response) {
                 Log.d(TAG, "Received new id "+ response);
@@ -272,7 +281,7 @@ public class DirectoryScanner {
         InputStream body = getInputStream(file);
         final Date date = getMediaDate(file, /*body (unused)*/null);
 
-        server.upload(folder, path, date, body, file.length(), new Response.Listener<Long>() {
+        server.upload(folder, path, date, type, body, file.length(), new Response.Listener<Long>() {
                     @Override
                     public void onResponse(Long response) {
                         Log.d(TAG, "Received new id "+ response);

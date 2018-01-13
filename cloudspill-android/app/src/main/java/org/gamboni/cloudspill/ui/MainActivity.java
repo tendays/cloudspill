@@ -76,8 +76,9 @@ public class MainActivity extends AppCompatActivity implements StatusReport {
         AlarmManager am = (AlarmManager) getSystemService(ALARM_SERVICE);
         am.cancel(pi); // cancel any existing alarms
         am.setInexactRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                SystemClock.elapsedRealtime() + AlarmManager.INTERVAL_HALF_DAY,
-                AlarmManager.INTERVAL_HALF_DAY, pi);
+                SystemClock.elapsedRealtime() + AlarmManager.INTERVAL_HOUR,
+                AlarmManager.INTERVAL_HOUR, pi);
+        Log.i(TAG, "Scheduled repeating alarm");
     }
 
     @Override
