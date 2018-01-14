@@ -2,6 +2,7 @@ package org.gamboni.cloudspill.file;
 
 import android.content.Context;
 import android.net.Uri;
+import android.support.annotation.Nullable;
 import android.support.v4.provider.DocumentFile;
 import android.util.Log;
 
@@ -389,7 +390,7 @@ public abstract class FileBuilder {
      *
      * @return a {@link File} pointing to the same resource as this object, or null if matching failed.
      */
-    public synchronized File getFileEquivalent() {
+    public synchronized @Nullable File getFileEquivalent() {
         String uriString = getUri().toString();
         Matcher matcher = FILE_EQUIVALENT_URI.matcher(uriString);
         if (matcher.matches()) {

@@ -61,7 +61,7 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
 
                     Log.d(TAG, "File exists. Java File equivalent: "+ javaFile);
                     if (javaFile != null) {
-                        openItem(Uri.fromFile(javaFile), "image/jpeg");
+                        openItem(Uri.fromFile(javaFile), item.type.asMime());
                     } else {
                         openItem(file.getUri(), /*mime=auto*/null);
                     }

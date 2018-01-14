@@ -5,8 +5,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.media.ThumbnailUtils;
 import android.os.AsyncTask;
 import android.os.Environment;
+import android.provider.MediaStore;
 import android.support.annotation.Nullable;
 import android.util.Log;
 import android.util.LruCache;
@@ -17,6 +19,7 @@ import com.android.volley.VolleyError;
 
 import org.gamboni.cloudspill.domain.AbstractDomain;
 import org.gamboni.cloudspill.domain.Domain;
+import org.gamboni.cloudspill.domain.ItemType;
 import org.gamboni.cloudspill.file.DiskLruCache;
 import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.message.SettableStatusListener;
@@ -234,13 +237,14 @@ public class ThumbnailIntentService extends IntentService {
         BitmapWithItem cached = memoryCache.get(position);
 
         if (cached != null) {
+            Log.d(TAG, "Found "+ position +" in mem cache (serverId="+ cached.item.serverId +")");
             final Set<Callback> callbackSet = Collections.singleton(callback);
             publishItem(callbackSet, cached.item);
             publishBitmap(callbackSet, cached.bitmap);
             return;
         }
 
-        Log.d(TAG, "Loading "+ position);//file);
+        Log.d(TAG, "Loading "+ position);
         Intent intent = new Intent(context, ThumbnailIntentService.class);
         intent.putExtra(POSITION_PARAM, position);
 
@@ -292,25 +296,36 @@ public class ThumbnailIntentService extends IntentService {
 
         if (file.exists()) {
             try {
-                // Thumbnails are 90dp wide. Convert that to the pixel equivalent:
-                final float smallPx = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, THUMB_SIZE, getResources().getDisplayMetrics());
+                Log.d(TAG, "Creating thumbnail for local "+ item.type.name().toLowerCase());
+                if (item.type == ItemType.IMAGE) {
+                    // Thumbnails are 90dp wide. Convert that to the pixel equivalent:
+                    final float smallPx = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, THUMB_SIZE, getResources().getDisplayMetrics());
 
-                Bitmap bitmap = BitmapFactory.decodeStream(file.read());
+                    Bitmap bitmap = BitmapFactory.decodeStream(file.read());
 
-                if (bitmap == null) {
-                    Log.w(TAG, "decodeStream returned null for "+ file);
-                    return;
-                }
-                // scale the *shortest* dimension to 'smallPx' so (after cropping) the image fills the whole thumbnail
-                float ratio = smallPx / Math.min(bitmap.getWidth(), bitmap.getHeight());
+                    if (bitmap == null) {
+                        Log.w(TAG, "decodeStream returned null for " + file);
+                        return;
+                    }
+                    // scale the *shortest* dimension to 'smallPx' so (after cropping) the image fills the whole thumbnail
+                    float ratio = smallPx / Math.min(bitmap.getWidth(), bitmap.getHeight());
 
-                bitmap = Bitmap.createScaledBitmap(bitmap,
-                        (int) (bitmap.getWidth() * ratio),
-                        (int) (bitmap.getHeight() * ratio), false);
-                publishBitmap(getCallbacks(position), bitmap);
+                    bitmap = Bitmap.createScaledBitmap(bitmap,
+                            (int) (bitmap.getWidth() * ratio),
+                            (int) (bitmap.getHeight() * ratio), false);
+                    publishBitmap(getCallbacks(position), bitmap);
 
                 /* Don't bother caching thumbnail if full image exists on disk. */
-                cacheThumb(position, item, bitmap);
+                    cacheThumb(position, item, bitmap);
+                } else if (item.type == ItemType.VIDEO) {
+                    final File fileEquivalent = file.getFileEquivalent();
+                    if (fileEquivalent != null) {
+                        final Bitmap thumbnail = ThumbnailUtils.createVideoThumbnail(fileEquivalent.getPath(), MediaStore.Images.Thumbnails.MINI_KIND);
+                        publishBitmap(getCallbacks(position), thumbnail);
+                    }
+                } else {
+                    Log.w(TAG, item.path +" has no specified type");
+                }
             } catch (FileNotFoundException fnf) {
                 Log.e(TAG, "Could not load file but exists returns true", fnf);
             }

@@ -161,7 +161,19 @@ public class Domain extends AbstractDomain {
 
     /** I don't know how to access the database on my android device so I put my commands here instead. */
     public int hotfix() {
-        return 0;//new ItemQuery().eq(Item._SERVER_ID, 12179).delete();
+        ContentValues setImageType = new ContentValues();
+        setImageType.put(Item._TYPE, ItemType.IMAGE.name());
+        int imageCount = new ItemQuery()
+                .like(Item._PATH, "%.jpg")
+                .eq(Item._TYPE, null)
+                .update(setImageType);
+
+        ContentValues setVideoType = new ContentValues();
+        setVideoType.put(Item._TYPE, ItemType.VIDEO.name());
+        return imageCount + new ItemQuery()
+                .like(Item._PATH, "%.mp4")
+                .eq(Item._TYPE, null)
+                .update(setVideoType);
     }
 
     private static final String[] FOLDER_COLUMNS = {

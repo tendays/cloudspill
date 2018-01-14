@@ -16,4 +16,13 @@ public enum ItemType {
             return UNKNOWN;
         }
     }
+
+    public String asMime() {
+        switch (this) {
+            case IMAGE: return  "image/jpeg";
+            case VIDEO: return "video/mp4";
+            case UNKNOWN: return "application/octet-stream";
+        }
+        throw new IllegalArgumentException("Unsupported type "+ this);
+    }
 }

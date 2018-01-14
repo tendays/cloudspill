@@ -54,7 +54,7 @@ public abstract class AbstractDomain extends SQLiteOpenHelper {
         }
 
         public Query<T> eq(String column, Object value) {
-            return restriction(column +" = ?", value);
+            return (value == null) ? restriction(column +" is null") : restriction(column +" = ?", value);
         }
 
         public Query<T> like(String column, String pattern) {
@@ -62,13 +62,18 @@ public abstract class AbstractDomain extends SQLiteOpenHelper {
         }
 
         protected Query<T> restriction(String sql, Object arg) {
+            restriction(sql);
+            args.add(String.valueOf(arg));
+
+            return this;
+        }
+
+        protected Query<T> restriction(String sql) {
             if (selection == null) {
                 selection = sql;
             } else {
                 selection += " and "+ sql;
             }
-            args.add(String.valueOf(arg));
-
             return this;
         }
 
