@@ -16,16 +16,21 @@ import java.awt.image.ImageObserver;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.List;
+import java.util.function.BiFunction;
 
 import javax.imageio.ImageIO;
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletResponse;
 
+import org.bytedeco.javacv.FFmpegFrameGrabber;
+import org.bytedeco.javacv.FrameGrabber;
+import org.bytedeco.javacv.Java2DFrameConverter;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.ItemType;
@@ -261,49 +266,10 @@ public class CloudSpillServer {
         	}
         	
         	res.header("Content-Type", "image/jpeg");
-        	// load an image
-        	Image image = ImageIO.read(file);
-        	
-        	final ImageObserver imageObserver = (Image img, int infoflags, int x, int y, int newWidth, int height) ->
-        		((infoflags | ImageObserver.ALLBITS) == ImageObserver.ALLBITS);
-        	
-			int width = image.getWidth(imageObserver);
-			int height = image.getHeight(imageObserver);
-			int min = Math.min(width, height);
-			
-			// Not clear if this happens in real life?
-			if (min < 0) { throw new IllegalStateException("Asynchronous image io is not supported"); }
-			
-        	// Have the *smallest* dimension of the image be the requested 'size'
-        	final int scaledWidth = width * size / min;
-			final int scaledHeight = height * size / min;
-			image = image.getScaledInstance(scaledWidth, scaledHeight, Image.SCALE_SMOOTH);
-			
-        	// Convert abstract Image into RenderedImage. 
-        	BufferedImage renderedImage = new BufferedImage(size, size, BufferedImage.TYPE_3BYTE_BGR);
-        	boolean[] ready = new boolean[]{false};
-        	ready[0] = renderedImage.createGraphics().drawImage(image,
-        			/* Center 'image' on 'renderedImage' (which may be smaller if 'image' is not square) */
-        			(size - scaledWidth) / 2,
-        			(size - scaledHeight) / 2,
-        			(these, infoflags, parameters, are, not, needed) -> {
-        				if ((infoflags | ImageObserver.ALLBITS) == ImageObserver.ALLBITS) {
-        					synchronized (ready) {
-        						ready[0] = true;
-        						ready.notify();
-        					}
-        					return false;
-        				} else {
-        					return true; // need more data
-        				}
-        			}
-        	);
-        	
-        	synchronized (ready) {
-        		while (!ready[0]) {
-        			ready.wait();
-        		}
-        	}
+        	BufferedImage renderedImage = 
+        	 (item.getType() == ItemType.IMAGE) ?        		
+        	createImageThumbnail(file, size) :
+        		createVideoThumbnail(file, size);
         	ImageIO.write(renderedImage, "jpeg", res.raw().getOutputStream());
         	return true;
         }));
@@ -412,4 +378,74 @@ public class CloudSpillServer {
 			}
         }));
     }
+    
+    private BufferedImage createVideoThumbnail(File file, int size) throws IOException {
+    	FFmpegFrameGrabber g = new FFmpegFrameGrabber(file);
+    	try {
+			g.start();
+		
+			final BufferedImage frame = new Java2DFrameConverter().convert(g.grabImage());
+
+			return resize(frame.getWidth(), frame.getHeight(), size, (scaledWidth, scaledHeight) -> 
+				frame.getScaledInstance(scaledWidth, scaledHeight, Image.SCALE_DEFAULT));
+			
+    	} catch (FrameGrabber.Exception e) {
+    		throw new RuntimeException(e);
+		}
     }
+
+	private BufferedImage createImageThumbnail(File file, int size) throws IOException {
+		// load an image
+		Image image = ImageIO.read(file);
+		
+		final ImageObserver imageObserver = (Image img, int infoflags, int x, int y, int newWidth, int height) ->
+			((infoflags | ImageObserver.ALLBITS) == ImageObserver.ALLBITS);
+		
+		return resize(image.getWidth(imageObserver), image.getHeight(imageObserver), size, (scaledWidth, scaledHeight) -> 
+			 image.getScaledInstance(scaledWidth, scaledHeight, Image.SCALE_SMOOTH));
+	}
+	
+	private BufferedImage resize(int width, int height, int targetSize, BiFunction<Integer, Integer, Image> resizeFunction) {
+
+		int min = Math.min(width, height);
+		
+		// Not clear if this happens in real life?
+		if (min < 0) { throw new IllegalStateException("Asynchronous image io is not supported"); }
+		
+		// Have the *smallest* dimension of the image be the requested 'size'
+		final int scaledWidth = width * targetSize / min;
+		final int scaledHeight = height * targetSize / min;
+		Image scaledImage = resizeFunction.apply(scaledWidth, scaledHeight);
+		
+		// Convert abstract Image into RenderedImage.
+		BufferedImage renderedImage = new BufferedImage(targetSize, targetSize, BufferedImage.TYPE_3BYTE_BGR);
+		boolean[] ready = new boolean[] { false };
+		ready[0] = renderedImage.createGraphics().drawImage(scaledImage,
+				/*
+				 * Center 'image' on 'renderedImage' (which may be smaller
+				 * if 'image' is not square)
+				 */
+				(targetSize - scaledWidth) / 2, (targetSize - scaledHeight) / 2,
+				(these, infoflags, parameters, are, not, needed) -> {
+					if ((infoflags | ImageObserver.ALLBITS) == ImageObserver.ALLBITS) {
+						synchronized (ready) {
+							ready[0] = true;
+							ready.notify();
+						}
+						return false;
+					} else {
+						return true; // need more data
+					}
+				});
+
+		synchronized (ready) {
+			try {
+				while (!ready[0]) {
+					ready.wait();
+				}
+			} catch (InterruptedException e) {
+			}
+		}
+		return renderedImage;
+	}
+}
