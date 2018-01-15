@@ -4,13 +4,16 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
 
+import org.gamboni.cloudspill.R;
 import org.gamboni.cloudspill.domain.Domain;
+import org.gamboni.cloudspill.domain.ItemType;
 import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.job.MediaDownloader;
 import org.gamboni.cloudspill.job.ThumbnailIntentService;
@@ -48,6 +51,7 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
         this.position = position;
 
         this.setImageBitmap(null);
+        this.getOverlay().clear();
         this.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -110,6 +114,11 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
             activity.runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
+                    final Drawable playIcon = activity.getDrawable(R.drawable.ic_play_circle_outline_black_24dp);
+                    playIcon.setBounds(0, 0, 100, 100);
+                    if (item.type == ItemType.VIDEO) {
+                        getOverlay().add(playIcon);
+                    }
                     ThumbnailView.this.setImageBitmap(bitmap);
                 }
             });
