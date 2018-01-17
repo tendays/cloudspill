@@ -73,6 +73,7 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
                     // File doesn't exist - download it first
                     Log.d(TAG, "Item#"+ item.serverId +" not found - issuing download");
 
+
                     MediaDownloader.download(activity, item, new MediaDownloader.MediaListener() {
                         @Override
                         public void mediaReady(Uri location) {

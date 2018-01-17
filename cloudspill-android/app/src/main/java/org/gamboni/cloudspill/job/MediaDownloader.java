@@ -18,6 +18,7 @@ import org.gamboni.cloudspill.server.CloudSpillServerProxy;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -106,17 +107,23 @@ public class MediaDownloader extends IntentService {
             statusListener.updateMessage(StatusReport.Severity.ERROR, "Download directory not writable: "+ parent);
         }
 
-        server.download(serverId,
-                new Response.Listener<byte[]>() {
+        server.stream(serverId,
+                new Response.Listener<InputStream>() {
                     @Override
-                    public void onResponse(byte[] response) {
+                    public void onResponse(InputStream response) {
                         Log.d(TAG, "Received item "+ serverId);
                         OutputStream o = null;
                         try {
                             o = target.write(MediaDownloader.this, "image/jpeg");
-                            o.write(response);
+                            byte[] buf = new byte[4096];
+                            int len;
+                            while ((len = response.read(buf)) > 0) {
+                                o.write(buf, 0, len);
+                            }
                         } catch (IOException e) {
                             Log.e(TAG, "Writing "+ serverId +" to "+ target +" failed", e);
+                            // Delete partially downloaded file otherwise next time it won't reattempt download
+                            target.delete();
                             statusListener.updateMessage(StatusReport.Severity.ERROR, "Media storage error: "+ e);
                             return;
                         } finally {

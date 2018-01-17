@@ -130,73 +130,56 @@ public class CloudSpillServerProxy {
 
     private static final int BUF_SIZE = 4096;
 
-    public void upload(String folder, String path, Date date, ItemType type, InputStream body, long bytes, Response.Listener<Long> listener, Response.ErrorListener onError) {
+    public void upload(final String folder, final String path, Date date, ItemType type, final InputStream body,
+                       final long bytes, final Response.Listener<Long> listener, final Response.ErrorListener onError) {
         // TODO [MAJOR][Performance] run all this in a separate thread
         Log.d(TAG, "UploadingVideo "+ folder +"/"+ path);
-//        String url = "http://192.168.44.189:4567"; // Temporary replacement for testing
-//        String url = "http://10.0.0.6:4567"; // Temporary replacement for testing
-        OutputStream out = null;
-        BufferedReader response = null;
-        HttpURLConnection connection = null;
-        int loggedPercentage = 0; // latest displayed percentage
-        int transmitted = 0; // how many bytes have been pushed so far
+
         try {
-            connection = (HttpURLConnection)new URL(url +"/item/"+ user +"/" + folder +"/"+ path).openConnection();
-            connection.setRequestMethod("PUT");
-            // include authentication header
-            final String credentials = SettingsActivity.getUser(context) + ":" + SettingsActivity.getPassword(context);
-            connection.setRequestProperty("Authorization", "Basic "+ Base64.encodeToString(credentials.getBytes(), Base64.NO_WRAP));
-            connection.setRequestProperty("X-CloudSpill-Timestamp", Long.toString(date.getTime()));
-            connection.setRequestProperty("X-CloudSpill-Type", type.name());
+            new AuthenticatingConnection(context,
+                AuthenticatingConnection.RequestMethod.PUT,
+                url +"/item/"+ user +"/" + folder +"/"+ path)
+            .setHeader(AuthenticatingConnection.RequestHeader.TIMESTAMP, Long.toString(date.getTime()))
+            .setHeader(AuthenticatingConnection.RequestHeader.TYPE, type.name())
             // Using chunked transfer to prevent caching at server side :(
-            connection.setChunkedStreamingMode(1048576);
-            //connection.setFixedLengthStreamingMode(bytes);
-            connection.setDoOutput(true);
-            out = connection.getOutputStream();
-            byte[] buffer = new byte[BUF_SIZE];
-            int readLen;
-            while ((readLen = body.read(buffer)) > 0) {
-                out.write(buffer, 0, readLen);
-                transmitted += readLen;
-                int percentage = (int) (transmitted * 100 / bytes);
-                if (percentage/10 > loggedPercentage/10) {
-                    Log.d(TAG, "UploadingVideo "+ folder +"/"+ path +" ["+ percentage +"%]");
-                    loggedPercentage = percentage;
+            .setChunkedStreamingMode(1048576)
+            .setDoOutput()
+            .connect(new AuthenticatingConnection.Session() {
+                @Override
+                public void run(AuthenticatingConnection.Connected connected) throws IOException {
+                    BufferedReader response = null;
+
+                    int loggedPercentage = 0; // latest displayed percentage
+                    int transmitted = 0; // how many bytes have been pushed so far
+
+                    OutputStream out = null;
+                    out = connected.getOutput();
+                    byte[] buffer = new byte[BUF_SIZE];
+                    int readLen;
+                    while ((readLen = body.read(buffer)) > 0) {
+                        out.write(buffer, 0, readLen);
+                        transmitted += readLen;
+                        int percentage = (int) (transmitted * 100 / bytes);
+                        if (percentage / 10 > loggedPercentage / 10) {
+                            Log.d(TAG, "UploadingVideo " + folder + "/" + path + " [" + percentage + "%]");
+                            loggedPercentage = percentage;
+                        }
+                    }
+                    response = new BufferedReader(new InputStreamReader(connected.getInput()));
+                    String responseText = response.readLine();
+                    if (responseText == null) {
+                        Log.e(TAG, "No response");
+                        onError.onErrorResponse(new VolleyError("No response received from server"));
+                        return;
+                    }
+                    long id = Long.parseLong(responseText);
+                    Log.i(TAG, "Received id " + id);
+                    listener.onResponse(id);
                 }
-            }
-            response = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-            String responseText = response.readLine();
-            if (responseText == null) {
-                Log.e(TAG, "No response");
-                onError.onErrorResponse(new VolleyError("No response received from server"));
-                return;
-            }
-            long id = Long.parseLong(responseText);
-            Log.i(TAG, "Received id "+ id);
-            // To avoid polluting my phone with test ids
-            // onError.onErrorResponse(new VolleyError("Video upload temporarily disabled"));
-            listener.onResponse(id);
+            });
         } catch (IOException e) {
             Log.e(TAG, "Uploading failed", e);
             onError.onErrorResponse(new VolleyError("I/O problem when uploading", e));
-        } finally {
-            if (out != null) {
-                try {
-                    out.close();
-                } catch (IOException e) {
-                    // Whatever
-                }
-            }
-            if (response != null) {
-                try {
-                    response.close();
-                } catch (IOException e) {
-                    // Whatever
-                }
-            }
-            if (connection != null) {
-                connection.disconnect();
-            }
         }
     }
 
@@ -210,9 +193,20 @@ public class CloudSpillServerProxy {
                 onError));
     }
 
-    public void download(long serverId, Response.Listener<byte[]> listener, Response.ErrorListener onError) {
-        Log.d(TAG, "Downloading item#"+ serverId);
-        queue.add(new MediaDownloadRequest(context, url, serverId, listener, onError, null));
+    public void stream(long serverId, final Response.Listener<InputStream> listener, Response.ErrorListener onError) {
+        Log.d(TAG, "Streaming item#"+ serverId);
+        try {
+            new AuthenticatingConnection(context, AuthenticatingConnection.RequestMethod.GET,
+                    url + "/item/" + serverId)
+                    .connect(new AuthenticatingConnection.Session() {
+                        @Override
+                        public void run(AuthenticatingConnection.Connected connected) throws IOException {
+                            listener.onResponse(connected.getInput());
+                        }
+                    });
+        } catch (IOException e) {
+            Log.e(TAG, "Streaming file failed", e);
+        }
     }
 
     public void downloadThumb(long serverId, int thumbSize, Response.Listener<byte[]> listener, Response.ErrorListener onError) {
