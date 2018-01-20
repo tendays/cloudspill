@@ -10,7 +10,9 @@ import static spark.Spark.post;
 import static spark.Spark.put;
 import static spark.Spark.threadPool;
 
+import java.awt.Graphics2D;
 import java.awt.Image;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.awt.image.ImageObserver;
 import java.io.File;
@@ -43,6 +45,13 @@ import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.mindrot.jbcrypt.BCrypt;
 
+import com.drew.imaging.ImageMetadataReader;
+import com.drew.imaging.ImageProcessingException;
+import com.drew.metadata.Directory;
+import com.drew.metadata.MetadataException;
+import com.drew.metadata.exif.ExifIFD0Descriptor;
+import com.drew.metadata.exif.ExifIFD0Directory;
+import com.drew.metadata.exif.ExifSubIFDDescriptor;
 import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
 import com.google.inject.Guice;
@@ -380,13 +389,12 @@ public class CloudSpillServer {
     }
     
     private BufferedImage createVideoThumbnail(File file, int size) throws IOException {
-    	FFmpegFrameGrabber g = new FFmpegFrameGrabber(file);
-    	try {
+    	try (FFmpegFrameGrabber g = new FFmpegFrameGrabber(file)) {
 			g.start();
 		
 			final BufferedImage frame = new Java2DFrameConverter().convert(g.grabImage());
 
-			return resize(frame.getWidth(), frame.getHeight(), size, (scaledWidth, scaledHeight) -> 
+			return resize(frame.getWidth(), frame.getHeight(), size, 1, (scaledWidth, scaledHeight) -> 
 				frame.getScaledInstance(scaledWidth, scaledHeight, Image.SCALE_DEFAULT));
 			
     	} catch (FrameGrabber.Exception e) {
@@ -400,12 +408,20 @@ public class CloudSpillServer {
 		
 		final ImageObserver imageObserver = (Image img, int infoflags, int x, int y, int newWidth, int height) ->
 			((infoflags | ImageObserver.ALLBITS) == ImageObserver.ALLBITS);
+			int orientation;
+			try {
+				final ExifIFD0Directory directory = ImageMetadataReader.readMetadata(file).getFirstDirectoryOfType(ExifIFD0Directory.class);
+				orientation = directory.getInt(ExifIFD0Directory.TAG_ORIENTATION);
+			} catch (ImageProcessingException | MetadataException e) {
+				Log.error(e.getMessage());
+				orientation = 1;
+			}
 		
-		return resize(image.getWidth(imageObserver), image.getHeight(imageObserver), size, (scaledWidth, scaledHeight) -> 
+		return resize(image.getWidth(imageObserver), image.getHeight(imageObserver), size, orientation, (scaledWidth, scaledHeight) -> 
 			 image.getScaledInstance(scaledWidth, scaledHeight, Image.SCALE_SMOOTH));
 	}
 	
-	private BufferedImage resize(int width, int height, int targetSize, BiFunction<Integer, Integer, Image> resizeFunction) {
+	private BufferedImage resize(int width, int height, int targetSize, int orientation, BiFunction<Integer, Integer, Image> resizeFunction) {
 
 		int min = Math.min(width, height);
 		
@@ -420,7 +436,24 @@ public class CloudSpillServer {
 		// Convert abstract Image into RenderedImage.
 		BufferedImage renderedImage = new BufferedImage(targetSize, targetSize, BufferedImage.TYPE_3BYTE_BGR);
 		boolean[] ready = new boolean[] { false };
-		ready[0] = renderedImage.createGraphics().drawImage(scaledImage,
+		final Graphics2D graphics = renderedImage.createGraphics();
+		if (orientation == 6) {
+			final AffineTransform transform = graphics.getTransform();
+			transform.translate(targetSize, 0);
+			transform.rotate(Math.toRadians(90));
+			graphics.setTransform(transform);
+		} else if (orientation == 3) {
+			final AffineTransform transform = graphics.getTransform();
+			transform.translate(targetSize, targetSize);
+			transform.rotate(Math.toRadians(180));
+			graphics.setTransform(transform);
+		} else if (orientation == 8) {
+			final AffineTransform transform = graphics.getTransform();
+			transform.translate(0, targetSize);
+			transform.rotate(Math.toRadians(270));
+			graphics.setTransform(transform);
+		}
+		ready[0] = graphics.drawImage(scaledImage,
 				/*
 				 * Center 'image' on 'renderedImage' (which may be smaller
 				 * if 'image' is not square)
