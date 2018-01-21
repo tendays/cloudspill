@@ -204,6 +204,10 @@ public class MainActivity extends AppCompatActivity implements StatusReport {
         return true;
     }
 
+    public void onFilterClicked(View view) {
+        new FilterFragment().show(getFragmentManager(), FilterFragment.class.getSimpleName());
+    }
+
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         // Handle menu item selection

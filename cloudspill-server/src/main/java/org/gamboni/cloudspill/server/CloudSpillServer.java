@@ -411,7 +411,7 @@ public class CloudSpillServer {
 			int orientation;
 			try {
 				final ExifIFD0Directory directory = ImageMetadataReader.readMetadata(file).getFirstDirectoryOfType(ExifIFD0Directory.class);
-				orientation = directory.getInt(ExifIFD0Directory.TAG_ORIENTATION);
+				orientation = (directory == null) ? 1 : directory.getInt(ExifIFD0Directory.TAG_ORIENTATION);
 			} catch (ImageProcessingException | MetadataException e) {
 				Log.error(e.getMessage());
 				orientation = 1;

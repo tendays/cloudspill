@@ -10,4 +10,13 @@
         <item>APP_OPEN</item>
         <item>NEVER</item>
     </string-array>
+
+    <string-array name="filter_sort_entries">
+        <item>Recent first</item>
+        <item>Old first</item>
+    </string-array>
+    <string-array name="filter_sort_entryValues">
+        <item>DATE_DESC</item>
+        <item>DATE_ASC</item>
+    </string-array>
 </resources>

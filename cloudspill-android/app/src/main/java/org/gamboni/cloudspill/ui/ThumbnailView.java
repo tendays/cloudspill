@@ -112,12 +112,19 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
 
     @Override
         public void setThumbnail(final Bitmap bitmap) {
+        if (item == null) {
+            // TODO find out why this happens
+            Log.w(TAG, "item is not set!", new IllegalStateException());
+        }
             activity.runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     final Drawable playIcon = activity.getDrawable(R.drawable.ic_play_circle_outline_black_24dp);
                     playIcon.setBounds(0, 0, 100, 100);
-                    if (item.type == ItemType.VIDEO) {
+                    if (item == null) {
+                        // TODO find out why this happens
+                        Log.w(TAG, "item is not set! (ui thread)");
+                    } else if (item.type == ItemType.VIDEO) {
                         getOverlay().add(playIcon);
                     }
                     ThumbnailView.this.setImageBitmap(bitmap);
