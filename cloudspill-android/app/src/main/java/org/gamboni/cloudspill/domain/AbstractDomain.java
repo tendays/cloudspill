@@ -5,7 +5,6 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
-import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -42,12 +41,41 @@ public abstract class AbstractDomain extends SQLiteOpenHelper {
         }
     }
 
+    private class ColumnQuery<U> extends Query<U> {
+        final String selection;
+        final Class<U> columnType;
+
+        ColumnQuery(Query<?> base, String selection, Class<U> columnType) {
+            super(base.tableName);
+            this.restriction = base.restriction;
+            this.ordering = base.ordering;
+            this.args.addAll(base.args);
+
+            this.selection = selection;
+            this.columnType = columnType;
+        }
+
+        @Override
+        public List<U> list() {
+            return new CursorList<U>(list(selection)) {
+                @Override
+                protected U newEntity() {
+                    if (columnType == String.class) {
+                        return (U) cursor.getString(0);
+                    } else {
+                        throw new UnsupportedOperationException("Selecting type "+ columnType.getSimpleName() +" not supported");
+                    }
+                }
+            };
+        }
+    }
+
     public abstract class Query<T> {
         final String tableName;
-        String selection = null;
+        String restriction = null;
         String ordering = null;
         Cursor cursor = null;
-        private List<String> args = new ArrayList<>();
+        protected final List<String> args = new ArrayList<>();
 
         Query(String tableName) {
             this.tableName = tableName;
@@ -69,12 +97,16 @@ public abstract class AbstractDomain extends SQLiteOpenHelper {
         }
 
         protected Query<T> restriction(String sql) {
-            if (selection == null) {
-                selection = sql;
+            if (restriction == null) {
+                restriction = sql;
             } else {
-                selection += " and "+ sql;
+                restriction += " and "+ sql;
             }
             return this;
+        }
+
+        public <U> Query<U> selectDistinct(String column, Class<U> columnType) {
+            return new ColumnQuery<>(this, column, columnType);
         }
 
         public Query<T> orderAsc(String column) {
@@ -89,10 +121,10 @@ public abstract class AbstractDomain extends SQLiteOpenHelper {
             return this;
         }
 
-        protected Cursor list(String[] columns) {
+        protected Cursor list(String... columns) {
             cursor = connect().query(
-                    tableName, columns, selection,
-                    selectionArgs(), null, null, ordering);
+                    tableName, columns, restriction,
+                    restrictionArgs(), null, null, ordering);
 
             cursors.add(cursor);
             return cursor;
@@ -113,14 +145,14 @@ public abstract class AbstractDomain extends SQLiteOpenHelper {
         }
 
         public int update(ContentValues values) {
-            return connect().update(tableName, values, selection, selectionArgs());
+            return connect().update(tableName, values, restriction, restrictionArgs());
         }
 
         public int delete() {
-            return connect().delete(tableName, selection, selectionArgs());
+            return connect().delete(tableName, restriction, restrictionArgs());
         }
 
-        private String[] selectionArgs() {
+        private String[] restrictionArgs() {
             return args.toArray(new String[args.size()]);
         }
 

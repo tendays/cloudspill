@@ -35,16 +35,18 @@ import android.widget.Toast;
 import org.gamboni.cloudspill.CloudSpillIntentService;
 import org.gamboni.cloudspill.R;
 import org.gamboni.cloudspill.domain.Domain;
+import org.gamboni.cloudspill.domain.FilterSpecification;
 import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.job.ThumbnailIntentService;
 import org.gamboni.cloudspill.message.StatusReport;
 
 import java.io.File;
 
-public class MainActivity extends AppCompatActivity implements StatusReport {
+public class MainActivity extends AppCompatActivity implements StatusReport, FilterFragment.FilterListener {
     private static final String TAG = "CloudSpill.Main";
 
     private Domain domain;
+    private FilterSpecification currentFilter = new FilterSpecification(null, null, null, null);
 
     public enum PermissionRequest {
         READ_EXTERNAL_STORAGE,
@@ -209,6 +211,22 @@ public class MainActivity extends AppCompatActivity implements StatusReport {
     }
 
     @Override
+    public Domain getDomain() {
+        return this.domain;
+    }
+
+    @Override
+    public void filterChanged(FilterSpecification filter) {
+        this.currentFilter = filter;
+        // TODO force refresh
+    }
+
+    @Override
+    public FilterSpecification getFilter() {
+        return currentFilter;
+    }
+
+    @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         // Handle menu item selection
         switch (item.getItemId()) {
@@ -257,7 +275,7 @@ public class MainActivity extends AppCompatActivity implements StatusReport {
             Log.d(TAG, "Filling view " + position);
             final ThumbnailView imageView;
             if (convertView == null) {
-                imageView = new ThumbnailView(MainActivity.this, domain);
+                imageView = new ThumbnailView(MainActivity.this);
                 float size = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, /*THUMB_SIZE*/90, getResources().getDisplayMetrics());
                 imageView.setLayoutParams((new GridView.LayoutParams((int)size, (int)size)));
             } else {

@@ -32,15 +32,13 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
 
     private static final int UNSET = -1;
 
-    private final Activity activity;
-    private final Domain domain;
+    private final MainActivity activity;
     private int position = UNSET;
     private Domain.Item item = null;
 
-    public ThumbnailView(Activity activity, Domain domain) {
+    public ThumbnailView(MainActivity activity) {
         super(activity);
         this.activity = activity;
-        this.domain = domain;
 
         this.setScaleType(ImageView.ScaleType.CENTER_CROP);
     }

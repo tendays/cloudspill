@@ -50,5 +50,7 @@
     <string name="filter_from">From</string>
     <string name="filter_to">To</string>
     <string name="filter_by">By</string>
+    <string name="filter_sort">Sort by</string>
+    <string name="filter_date_btn">Pick a date</string>
 
 </resources>
