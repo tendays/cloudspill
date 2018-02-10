@@ -242,6 +242,7 @@ public class MainActivity extends AppCompatActivity implements StatusReport, Fil
 
     private class GalleryAdapter extends BaseAdapter {
         GridView gridView;
+        int stateCounter = 0;
 
         GalleryAdapter(GridView gridView) {
             this.gridView = gridView;
@@ -263,6 +264,12 @@ public class MainActivity extends AppCompatActivity implements StatusReport, Fil
         }
 
         @Override
+        public void notifyDataSetChanged() {
+            stateCounter++;
+            super.notifyDataSetChanged();
+        }
+
+        @Override
         public View getView(final int position, View convertView, ViewGroup parent) {
             Log.d(TAG, "Filling view " + position);
             final ThumbnailView imageView;
@@ -274,7 +281,7 @@ public class MainActivity extends AppCompatActivity implements StatusReport, Fil
                 imageView = (ThumbnailView) convertView;
             }
 
-            imageView.setPosition(position);
+            imageView.setPosition(stateCounter, position);
 
             return imageView;
         }

@@ -34,6 +34,7 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
 
     private final MainActivity activity;
     private int position = UNSET;
+    private int stateCounter = UNSET;
     private Domain.Item item = null;
 
     public ThumbnailView(MainActivity activity) {
@@ -43,14 +44,19 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
         this.setScaleType(ImageView.ScaleType.CENTER_CROP);
     }
 
-    public void setPosition(final int position) {
-        if (this.position == position) { return; }
+    public void setPosition(int stateCounter, final int position) {
+        if (this.position == position && this.stateCounter == stateCounter) { return; }
 
+        this.stateCounter = stateCounter;
         this.position = position;
 
+        forceRefresh();
+    }
+
+    public void forceRefresh() {
         this.setImageBitmap(null);
         this.getOverlay().clear();
-        this.setOnClickListener(new View.OnClickListener() {
+        this.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View view) {
                 if (item == null) { return; } // TODO Not threadsafe
@@ -87,7 +93,6 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
         // auto-delete old tasks pointing to the same target
         ThumbnailIntentService.cancelCallback(this);
         ThumbnailIntentService.loadThumbnail(activity, position, this);
-
     }
 
     private void openItem(Uri uri, String mime) {
