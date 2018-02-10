@@ -19,6 +19,7 @@ import com.android.volley.VolleyError;
 
 import org.gamboni.cloudspill.domain.AbstractDomain;
 import org.gamboni.cloudspill.domain.Domain;
+import org.gamboni.cloudspill.domain.FilterSpecification;
 import org.gamboni.cloudspill.domain.ItemType;
 import org.gamboni.cloudspill.file.DiskLruCache;
 import org.gamboni.cloudspill.file.FileBuilder;
@@ -51,24 +52,60 @@ import static android.os.Environment.isExternalStorageRemovable;
 
 public class ThumbnailIntentService extends IntentService {
 
-    private static final String TAG = "CloudSpill.Thumbnails";
-
     public static final String POSITION_PARAM = "position";
+    private static final String TAG = "CloudSpill.Thumbnails";
     private static final int THUMB_SIZE = 90;
-
-    private Domain domain;
-    private List<Domain.Item> itemList;
-    private AbstractDomain.Query<Domain.Item> itemQuery;
-
-    private static final LruCache<Integer, BitmapWithItem> memoryCache;
-
-    // Source: https://developer.android.com/topic/performance/graphics/cache-bitmap.html
-    private static DiskLruCache diskLruCache;
     private static final int DISK_CACHE_SIZE = 1024 * 1024 * 10; // 10MB
     /** This disk cache key stores the size of the data record in bytes. */
     private static final int DISK_CACHE_SIZE_KEY = 0;
     /** This disk cache key stores the binary image compressed data. */
     private static final int DISK_CACHE_DATA_KEY = 1;
+
+    private Domain domain;
+
+    private class EvaluatedFilter {
+        final FilterSpecification filter;
+        final List<Domain.Item> itemList;
+        final AbstractDomain.Query<Domain.Item> itemQuery;
+        EvaluatedFilter(FilterSpecification filter) {
+            this.filter = filter;
+            this.itemQuery = domain.selectItems();
+            if (currentFilter.from != null) {
+                itemQuery.ge(Domain.Item._DATE, currentFilter.from);
+            }
+            if (currentFilter.to != null) {
+                itemQuery.le(Domain.Item._DATE, currentFilter.to);
+            }
+            if (currentFilter.by != null) {
+                itemQuery.eq(Domain.Item._USER, currentFilter.by);
+            }
+            this.itemList = apply(itemQuery, currentFilter.sort).list();
+        }
+        int size() {
+            return itemList.size();
+        }
+        Domain.Item get(int position) {
+            return itemList.get(position);
+        }
+        boolean isStale() {
+            return this.filter != ThumbnailIntentService.currentFilter;
+        }
+        void close() {
+            itemQuery.close();
+        }
+    }
+
+    private EvaluatedFilter evaluatedFilter = null;
+
+    // Using a Set in case callbacks define equality, to avoid redundant invocations
+    private static final Map<String, Set<Callback>> callbacks = new HashMap<>();
+    private static final Map<Callback, String> callbackKeys = new HashMap<>();
+    private static FilterSpecification currentFilter = FilterSpecification.defaultFilter();
+
+    private static final LruCache<Integer, BitmapWithItem> memoryCache;
+
+    // Source: https://developer.android.com/topic/performance/graphics/cache-bitmap.html
+    private static DiskLruCache diskLruCache;
 
     static {
         // Source: https://developer.android.com/topic/performance/graphics/cache-bitmap.html
@@ -136,29 +173,53 @@ public class ThumbnailIntentService extends IntentService {
         super(ThumbnailIntentService.class.getSimpleName());
     }
 
+    public static void setFilter(FilterSpecification filter) {
+        Log.i(TAG, "Filter changed to: "+ filter);
+        currentFilter = filter;
+        forceRefresh();
+    }
+
+    public static FilterSpecification getCurrentFilter() {
+        return currentFilter;
+    }
+
+    public static void forceRefresh() {
+        memoryCache.evictAll();
+    }
+
     public interface Callback {
         void setItem(Domain.Item item);
         void setThumbnail(Bitmap bitmap);
     }
 
-    // Using a Set in case callbacks define equality, to avoid redundant invocations
-    private static final Map<String, Set<Callback>> callbacks = new HashMap<>();
-    private static final Map<Callback, String> callbackKeys = new HashMap<>();
-
     @Override
     public void onCreate() {
         super.onCreate();
         this.domain = new Domain(this);
-        itemQuery = domain.selectItems();
-        this.itemList = itemQuery.orderDesc(Domain.Item._DATE).list();
+
+        runQuery();
+    }
+
+    private void runQuery() {
+        this.evaluatedFilter = new EvaluatedFilter(currentFilter);
+    }
+
+    private Domain.Query<Domain.Item> apply(Domain.Query<Domain.Item> query, FilterSpecification.Sort sort) {
+        switch (sort) {
+            case DATE_ASC:
+                return query.orderAsc(Domain.Item._DATE);
+            case DATE_DESC:
+                return query.orderDesc(Domain.Item._DATE);
+        }
+        throw new UnsupportedOperationException(sort.toString());
     }
 
     @Override
     public void onDestroy() {
-        itemList = null;
-
-        itemQuery.close();
-        itemQuery = null;
+        if (evaluatedFilter != null) {
+            evaluatedFilter.close();
+            evaluatedFilter = null;
+        }
 
         domain.close();
         domain = null;
@@ -256,11 +317,21 @@ public class ThumbnailIntentService extends IntentService {
     @Override
     protected void onHandleIntent(@Nullable Intent intent) {
         if (intent == null) { return; } // Intent should not be null, but well there's nothing to do if it is
-
+        if (this.evaluatedFilter.isStale()) {
+            runQuery();
+        }
+        EvaluatedFilter myFilter = this.evaluatedFilter;
         final int position = intent.getIntExtra(POSITION_PARAM, -1);
-        if (!hasCallbacks(position)) { return; } // callbacks got cancelled
-        if (position >= itemList.size()) { return; } // asking thumbnails beyond the end of the list
-        final Domain.Item item = itemList.get(position);
+        if (!hasCallbacks(position)) {
+            Log.d(TAG, "Task "+ position +" got cancelled");
+            return;
+        }
+        if (position >= myFilter.size()) {
+            Log.d(TAG, "Aborting task "+ position +": exceeds size "+ myFilter.size());
+            return;
+        }
+        final Domain.Item item = myFilter.get(position);
+        Log.d(TAG, "Item "+ item.id +" at "+ item.path +" with server id "+ item.serverId);
         final String diskCacheKey = String.valueOf(item.serverId);
 
         publishItem(peekCallbacks(position), item);

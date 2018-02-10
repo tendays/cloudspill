@@ -81,8 +81,21 @@ public abstract class AbstractDomain extends SQLiteOpenHelper {
             this.tableName = tableName;
         }
 
+        /** Add an equality condition. {@code value} may be null, in which case an "is null" restriction
+         * is generated.
+         */
         public Query<T> eq(String column, Object value) {
             return (value == null) ? restriction(column +" is null") : restriction(column +" = ?", value);
+        }
+
+        /** Add a "greater-than-or-equal" restriction. */
+        public Query<T> ge(String column, Object value) {
+            return restriction(column +" >= ?", preprocess(value));
+        }
+
+        /** Add a "less-than-or-equl" restriction. */
+        public Query<T> le(String column, Object value) {
+            return restriction(column +" <= ?", preprocess(value));
         }
 
         public Query<T> like(String column, String pattern) {
@@ -218,5 +231,13 @@ public abstract class AbstractDomain extends SQLiteOpenHelper {
     /** Convert a nullable Date coming from an entity object to a number suitable for storing in the database. */
     protected static Long fromDate(Date date) {
         return (date == null) ? null : date.getTime();
+    }
+
+    private static Object preprocess(Object value) {
+        if (value instanceof Date) {
+            return fromDate((Date)value);
+        } else {
+            return value;
+        }
     }
 }

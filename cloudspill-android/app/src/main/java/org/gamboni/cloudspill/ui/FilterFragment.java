@@ -30,11 +30,10 @@ import java.util.List;
  * @author tendays
  */
 
-public class FilterFragment extends DialogFragment implements DatePickerFragment.DateListener {
+public class FilterFragment extends DialogFragment {
 
     private static final String TAG = "Cloudspill.Filter";
     private FilterSpecification currentFilter;
-    private CurrentDatePicker currentDatePicker = null;
     private FilterListener listener;
     private Domain domain;
 
@@ -62,6 +61,7 @@ public class FilterFragment extends DialogFragment implements DatePickerFragment
 
         abstract FilterSpecification updateFilter(FilterSpecification current, Date date);
     }
+
     public interface FilterListener {
         Domain getDomain();
         /** Return the current filter. */
@@ -77,19 +77,6 @@ public class FilterFragment extends DialogFragment implements DatePickerFragment
         this.domain = listener.getDomain();
     }
 
-    @Nullable
-    @Override
-    public Date getCurrentDate() {
-        return currentDatePicker.getCurrentDate(currentFilter);
-    }
-
-    @Override
-    public void onDateSet(Date date) {
-
-        // TODO activate checkbox
-        currentFilter = currentDatePicker.updateFilter(currentFilter, date);
-    }
-
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         // Pass null as the parent view because its going in the dialog layout
@@ -103,40 +90,75 @@ public class FilterFragment extends DialogFragment implements DatePickerFragment
         this.currentFilter = listener.getFilter();
         final java.text.DateFormat dateFormat = DateFormat.getDateFormat(getActivity());
 
-        class DateFilterHandler {
-            void prepareUi(int checkRes, int buttonRes, final CurrentDatePicker field) {
-                Date value = field.getCurrentDate(currentFilter);
-                final CheckBox checkbox = layout.findViewById(checkRes);
-                checkbox.setSelected(value != null);
-                checkbox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-                    @Override
-                    public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                        if (isChecked) {
-                            currentDatePicker = field;
-                            new DatePickerFragment().show(getFragmentManager(), DatePickerFragment.class.getSimpleName());
-                        }
-                    }
-                });
+        class DateFilterSetup implements CompoundButton.OnCheckedChangeListener, DatePickerFragment.DateListener,
+                View.OnClickListener {
 
-                final Button button = layout.findViewById(buttonRes);
+            final CurrentDatePicker field;
+            final Button button;
+            final CheckBox checkbox;
+
+            DateFilterSetup(int checkRes, int buttonRes, final CurrentDatePicker field) {
+                this.field = field;
+
+                this.checkbox = layout.findViewById(checkRes);
+                checkbox.setOnCheckedChangeListener(this);
+
+                this.button = layout.findViewById(buttonRes);
+                button.setOnClickListener(this);
+
+                updateButtonText();
+            }
+
+            private void updateButtonText() {
+                Date value = getCurrentDate();
                 button.setText(
                         (value == null) ? getResources().getText(R.string.filter_date_btn) :
                                 dateFormat.format(currentFilter.from));
 
-                button.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        currentDatePicker = field;
-                        new DatePickerFragment().show(getFragmentManager(), DatePickerFragment.class.getSimpleName());
-                    }
-                });
+                checkbox.setChecked(value != null);
+            }
+
+            @Override
+            public void onClick(View v) {
+                if (checkbox.isChecked()) {
+                    openDatePicker();
+                } else {
+                    checkbox.setChecked(true);
+                }
+            }
+
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                if (isChecked) {
+                    openDatePicker();
+                } else {
+                    onDateSet(null);
+                }
+            }
+
+            @Nullable
+            @Override
+            public Date getCurrentDate() {
+                return field.getCurrentDate(currentFilter);
+            }
+
+            @Override
+            public void onDateSet(Date date) {
+                Log.d(TAG, "onDateSet("+ date +")");
+                currentFilter = field.updateFilter(currentFilter, date);
+                updateButtonText();
+            }
+
+            private void openDatePicker() {
+                final DatePickerFragment picker = new DatePickerFragment();
+                picker.setListener(this);
+                picker.show(getFragmentManager(), DatePickerFragment.class.getSimpleName());
             }
         }
 
-        DateFilterHandler dfh = new DateFilterHandler();
-        dfh.prepareUi(R.id.fromCheck, R.id.fromEdit, CurrentDatePicker.FROM);
-        dfh.prepareUi(R.id.toCheck, R.id.toEdit, CurrentDatePicker.TO);
-        layout.<CheckBox>findViewById(R.id.byCheck).setSelected(currentFilter.by != null);
+        new DateFilterSetup(R.id.fromCheck, R.id.fromEdit, CurrentDatePicker.FROM);
+        new DateFilterSetup(R.id.toCheck, R.id.toEdit, CurrentDatePicker.TO);
+        layout.<CheckBox>findViewById(R.id.byCheck).setChecked(currentFilter.by != null);
 
         return new AlertDialog.Builder(getActivity())
                 .setTitle(R.string.edit_filter_title)
@@ -147,7 +169,9 @@ public class FilterFragment extends DialogFragment implements DatePickerFragment
                         listener.filterChanged(new FilterSpecification(
                                 FilterFragment.this.currentFilter.from,
                                 FilterFragment.this.currentFilter.to,
-                                (String)((Spinner)layout.findViewById(R.id.byEdit)).getSelectedItem(),
+                                layout.<CheckBox>findViewById(R.id.byCheck).isChecked() ?
+                                        (String)((Spinner)layout.findViewById(R.id.byEdit)).getSelectedItem() :
+                                        null,
                                 select(FilterSpecification.Sort.values(), R.id.filter_sort)));
                     }
 
@@ -155,16 +179,6 @@ public class FilterFragment extends DialogFragment implements DatePickerFragment
                         int index = layout.<Spinner>findViewById(resource)
                                 .getSelectedItemPosition();
                         return (index == AdapterView.INVALID_POSITION) ? null : array[index];
-                    }
-
-                    private Date date(int resource) {
-                        try {
-                            return dateFormat
-                                    .parse(((TextView) layout.findViewById(resource)).getText().toString());
-                        } catch (ParseException e) {
-                            Log.d(TAG, "User entered invalid date");
-                            return null;
-                        }
                     }
                 })
                 .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {

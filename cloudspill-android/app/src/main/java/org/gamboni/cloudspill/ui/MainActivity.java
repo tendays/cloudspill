@@ -5,29 +5,23 @@ import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.net.Uri;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
-import android.support.v17.leanback.widget.HorizontalGridView;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
-import android.support.v4.provider.DocumentFile;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.GridView;
-import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -36,17 +30,14 @@ import org.gamboni.cloudspill.CloudSpillIntentService;
 import org.gamboni.cloudspill.R;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.FilterSpecification;
-import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.job.ThumbnailIntentService;
 import org.gamboni.cloudspill.message.StatusReport;
-
-import java.io.File;
 
 public class MainActivity extends AppCompatActivity implements StatusReport, FilterFragment.FilterListener {
     private static final String TAG = "CloudSpill.Main";
 
     private Domain domain;
-    private FilterSpecification currentFilter = new FilterSpecification(null, null, null, null);
+    GalleryAdapter adapter;
 
     public enum PermissionRequest {
         READ_EXTERNAL_STORAGE,
@@ -61,7 +52,7 @@ public class MainActivity extends AppCompatActivity implements StatusReport, Fil
         this.domain = new Domain(this);
 
         GridView gridView = (GridView) findViewById(R.id.gallery_grid);
-        GalleryAdapter adapter = new GalleryAdapter(gridView);
+        this.adapter = new GalleryAdapter(gridView);
         gridView.setAdapter(adapter);
 
         PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
@@ -85,6 +76,7 @@ public class MainActivity extends AppCompatActivity implements StatusReport, Fil
 
     @Override
     protected void onDestroy() {
+        this.adapter = null;
         domain.close();
         domain = null;
         super.onDestroy();
@@ -217,13 +209,13 @@ public class MainActivity extends AppCompatActivity implements StatusReport, Fil
 
     @Override
     public void filterChanged(FilterSpecification filter) {
-        this.currentFilter = filter;
-        // TODO force refresh
+        ThumbnailIntentService.setFilter(filter);
+        if (adapter != null) { adapter.notifyDataSetChanged(); }
     }
 
     @Override
     public FilterSpecification getFilter() {
-        return currentFilter;
+        return ThumbnailIntentService.getCurrentFilter();
     }
 
     @Override

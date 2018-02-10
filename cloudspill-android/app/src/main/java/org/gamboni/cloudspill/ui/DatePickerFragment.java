@@ -17,19 +17,17 @@ import java.util.Date;
 
 public class DatePickerFragment extends DialogFragment implements DatePickerDialog.OnDateSetListener {
 
-    public interface DateListener {
-        /** Return the selected date, or null if none is currently selected. */
-        @Nullable
-        Date getCurrentDate();
-        void onDateSet(Date date);
-    }
+        public interface DateListener {
+            /** Return the selected date, or null if none is currently selected. */
+            @Nullable
+            Date getCurrentDate();
+            void onDateSet(Date date);
+        }
 
     DateListener listener = null;
 
-    @Override
-    public void onAttach(Context context) {
-        super.onAttach(context);
-        this.listener = (DateListener)context;
+    public void setListener(DateListener listener) {
+        this.listener = listener;
     }
 
     @Override
@@ -48,7 +46,7 @@ public class DatePickerFragment extends DialogFragment implements DatePickerDial
 
     @Override
     public void onDateSet(DatePicker view, int year, int month, int dayOfMonth) {
-        listener.onDateSet(new Date(year, month, dayOfMonth));
+        listener.onDateSet(new Date(year-1900, month, dayOfMonth));
     }
 
 

@@ -35,7 +35,7 @@ public abstract class CursorList<T> extends AbstractList<T> {
             cachedSize = cursor.getCount();
         }
         return cachedSize;
-        }
+    }
 
     @Override
     public Iterator<T> iterator() {
