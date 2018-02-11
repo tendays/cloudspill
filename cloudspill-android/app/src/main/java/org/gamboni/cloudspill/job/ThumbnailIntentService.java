@@ -190,6 +190,7 @@ public class ThumbnailIntentService extends IntentService {
     public interface Callback {
         void setItem(Domain.Item item);
         void setThumbnail(Bitmap bitmap);
+        void setStatus(DownloadStatus status);
     }
 
     @Override
@@ -291,6 +292,12 @@ public class ThumbnailIntentService extends IntentService {
     private static void publishBitmap(Set<Callback> callbacks, Bitmap bitmap) {
         for (Callback callback : callbacks) {
             callback.setThumbnail(bitmap);
+        }
+    }
+
+    private static void publishStatus(Set<Callback> callbacks, DownloadStatus status) {
+        for (Callback callback : callbacks) {
+            callback.setStatus(status);
         }
     }
 
@@ -407,7 +414,8 @@ public class ThumbnailIntentService extends IntentService {
             CloudSpillServerProxy server = CloudSpillServerProxy.selectServer(this, new SettableStatusListener<>(), domain);
             if (server == null) { // offline
                 Log.i(TAG, "Thumbnail download disabled because offline");
-                publishBitmap(getCallbacks(position), null);
+
+                publishStatus(getCallbacks(position), DownloadStatus.OFFLINE);
             } else { // online
                 server.downloadThumb(item.serverId, THUMB_SIZE, new Response.Listener<byte[]>() {
                     @Override
@@ -433,7 +441,7 @@ public class ThumbnailIntentService extends IntentService {
                     @Override
                     public void onErrorResponse(VolleyError error) {
                         Log.e(TAG, "Failed downloading thumbnail: "+ error);
-                        publishBitmap(getCallbacks(position), null);
+                        publishStatus(getCallbacks(position), DownloadStatus.ERROR);
                     }
                 });
             }

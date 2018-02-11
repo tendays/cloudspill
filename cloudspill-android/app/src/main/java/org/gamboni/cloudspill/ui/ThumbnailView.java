@@ -15,6 +15,7 @@ import org.gamboni.cloudspill.R;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.ItemType;
 import org.gamboni.cloudspill.file.FileBuilder;
+import org.gamboni.cloudspill.job.DownloadStatus;
 import org.gamboni.cloudspill.job.MediaDownloader;
 import org.gamboni.cloudspill.job.ThumbnailIntentService;
 import org.gamboni.cloudspill.message.StatusReport;
@@ -81,7 +82,12 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
                     MediaDownloader.download(activity, item, new MediaDownloader.MediaListener() {
                         @Override
                         public void mediaReady(Uri location) {
-                            openItem(location, "image/jpeg");
+                            openItem(location, item.type.asMime());
+                        }
+
+                        @Override
+                        public void notifyStatus(DownloadStatus status) {
+                            // TODO how to inform user? Show a toast maybe?
                         }
                     });
                 }
@@ -119,19 +125,44 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
             // TODO find out why this happens
             Log.w(TAG, "item is not set!", new IllegalStateException());
         }
-            activity.runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    final Drawable playIcon = activity.getDrawable(R.drawable.ic_play_circle_outline_black_24dp);
-                    playIcon.setBounds(0, 0, 100, 100);
-                    if (item == null) {
-                        // TODO find out why this happens
-                        Log.w(TAG, "item is not set! (ui thread)");
-                    } else if (item.type == ItemType.VIDEO) {
-                        getOverlay().add(playIcon);
-                    }
-                    ThumbnailView.this.setImageBitmap(bitmap);
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                final Drawable playIcon = activity.getDrawable(R.drawable.ic_play_circle_outline_black_24dp);
+                playIcon.setBounds(0, 0, 100, 100);
+                if (item == null) {
+                    // TODO find out why this happens
+                    Log.w(TAG, "item is not set! (ui thread)");
+                } else if (item.type == ItemType.VIDEO) {
+                    getOverlay().add(playIcon);
                 }
-            });
+                ThumbnailView.this.setImageBitmap(bitmap);
+            }
+        });
+    }
+
+    private int getIcon(DownloadStatus status) {
+        switch (status) {
+            case ERROR:
+                return R.drawable.ic_cancel_black_24dp;
+            case OFFLINE:
+                return R.drawable.ic_signal_wifi_off_black_24dp;
+        }
+        throw new UnsupportedOperationException(status.name());
+    }
+
+    @Override
+    public void setStatus(final DownloadStatus status) {
+
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                final Drawable playIcon = activity.getDrawable(
+                        getIcon(status));
+                playIcon.setBounds(0, 0, 100, 100);
+                getOverlay().add(playIcon);
+                ThumbnailView.this.setImageBitmap(null);
+            }
+        });
     }
 }

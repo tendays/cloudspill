@@ -40,6 +40,7 @@ public class MediaDownloader extends IntentService {
 
     public interface MediaListener {
         void mediaReady(Uri location);
+        void notifyStatus(DownloadStatus status);
     }
 
     Domain domain = new Domain(this);
@@ -84,11 +85,15 @@ public class MediaDownloader extends IntentService {
 
     @Override
     protected void onHandleIntent(Intent intent) {
-        CloudSpillServerProxy server = CloudSpillServerProxy.selectServer(this, statusListener, domain);
-        if (server == null) { return; } // offline
-
         final long serverId = intent.getLongExtra(PARAM_SERVER_ID, 0);
-        Uri uri = intent.getParcelableExtra(PARAM_FILE);
+        final Uri uri = intent.getParcelableExtra(PARAM_FILE);
+
+        CloudSpillServerProxy server = CloudSpillServerProxy.selectServer(this, statusListener, domain);
+        if (server == null) { // offline
+            notifyStatus(serverId, DownloadStatus.OFFLINE);
+            return;
+        }
+
         final FileBuilder target;
         String FILE_URI = "file://";
         if (uri.toString().startsWith(FILE_URI)) {
@@ -121,6 +126,7 @@ public class MediaDownloader extends IntentService {
                                 o.write(buf, 0, len);
                             }
                         } catch (IOException e) {
+                            notifyStatus(serverId, DownloadStatus.ERROR);
                             Log.e(TAG, "Writing "+ serverId +" to "+ target +" failed", e);
                             // Delete partially downloaded file otherwise next time it won't reattempt download
                             target.delete();
@@ -148,10 +154,26 @@ public class MediaDownloader extends IntentService {
                 new Response.ErrorListener() {
                     @Override
                     public void onErrorResponse(VolleyError error) {
+                        notifyStatus(serverId, DownloadStatus.ERROR);
                         Log.e(TAG, "Failed downloading item "+ serverId, error);
                         statusListener.updateMessage(StatusReport.Severity.ERROR, "Media download error: "+ error);
                     }
                 }
         );
+    }
+
+    /** Notify callbacks of the given server id of the download status. WARN this removes
+     * all callbacks from the map, IOW this should be considered to end the conversation with the callback.
+     * @param serverId server id of the item being downloaded
+     * @param status download status
+     */
+    private void notifyStatus(long serverId, DownloadStatus status) {
+        final Set<MediaListener> set;
+        synchronized (callbacks) {
+            set = callbacks.remove(serverId);
+        }
+        for (MediaListener callback : set) {
+            callback.notifyStatus(status);
+        }
     }
 }
