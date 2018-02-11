@@ -130,6 +130,7 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
             public void run() {
                 final Drawable playIcon = activity.getDrawable(R.drawable.ic_play_circle_outline_black_24dp);
                 playIcon.setBounds(0, 0, 100, 100);
+                getOverlay().clear(); // hide "downloading" cloud
                 if (item == null) {
                     // TODO find out why this happens
                     Log.w(TAG, "item is not set! (ui thread)");
@@ -143,6 +144,8 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
 
     private int getIcon(DownloadStatus status) {
         switch (status) {
+            case DOWNLOADING:
+                return R.drawable.ic_cloud_queue_black_24dp;
             case ERROR:
                 return R.drawable.ic_cancel_black_24dp;
             case OFFLINE:

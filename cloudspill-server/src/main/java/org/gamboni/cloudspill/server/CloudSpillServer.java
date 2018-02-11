@@ -24,6 +24,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.List;
+import java.util.concurrent.Semaphore;
 import java.util.function.BiFunction;
 
 import javax.imageio.ImageIO;
@@ -204,13 +205,15 @@ public class CloudSpillServer {
     	}
     }
     
+    private final Semaphore heavyTask = new Semaphore(6, true);
+    
     public void run() {
     	
     	File rootFolder = configuration.getRepositoryPath();
     	
     	/* Thumbnail construction is memory intensive... */
     	// TODO make this configurable
-    	threadPool(6);
+    	//threadPool(6);
     	
     	/* Access logging */
     	before((req, res) -> {
@@ -275,11 +278,16 @@ public class CloudSpillServer {
         	}
         	
         	res.header("Content-Type", "image/jpeg");
+        	heavyTask.acquire();
+        	try {
         	BufferedImage renderedImage = 
         	 (item.getType() == ItemType.IMAGE) ?        		
         	createImageThumbnail(file, size) :
         		createVideoThumbnail(file, size);
         	ImageIO.write(renderedImage, "jpeg", res.raw().getOutputStream());
+        	} finally {
+        		heavyTask.release();
+        	}
         	return true;
         }));
         

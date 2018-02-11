@@ -417,6 +417,7 @@ public class ThumbnailIntentService extends IntentService {
 
                 publishStatus(getCallbacks(position), DownloadStatus.OFFLINE);
             } else { // online
+                publishStatus(peekCallbacks(position), DownloadStatus.DOWNLOADING);
                 server.downloadThumb(item.serverId, THUMB_SIZE, new Response.Listener<byte[]>() {
                     @Override
                     public void onResponse(byte[] response) {
