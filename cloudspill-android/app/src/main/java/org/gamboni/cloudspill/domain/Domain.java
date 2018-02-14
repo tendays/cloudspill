@@ -157,6 +157,10 @@ public class Domain extends AbstractDomain {
         public void update() {
             new ItemQuery().eq(_ID, this.id).update(getValues());
         }
+
+        public void delete() {
+            new ItemQuery().eq(_ID, this.id).delete();
+        }
     }
 
     /** I don't know how to access the database on my android device so I put my commands here instead. */
@@ -343,8 +347,8 @@ public class Domain extends AbstractDomain {
         };
     }
 
-    private class ItemQuery extends Query<Item> {
-        ItemQuery() {
+    public class ItemQuery extends Query<Item> {
+        public ItemQuery() {
             super(Item.TABLE_NAME);
         }
 

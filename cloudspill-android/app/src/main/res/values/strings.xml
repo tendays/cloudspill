@@ -8,6 +8,7 @@
     <string name="cancel">Cancel</string>
     <string name="delete">Delete</string>
     <string name="gallery">Gallery</string>
+    <string name="rebuild_db">Rebuild Database</string>
 
     <!-- Folder screen -->
     <string name="title_activity_folders">Folders</string>

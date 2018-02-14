@@ -12,6 +12,7 @@ import org.gamboni.cloudspill.message.StatusReport;
 import org.gamboni.cloudspill.server.CloudSpillServerProxy;
 import org.gamboni.cloudspill.ui.SettingsActivity;
 
+import java.util.BitSet;
 import java.util.List;
 
 /** This component is responsible for downloading database entries created by other users.
@@ -38,12 +39,29 @@ public class Downloader {
     private boolean responded = false;
     private Iterable<Domain.Item> items = null;
 
+    public void rebuildDb() {
+        run(true);
+    }
+
     public void run() {
+        run(false);
+    }
+
+    private void run(boolean full) {
         ServerInfo lastServer = SettingsActivity.getLastServerVersion(context);
         ServerInfo currentServer = server.getServerInfo();
 
-        final long firstId = currentServer.moreRecentThan(lastServer) ?
-                        0 : SettingsActivity.getHighestId(context);
+        final long firstId;
+
+        BitSet falseMeansDelete;
+        if (full) {
+            falseMeansDelete = new BitSet((int)SettingsActivity.getHighestId(context)+1);
+            firstId = 0;
+        } else {
+            falseMeansDelete = new BitSet(0);
+            firstId = currentServer.moreRecentThan(lastServer) ?
+                    0 : SettingsActivity.getHighestId(context);
+        }
 
         listener.updateMessage(StatusReport.Severity.INFO, "Downloading new items @"+ firstId);
         server.itemsSince(firstId, new Response.Listener<Iterable<Domain.Item>>() {
@@ -71,6 +89,9 @@ public class Downloader {
 
         for (Domain.Item item : items) {
             loaded++;
+            if (falseMeansDelete.size() > item.serverId) {
+                falseMeansDelete.set((int) item.serverId);
+            }
             List<Domain.Item> allExisting = domain.selectItemsByServerId(item.serverId);
             if (allExisting.isEmpty()) {
                 item.insert();
@@ -87,9 +108,23 @@ public class Downloader {
                 slowDown = 10;
             }
         }
+
+        int deleteCount = 0;
+        for (int serverIdToDelete=falseMeansDelete.nextClearBit(0);
+             serverIdToDelete < falseMeansDelete.size();
+             serverIdToDelete = falseMeansDelete.nextClearBit(serverIdToDelete+1)) {
+            domain.new ItemQuery().eq(Domain.Item._SERVER_ID, serverIdToDelete).delete();
+            deleteCount++;
+
+            if (slowDown-- == 0) { // TODO move this into StatusReport implementation (with new Severity.PROGRESS)
+                listener.updateMessage(StatusReport.Severity.INFO, "Deleting stale items. Deleted " + deleteCount + "/" + serverIdToDelete);
+                slowDown = 10;
+            }
+        }
         SettingsActivity.setHighestId(context, highestId);
         SettingsActivity.setLastServerVersion(context, currentServer);
-        listener.updateMessage(StatusReport.Severity.INFO, "Download complete. Created " + created + "/" + loaded);
+        listener.updateMessage(StatusReport.Severity.INFO, "Download complete. Created " + created + "/" + loaded +
+                (deleteCount>0 ? ". Deleted "+ deleteCount : ""));
     }
 
     private synchronized void publish(Iterable<Domain.Item> items) {

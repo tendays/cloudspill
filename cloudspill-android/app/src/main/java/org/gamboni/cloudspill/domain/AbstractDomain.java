@@ -161,6 +161,10 @@ public abstract class AbstractDomain extends SQLiteOpenHelper {
             return connect().update(tableName, values, restriction, restrictionArgs());
         }
 
+        /** Delete all rows corresponding to this query.
+         *
+         * @return the number of affected rows.
+         */
         public int delete() {
             return connect().delete(tableName, restriction, restrictionArgs());
         }

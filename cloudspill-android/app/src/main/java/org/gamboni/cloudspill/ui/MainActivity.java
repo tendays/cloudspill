@@ -234,6 +234,9 @@ public class MainActivity extends AppCompatActivity implements StatusReport, Fil
             case R.id.sync:
                 sync(CloudSpillIntentService.Trigger.MANUAL);
                 return true;
+            case R.id.rebuildDb:
+                sync(CloudSpillIntentService.Trigger.FULL);
+                return true;
             default:
                 return super.onOptionsItemSelected(item);
         }

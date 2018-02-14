@@ -40,7 +40,9 @@ public class CloudSpillIntentService extends IntentService {
         /** Automatic execution when app started or preference changed. */
         FOREGROUND,
         /** User explicitly requested execution. */
-        MANUAL
+        MANUAL,
+        /** User requested full database rebuild. */
+        FULL
     }
 
     private static final String TAG = "CloudSpill.Worker";
@@ -73,10 +75,14 @@ public class CloudSpillIntentService extends IntentService {
         Trigger trigger = Trigger.valueOf(intent.getStringExtra(PARAM_TRIGGER));
         Log.i(TAG, "Starting batch after "+ trigger +" Trigger");
 
-                /* Highest priority: free some space so user may take more pictures */
-        Log.i(TAG, "Running FreeSpaceMaker");
+        boolean full = (trigger == Trigger.FULL);
+
         FreeSpaceMaker fsm = new FreeSpaceMaker(CloudSpillIntentService.this, domain, listener);
-        fsm.run();
+        if (!full) {
+            /* Highest priority: free some space so user may take more pictures */
+            Log.i(TAG, "Running FreeSpaceMaker");
+            fsm.run();
+        }
 
         /* - the rest of the batch needs server connectivity - */
 
@@ -94,20 +100,27 @@ public class CloudSpillIntentService extends IntentService {
             return;
         }
 
-        if (mobileUpload.shouldRun(checkWifiOnAndConnected(), trigger)) {
-            Log.i(TAG, "Running DirectoryScanner");
+        if (!full) {
+            if (mobileUpload.shouldRun(checkWifiOnAndConnected(), trigger)) {
+                Log.i(TAG, "Running DirectoryScanner");
                 /* Second highest: upload pictures so they are backed up and available to other users */
-            final DirectoryScanner ds = new DirectoryScanner(this, domain, server, listener);
-            ds.run();
-            Log.i(TAG, "Waiting for DirectoryScanner to complete");
-            ds.waitForCompletion();
-        } else {
-            Log.i(TAG, "DirectoryScanner disabled by mobile upload policy");
+                final DirectoryScanner ds = new DirectoryScanner(this, domain, server, listener);
+                ds.run();
+                Log.i(TAG, "Waiting for DirectoryScanner to complete");
+                ds.waitForCompletion();
+            } else {
+                Log.i(TAG, "DirectoryScanner disabled by mobile upload policy");
+            }
         }
-                /* Finally: download pictures from other users. */
+
+        /* Finally: download pictures from other users. */
         Log.i(TAG, "Running Downloader");
         Downloader dl = new Downloader(this, domain, fsm, server, listener);
-        dl.run();
+        if (full) {
+            dl.rebuildDb();
+        } else {
+            dl.run();
+        }
 
         domain.close();
 
