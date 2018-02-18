@@ -10,6 +10,7 @@ import android.util.Log;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 
+import org.gamboni.cloudspill.StorageFailedException;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.message.SettableStatusListener;
@@ -107,9 +108,16 @@ public class MediaDownloader extends IntentService {
         Log.d(TAG, "Downloading item "+ serverId +" to "+ target);
         // Make sure directory exists
         FileBuilder parent = target.getParent();
-        parent.mkdirs();
+        try {
+            Log.i(TAG, "Directory does not exist, trying to create: "+ parent);
+            parent.mkdirs();
+        } catch (StorageFailedException e) {
+            notifyError(serverId, e.getMessage());
+            return;
+        }
         if (!parent.canWrite()) {
-            statusListener.updateMessage(StatusReport.Severity.ERROR, "Download directory not writable: "+ parent);
+            notifyError(serverId, "Download directory not writable: "+ parent);
+            return;
         }
 
         server.stream(serverId,
@@ -125,12 +133,11 @@ public class MediaDownloader extends IntentService {
                             while ((len = response.read(buf)) > 0) {
                                 o.write(buf, 0, len);
                             }
-                        } catch (IOException e) {
-                            notifyStatus(serverId, DownloadStatus.ERROR);
-                            Log.e(TAG, "Writing "+ serverId +" to "+ target +" failed", e);
+                        } catch (StorageFailedException|IOException e) {
+                            Log.e(TAG, "Writing "+ serverId +" to "+ target +" failed");
                             // Delete partially downloaded file otherwise next time it won't reattempt download
                             target.delete();
-                            statusListener.updateMessage(StatusReport.Severity.ERROR, "Media storage error: "+ e);
+                            notifyError(serverId, "Media storage error", e);
                             return;
                         } finally {
                             if (o != null) {
@@ -175,5 +182,16 @@ public class MediaDownloader extends IntentService {
         for (MediaListener callback : set) {
             callback.notifyStatus(status);
         }
+    }
+
+    private void notifyError(long serverId, String message) {
+        notifyStatus(serverId, DownloadStatus.ERROR);
+        statusListener.updateMessage(StatusReport.Severity.ERROR, message);
+
+    }
+
+    private void notifyError(long serverId, String message, Throwable cause) {
+        notifyError(serverId, message +" ("+ cause.getMessage() +")");
+        Log.e(TAG, message, cause);
     }
 }

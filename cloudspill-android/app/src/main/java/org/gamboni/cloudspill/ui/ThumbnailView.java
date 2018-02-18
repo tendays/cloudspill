@@ -10,6 +10,7 @@ import android.support.v7.widget.AppCompatImageView;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 import org.gamboni.cloudspill.R;
 import org.gamboni.cloudspill.domain.Domain;
@@ -65,15 +66,7 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
                 final FileBuilder file = item.getFile();
                 Log.d(TAG, "Attempting to display "+ file);
                 if (file.exists()) {
-                    // try the java.io.File, as it is more reliable
-                    File javaFile = file.getFileEquivalent();
-
-                    Log.d(TAG, "File exists. Java File equivalent: "+ javaFile);
-                    if (javaFile != null) {
-                        openItem(Uri.fromFile(javaFile), item.type.asMime());
-                    } else {
-                        openItem(file.getUri(), /*mime=auto*/null);
-                    }
+                    openExistingFile(file);
                 } else {
                     // File doesn't exist - download it first
                     Log.d(TAG, "Item#"+ item.serverId +" not found - issuing download");
@@ -82,14 +75,54 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
                     MediaDownloader.download(activity, item, new MediaDownloader.MediaListener() {
                         @Override
                         public void mediaReady(Uri location) {
-                            openItem(location, item.type.asMime());
+                            openExistingFile(file);
+                            // (location is using SAF which is unreliable) openItem(location, item.type.asMime());
                         }
 
                         @Override
-                        public void notifyStatus(DownloadStatus status) {
-                            // TODO how to inform user? Show a toast maybe?
+                        public void notifyStatus(final DownloadStatus status) {
+                            /* Handler (android.view.ViewRootImpl$ViewRootHandler) {23a21bd} sending message to a Handler on a dead thread
+                                                                      java.lang.IllegalStateException: Handler (android.view.ViewRootImpl$ViewRootHandler) {23a21bd} sending message to a Handler on a dead thread
+                                                                          at android.os.MessageQueue.enqueueMessage(MessageQueue.java:543)
+                                                                          at android.os.Handler.enqueueMessage(Handler.java:631)
+                                                                          at android.os.Handler.sendMessageAtTime(Handler.java:600)
+                                                                          at android.os.Handler.sendMessageDelayed(Handler.java:570)
+                                                                          at android.os.Handler.post(Handler.java:326)
+                                                                          at android.view.ViewRootImpl.loadSystemProperties(ViewRootImpl.java:6929)
+                                                                          at android.view.ViewRootImpl.<init>(ViewRootImpl.java:598)
+                                                                          at android.view.WindowManagerGlobal.addView(WindowManagerGlobal.java:326)
+                                                                          at android.view.WindowManagerImpl.addView(WindowManagerImpl.java:91)
+                                                                          at android.widget.Toast$TN.handleShow(Toast.java:787)
+                                                                          at android.widget.Toast$TN$1.run(Toast.java:679) */
+                            activity.runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+
+                                    switch (status) {
+                                        case ERROR:
+                                            Toast.makeText(activity, activity.getResources().getText(R.string.download_error), Toast.LENGTH_SHORT).show();
+                                            return;
+                                        case OFFLINE:
+                                            Toast.makeText(activity, activity.getResources().getText(R.string.download_offline), Toast.LENGTH_SHORT).show();
+                                            return;
+                                    }
+
+                                }
+                            });
                         }
                     });
+                }
+            }
+
+            private void openExistingFile(FileBuilder file) {
+                // try the java.io.File, as it is more reliable
+                File javaFile = file.getFileEquivalent();
+
+                Log.d(TAG, "File exists. Java File equivalent: "+ javaFile);
+                if (javaFile != null) {
+                    openItem(Uri.fromFile(javaFile), item.type.asMime());
+                } else {
+                    openItem(file.getUri(), /*mime=auto*/null);
                 }
             }
         });

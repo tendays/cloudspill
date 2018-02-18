@@ -1,6 +1,8 @@
 <resources>
     <string name="app_name">CloudSpill</string>
     <string name="starting">Starting up...</string>
+    <string name="download_error">Downloading failed :(</string>
+    <string name="download_offline">No connection to server</string>
 
     <!-- button labels -->
     <string name="sync">Sync now</string>

@@ -6,6 +6,8 @@ import android.support.annotation.Nullable;
 import android.support.v4.provider.DocumentFile;
 import android.util.Log;
 
+import org.gamboni.cloudspill.StorageFailedException;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -71,8 +73,12 @@ public abstract class FileBuilder {
         }
 
         @Override
-        public OutputStream write(Context context, String mime) throws FileNotFoundException {
-            return new FileOutputStream(file);
+        public OutputStream write(Context context, String mime) throws StorageFailedException {
+            try {
+                return new FileOutputStream(file);
+            } catch (FileNotFoundException e) {
+                throw new StorageFailedException("Error writing file to disk ("+ e.getMessage() +")", e);
+            }
         }
 
         @Override
@@ -121,7 +127,7 @@ public abstract class FileBuilder {
         }
     }
 
-    public static class NotFound extends FileBuilder {
+    private static class NotFound extends FileBuilder {
         private final FileBuilder parent;
         private final String name;
 
@@ -203,7 +209,7 @@ public abstract class FileBuilder {
         }
 
         @Override
-        public OutputStream write(Context context, String mime) throws FileNotFoundException {
+        public OutputStream write(Context context, String mime) {
             throw new UnsupportedOperationException();
         }
     }
@@ -233,10 +239,19 @@ public abstract class FileBuilder {
         }
 
         @Override
-        public void mkdirs() {
+        public void mkdirs() throws StorageFailedException {
+            mkdirs(20);
+        }
+
+        private void mkdirs(int maxDepth) throws StorageFailedException {
+            if (maxDepth == 0) {
+                Log.e(TAG, "parentFile: "+ target.getParentFile());
+                throw new StorageFailedException("Failed creating directory "+ this);
+            }
             if (!exists()) {
                 Found parent = getParent();
-                parent.mkdirs();
+                Log.i(TAG, "Directory does not exist, trying to create: "+ parent);
+                parent.mkdirs(maxDepth - 1);
                 parent.target.createDirectory(getName());
             }
         }
@@ -271,7 +286,7 @@ public abstract class FileBuilder {
             return context.getContentResolver().openInputStream(getUri());
         }
 
-        public OutputStream write(Context context, String mime) throws FileNotFoundException {
+        public OutputStream write(Context context, String mime) throws StorageFailedException {
             final Uri uri;
             if (exists()) {
                 uri = target.getUri();
@@ -285,7 +300,11 @@ public abstract class FileBuilder {
                 uri = created.getUri();
                 Log.d(TAG, "Writing to newly created uri "+ uri +" (initially "+ target.getUri() +")");
             }
-            return context.getContentResolver().openOutputStream(uri);
+            try {
+                return context.getContentResolver().openOutputStream(uri);
+            } catch (FileNotFoundException e) {
+                throw new StorageFailedException("Error writing file ("+ e.getMessage() +")", e);
+            }
         }
 
         @Override
@@ -429,9 +448,9 @@ public abstract class FileBuilder {
 
     public abstract boolean delete();
 
-    public abstract OutputStream write(Context context, String mime) throws FileNotFoundException;
+    public abstract OutputStream write(Context context, String mime) throws StorageFailedException;
 
-    public abstract void mkdirs();
+    public abstract void mkdirs() throws StorageFailedException;
 
     /** Return how many bytes are missing in order to be able to store the given number of bytes.
      * This only returns a non-zero value for local storage.

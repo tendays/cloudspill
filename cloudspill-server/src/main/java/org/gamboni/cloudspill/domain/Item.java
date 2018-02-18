@@ -8,15 +8,20 @@ import static org.gamboni.cloudspill.util.Files.append;
 import java.io.File;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Set;
 
 import javax.persistence.Column;
+import javax.persistence.ElementCollection;
 import javax.persistence.Entity;
 import javax.persistence.EnumType;
 import javax.persistence.Enumerated;
+import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
+
+import com.google.common.base.Joiner;
 
 /**
  * An Item represents a file. Hierarchy is as follows: /user/folder/path where
@@ -25,7 +30,6 @@ import javax.persistence.Table;
  * @author tendays
  */
 @Entity
-@Table(name="item")
 public class Item {
 	
 	long id;
@@ -34,10 +38,11 @@ public class Item {
 	String path;
 	LocalDateTime date;
 	ItemType type;
+	Set<String> tags;
 	
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	@Column(name="ID")
+	@Column
 	public long getId() {
 		return id;
 	}
@@ -45,7 +50,7 @@ public class Item {
 		this.id = id;
 	}
 	
-	@Column(name="USER")
+	@Column
 	public String getUser() {
 		return user;
 	}
@@ -54,14 +59,14 @@ public class Item {
 	}
 	
 	/** Each Folder represents a physical folder on one of the user's devices. */
-	@Column(name="FOLDER")
+	@Column
 	public String getFolder() {
 		return folder;
 	}
 	public void setFolder(String folder) {
 		this.folder = folder;
 	}
-	@Column(name="PATH")
+	@Column
 	public String getPath() {
 		return path;
 	}
@@ -69,7 +74,7 @@ public class Item {
 		this.path = path;
 	}
 	
-	@Column(name="DATE")
+	@Column
 	public LocalDateTime getDate() {
 		return this.date;
 	}
@@ -78,7 +83,7 @@ public class Item {
 		this.date = date;
 	}
 	
-	@Column(name="TYPE")
+	@Column
 	@Enumerated(EnumType.STRING)
 	public ItemType getType() {
 		return type;
@@ -86,11 +91,20 @@ public class Item {
 	public void setType(ItemType type) {
 		this.type = type;
 	}
+
+	@ElementCollection(fetch = FetchType.EAGER)
+	public Set<String> getTags() {
+		return tags;
+	}
 	
+	public void setTags(Set<String> tags) {
+		this.tags = tags;
+	}
+
 	public File getFile(File rootFolder) {
 		return append(append(append(rootFolder, user), folder), path);
 	}
-
+	
 	/** Construct a Serialised form understandable by the android frontend. */
 	public String serialise() {
 		// TODO quote or escape
@@ -104,7 +118,9 @@ public class Item {
 		+ ";"
 		+ serialise(getDate())
 		+ ";"
-		+ getType();
+		+ getType()
+		+ ";"
+		+ Joiner.on(",").join(tags);
 	}
 	
 	private static String serialise(LocalDateTime time) {
@@ -112,6 +128,6 @@ public class Item {
 	}
 	
 	public String toString() {
-		return "Item("+ user +", "+ folder +", "+ path +")";
+		return "Item("+ user +", "+ folder +", "+ path + ", "+ tags +")";
 	}
 }

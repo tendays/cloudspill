@@ -8,7 +8,6 @@ import static spark.Spark.before;
 import static spark.Spark.get;
 import static spark.Spark.post;
 import static spark.Spark.put;
-import static spark.Spark.threadPool;
 
 import java.awt.Graphics2D;
 import java.awt.Image;
@@ -48,11 +47,8 @@ import org.mindrot.jbcrypt.BCrypt;
 
 import com.drew.imaging.ImageMetadataReader;
 import com.drew.imaging.ImageProcessingException;
-import com.drew.metadata.Directory;
 import com.drew.metadata.MetadataException;
-import com.drew.metadata.exif.ExifIFD0Descriptor;
 import com.drew.metadata.exif.ExifIFD0Directory;
-import com.drew.metadata.exif.ExifSubIFDDescriptor;
 import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
 import com.google.inject.Guice;
@@ -186,7 +182,8 @@ public class CloudSpillServer {
     		R result = task.run(new Domain(session));
     		tx.commit();
     		tx = null;
-    		Log.debug("Return value: "+ result);
+    		final String resultString = result.toString();
+			Log.debug("Return value: "+ (resultString.length() > 100 ? resultString.substring(0, 100).replace('\n', ' ') +"..." : resultString));
 			return result;
     	} catch (Throwable t) {
     		t.printStackTrace();

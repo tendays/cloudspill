@@ -13,13 +13,12 @@ import javax.persistence.Table;
  *
  */
 @Entity
-@Table(name="user")
 public class User {
 	String name;
 	String salt;
 	String pass;
 	
-	@Column(name="name")
+	@Column
 	@Id
 	public String getName() {
 		return name;
@@ -28,7 +27,7 @@ public class User {
 		this.name = name;
 	}
 	
-	@Column(name="salt")
+	@Column
 	public String getSalt() {
 		return salt;
 	}
@@ -36,7 +35,7 @@ public class User {
 		this.salt = salt;
 	}
 	
-	@Column(name="pass")
+	@Column
 	public String getPass() {
 		return pass;
 	}

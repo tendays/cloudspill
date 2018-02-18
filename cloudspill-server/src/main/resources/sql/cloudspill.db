@@ -16,35 +16,48 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table structure for table `item`
+-- Table structure for table `Item`
 --
 
-DROP TABLE IF EXISTS `item`;
+DROP TABLE IF EXISTS `Item`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `item` (
+CREATE TABLE `Item` (
   `path` varchar(1024) DEFAULT NULL,
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `user` varchar(100) DEFAULT NULL,
   `folder` varchar(100) DEFAULT NULL,
-  `upload` date DEFAULT NULL,
+  `date` datetime DEFAULT NULL,
   `type` varchar(20) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=3929 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
-
 --
--- Table structure for table `user`
+-- Table structure for table `Item_tags`
 --
 
-DROP TABLE IF EXISTS `user`;
+DROP TABLE IF EXISTS `Item_tags`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `user` (
+CREATE TABLE `Item_tags` (
+  `Item_id` int(11) DEFAULT NULL,
+  `tags` varchar(100) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `User`
+--
+
+DROP TABLE IF EXISTS `User`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `User` (
   `name` varchar(100) NOT NULL,
   `salt` varchar(32) NOT NULL,
   `pass` varchar(62) NOT NULL,
-    PRIMARY KEY (`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+  PRIMARY KEY (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
