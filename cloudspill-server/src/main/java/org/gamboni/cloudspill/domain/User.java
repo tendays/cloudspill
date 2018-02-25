@@ -6,7 +6,6 @@ package org.gamboni.cloudspill.domain;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
-import javax.persistence.Table;
 
 /**
  * @author tendays
