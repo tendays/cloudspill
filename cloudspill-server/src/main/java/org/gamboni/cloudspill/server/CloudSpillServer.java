@@ -16,12 +16,14 @@ import java.awt.image.BufferedImage;
 import java.awt.image.ImageObserver;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.function.BiFunction;
 
@@ -31,6 +33,7 @@ import javax.inject.Inject;
 import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.FrameGrabber;
 import org.bytedeco.javacv.Java2DFrameConverter;
+import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.ItemType;
 import org.gamboni.cloudspill.domain.User;
@@ -43,9 +46,13 @@ import com.drew.imaging.ImageMetadataReader;
 import com.drew.imaging.ImageProcessingException;
 import com.drew.metadata.MetadataException;
 import com.drew.metadata.exif.ExifIFD0Directory;
+import com.google.common.base.Splitter;
+import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
+
+import spark.Response;
 
 /**
  * @author tendays
@@ -116,64 +123,24 @@ public class CloudSpillServer extends AbstractServer {
     		"CloudSpill server.\n"
     		+ "Data-Version: "+ DATA_VERSION));
     	
-    	/* Just for testing */
-        get("/item/:id/path", secured((req, res, session, user) -> {
-        	Item item = session.get(Item.class, Long.parseLong(req.params("id")));
-        	return item.getPath();
-        }));
-        
         /* Download a file */
         get("/item/:id", secured((req, res, session, user) -> {
-        	Item item = session.get(Item.class, Long.parseLong(req.params("id")));
-        	File file = item.getFile(rootFolder);
-        	res.header("Content-Type", "image/jpeg");
-        	res.header("Content-Length", String.valueOf(file.length()));
-        	try (FileInputStream stream = new FileInputStream(file)) {
-        		ByteStreams.copy(stream, res.raw().getOutputStream());
-        	}
+        	download(rootFolder, res, session, Long.parseLong(req.params("id")));
         	return true;
         }));
         
         /* Download a thumbnail */
-        get("/thumbs/:size/:id", secured((req, res, session, user) -> {
-        	final long id = Long.parseLong(req.params("id"));
-			Item item = session.get(Item.class, id);
-        	if (item == null) {
-        		return notFound(res, id);
-        	}
-        	int size = Integer.parseInt(req.params("size"));
-        	File file = item.getFile(rootFolder);
-        	
-        	if (!file.exists()) {
-        		return gone(res, item.getId(), file);
-        	}
-        	
-        	res.header("Content-Type", "image/jpeg");
-        	heavyTask.acquire();
-        	try {
-        	BufferedImage renderedImage = 
-        	 (item.getType() == ItemType.IMAGE) ?        		
-        	createImageThumbnail(file, size) :
-        		createVideoThumbnail(file, size);
-        	ImageIO.write(renderedImage, "jpeg", res.raw().getOutputStream());
-        	} finally {
-        		heavyTask.release();
-        	}
-        	return true;
-        }));
+        get("/thumbs/:size/:id", secured((req, res, session, user) -> 
+        	thumbnail(rootFolder, res, session, Long.parseLong(req.params("id")), Integer.parseInt(req.params("size")))
+        ));
         
         /* Get list of items whose id is larger than the given one. */
-        get("item/since/:id", secured((req, res, domain, user) -> {
-        	StringBuilder result = new StringBuilder();
-        	
-			for (Item item : domain.selectItem()
-        			.add(Restrictions.gt("id", Long.parseLong(req.params("id"))))
-        			.addOrder(Order.asc("id"))
-        			.list()) {
-				result.append(item.serialise()).append("\n");
-			}
-        	
-        	return result.toString();
+        get("item/since/:id", secured((req, res, domain, user) -> itemsSince(domain, Long.parseLong(req.params("id")))));
+        
+        /* Add the tags specified in body to the given item. */
+        put("/item/:id/tags", secured((req, res, session, user) -> {
+        	putTags(session, Long.parseLong(req.params("id")), req.body());
+        	return true;
         }));
         
         /* Upload a file */
@@ -186,11 +153,11 @@ public class CloudSpillServer extends AbstractServer {
         	}*/
         	
         	String username = req.params("user");
+        	String folder = req.params("folder");
         	if (!user.getName().equals(username)) {
         		Log.error("User "+ user.getName() +" attempted to upload to folder of user "+ username);
         		return forbidden(res, false);
         	}
-        	String folder = req.params("folder");
 			String path = req.splat()[0];
 			Log.debug("user is "+ username +", folder is "+ folder +" and path is "+ path);
         	
@@ -266,6 +233,68 @@ public class CloudSpillServer extends AbstractServer {
 			}
         }));
     }
+
+    /** Add the given comma-separated tags to the specified object. If a tag starts with '-' then it is removed instead. */
+	private void putTags(Domain session, long id, String tags) {
+		final Item item = Iterables.getOnlyElement(session.selectItem().add(Restrictions.eq("id", id)).list());
+
+		final Set<String> existingTags = item.getTags();
+		Splitter.on(',').split(tags).forEach(t -> {
+			if (t.startsWith("-")) {
+				existingTags.remove(t.substring(1).trim());
+			} else {
+				existingTags.add(t.trim());
+			}
+		});
+	}
+
+	private void download(File rootFolder, Response res, Domain session, final long id)
+			throws IOException, FileNotFoundException {
+		Item item = session.get(Item.class, id);
+		File file = item.getFile(rootFolder);
+		res.header("Content-Type", "image/jpeg");
+		res.header("Content-Length", String.valueOf(file.length()));
+		try (FileInputStream stream = new FileInputStream(file)) {
+			ByteStreams.copy(stream, res.raw().getOutputStream());
+		}
+	}
+
+	private Object thumbnail(File rootFolder, Response res, Domain session, final long id, int size)
+			throws InterruptedException, IOException {
+		Item item = session.get(Item.class, id);
+		if (item == null) {
+			return notFound(res, id);
+		}
+		File file = item.getFile(rootFolder);
+		
+		if (!file.exists()) {
+			return gone(res, item.getId(), file);
+		}
+		
+		res.header("Content-Type", "image/jpeg");
+		heavyTask.acquire();
+		try {
+		BufferedImage renderedImage = 
+		 (item.getType() == ItemType.IMAGE) ?        		
+		createImageThumbnail(file, size) :
+			createVideoThumbnail(file, size);
+		ImageIO.write(renderedImage, "jpeg", res.raw().getOutputStream());
+		} finally {
+			heavyTask.release();
+		}
+		return true;
+	}
+
+	private StringBuilder itemsSince(Domain domain, final long id) {
+		StringBuilder result = new StringBuilder();
+		for (Item item : domain.selectItem()
+				.add(Restrictions.gt("id", id))
+				.addOrder(Order.asc("id"))
+				.list()) {
+			result.append(item.serialise()).append("\n");
+		}
+		return result;
+	}
     
     private BufferedImage createVideoThumbnail(File file, int size) throws IOException {
     	try (FFmpegFrameGrabber g = new FFmpegFrameGrabber(file)) {
