@@ -234,7 +234,10 @@ public class CloudSpillServer extends AbstractServer {
         }));
     }
 
-    /** Add the given comma-separated tags to the specified object. If a tag starts with '-' then it is removed instead. */
+    /** Add the given comma-separated tags to the specified object. If a tag starts with '-' then it is removed instead.
+     * 
+     * NOTE: anybody can change tags of anybody's item.
+     */
 	private void putTags(Domain session, long id, String tags) {
 		final Item item = Iterables.getOnlyElement(session.selectItem().add(Restrictions.eq("id", id)).list());
 

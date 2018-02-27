@@ -91,7 +91,7 @@ public class Item {
 		this.type = type;
 	}
 
-	@ElementCollection(fetch = FetchType.EAGER)
+	@ElementCollection(fetch = FetchType.LAZY)
 	public Set<String> getTags() {
 		return tags;
 	}
