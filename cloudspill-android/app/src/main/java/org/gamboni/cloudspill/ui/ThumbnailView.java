@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.os.Bundle;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.Log;
 import android.view.View;
@@ -28,7 +29,7 @@ import java.io.File;
  * @author tendays
  */
 
-public class ThumbnailView extends AppCompatImageView implements ThumbnailIntentService.Callback {
+public class ThumbnailView extends AppCompatImageView implements ThumbnailIntentService.Callback, View.OnClickListener, View.OnLongClickListener {
 
     private static final String TAG = "CloudSpill.thumbs";
 
@@ -58,7 +59,25 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
     public void forceRefresh() {
         this.setImageBitmap(null);
         this.getOverlay().clear();
-        this.setOnClickListener(new OnClickListener() {
+        this.setOnLongClickListener(this);
+        this.setOnClickListener(this);
+
+        // Cancel any existing callback registered on the same view (note that callback equality is defined on the bitmap)
+        // TODO [NICETOHAVE] Maybe the concept of 'target' should instead be explicit in the thumbnailIntentService API, so it could
+        // auto-delete old tasks pointing to the same target
+        ThumbnailIntentService.cancelCallback(this);
+        ThumbnailIntentService.loadThumbnail(activity, position, this);
+    }
+
+    public boolean onLongClick(View view) {
+        ItemFragment fragment = new ItemFragment();
+        Bundle arguments = new Bundle();
+        arguments.putLong(ItemFragment.ITEM_ID_KEY, item.id);
+        fragment.setArguments(arguments);
+        fragment.show(activity.getFragmentManager(), ItemFragment.class.getSimpleName());
+        return true;
+    }
+
             @Override
             public void onClick(View view) {
                 if (item == null) { return; } // TODO Not threadsafe
@@ -81,19 +100,6 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
 
                         @Override
                         public void notifyStatus(final DownloadStatus status) {
-                            /* Handler (android.view.ViewRootImpl$ViewRootHandler) {23a21bd} sending message to a Handler on a dead thread
-                                                                      java.lang.IllegalStateException: Handler (android.view.ViewRootImpl$ViewRootHandler) {23a21bd} sending message to a Handler on a dead thread
-                                                                          at android.os.MessageQueue.enqueueMessage(MessageQueue.java:543)
-                                                                          at android.os.Handler.enqueueMessage(Handler.java:631)
-                                                                          at android.os.Handler.sendMessageAtTime(Handler.java:600)
-                                                                          at android.os.Handler.sendMessageDelayed(Handler.java:570)
-                                                                          at android.os.Handler.post(Handler.java:326)
-                                                                          at android.view.ViewRootImpl.loadSystemProperties(ViewRootImpl.java:6929)
-                                                                          at android.view.ViewRootImpl.<init>(ViewRootImpl.java:598)
-                                                                          at android.view.WindowManagerGlobal.addView(WindowManagerGlobal.java:326)
-                                                                          at android.view.WindowManagerImpl.addView(WindowManagerImpl.java:91)
-                                                                          at android.widget.Toast$TN.handleShow(Toast.java:787)
-                                                                          at android.widget.Toast$TN$1.run(Toast.java:679) */
                             activity.runOnUiThread(new Runnable() {
                                 @Override
                                 public void run() {
@@ -125,14 +131,6 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
                     openItem(file.getUri(), /*mime=auto*/null);
                 }
             }
-        });
-
-        // Cancel any existing callback registered on the same view (note that callback equality is defined on the bitmap)
-        // TODO [NICETOHAVE] Maybe the concept of 'target' should instead be explicit in the thumbnailIntentService API, so it could
-        // auto-delete old tasks pointing to the same target
-        ThumbnailIntentService.cancelCallback(this);
-        ThumbnailIntentService.loadThumbnail(activity, position, this);
-    }
 
     private void openItem(Uri uri, String mime) {
         Log.d(TAG, "Uri: "+ uri);

@@ -8,6 +8,7 @@
     <string name="sync">Sync now</string>
     <string name="save">Save</string>
     <string name="cancel">Cancel</string>
+    <string name="close">Close</string>
     <string name="delete">Delete</string>
     <string name="gallery">Gallery</string>
     <string name="rebuild_db">Rebuild Database</string>
@@ -55,5 +56,6 @@
     <string name="filter_by">By</string>
     <string name="filter_sort">Sort by</string>
     <string name="filter_date_btn">Pick a date</string>
+    <string name="item_tags">Tags</string>
 
 </resources>

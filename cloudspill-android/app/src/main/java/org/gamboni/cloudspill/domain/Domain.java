@@ -13,7 +13,9 @@ import org.gamboni.cloudspill.ui.SettingsActivity;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /** CloudSpill Android database.
  *
@@ -22,7 +24,7 @@ import java.util.List;
 public class Domain extends AbstractDomain {
 
     // If you change the database schema, you must increment the database version.
-    private static final int DATABASE_VERSION = 5;
+    private static final int DATABASE_VERSION = 6;
     private static final String DATABASE_NAME = "CloudSpill.db";
 
     private static final String[] ITEM_COLUMNS = new String[]{
@@ -81,6 +83,7 @@ public class Domain extends AbstractDomain {
         public Date latestAccess;
         public Date date;
         public ItemType type;
+        private TrackingList<String, Tag> tags;
 
         public Item() {}
 
@@ -97,13 +100,14 @@ public class Domain extends AbstractDomain {
 
         /** Construct an Item from its serialized form as constructed by the server. */
         public Item(String serialisedForm) {
-            Splitter splitter = new Splitter(serialisedForm);
+            Splitter splitter = new Splitter(serialisedForm, ';');
             serverId = splitter.getLong();
             user = splitter.getString();
             folder = splitter.getString();
             path = splitter.getString();
             date = toDate(splitter.getLong()); // TODO this is supposed to be UTC - check!
             type = ItemType.valueOfOptional(splitter.getString());
+            new Splitter(splitter.getString(), ',').allRemainingTo(getTags());
         }
 
         private Boolean local = null;
@@ -150,8 +154,54 @@ public class Domain extends AbstractDomain {
             this.serverId = that.serverId;
         }
 
+        public List<String> getTags() {
+            if (tags == null) {
+                tags = new TrackingList<String, Tag>(new TagQuery()
+                .eq(Tag._ITEM, this.id).detachedList()) {
+                    @Override
+                    protected String extract(Tag entity) {
+                        return entity.tag;
+                    }
+
+                    @Override
+                    protected Tag wrap(String tag) {
+                        Tag entity = new Tag();
+                        entity.item = Item.this.id;
+                        entity.tag = tag;
+                        return entity;
+                    }
+
+                    @Override
+                    protected void insert(Tag tag) {
+                        if (tag.item != 0) {
+                            tag.insert();
+                        }
+                    }
+
+                    @Override
+                    protected void delete(Tag tag) {
+                        if (tag.item != 0) {
+                            tag.delete();
+                        }
+                    }
+
+                    protected void flush(Tag tag) {
+                        if (tag.item == 0 && Item.this.id != 0) {
+                            tag.item = Item.this.id;
+                            insert(tag);
+                        }
+                    }
+                };
+            }
+            return tags;
+        }
+
         public long insert() {
-            return connect().insert(TABLE_NAME, null, getValues());
+            id = connect().insert(TABLE_NAME, null, getValues());
+            if (this.tags != null) {
+                this.tags.flush();
+            }
+            return id;
         }
 
         public void update() {
@@ -165,19 +215,69 @@ public class Domain extends AbstractDomain {
 
     /** I don't know how to access the database on my android device so I put my commands here instead. */
     public int hotfix() {
-        ContentValues setImageType = new ContentValues();
-        setImageType.put(Item._TYPE, ItemType.IMAGE.name());
-        int imageCount = new ItemQuery()
-                .like(Item._PATH, "%.jpg")
-                .eq(Item._TYPE, null)
-                .update(setImageType);
+        return 0;
+    }
 
-        ContentValues setVideoType = new ContentValues();
-        setVideoType.put(Item._TYPE, ItemType.VIDEO.name());
-        return imageCount + new ItemQuery()
-                .like(Item._PATH, "%.mp4")
-                .eq(Item._TYPE, null)
-                .update(setVideoType);
+    private class TagQuery extends Query<Tag> {
+        private boolean loadTags = false;
+        public TagQuery() {
+            super(Tag.TABLE_NAME);
+        }
+
+        public List<Tag> list() {
+            return new CursorList<Tag>(list(TAG_COLUMNS)) {
+                @Override
+                protected Tag newEntity() {
+                    return new Tag(cursor);
+                }
+            };
+        }
+    }
+
+
+    private static final String[] TAG_COLUMNS = new String[]{
+            Tag._ITEM,
+            Tag._TAG};
+
+    public class Tag {
+        private static final int SINCE = 6;
+        public static final String TABLE_NAME = "TAG";
+        public static final String _ITEM = "ITEM";
+        public long item;
+        public String tag;
+        public static final String _TAG = "TAG";
+
+        private static final String SQL_CREATE_ENTRIES =
+                "CREATE TABLE " + TABLE_NAME + " (" +
+                        _ITEM + " TEXT, " +
+                        _TAG + " TEXT" +
+                        ")";
+
+        private static final String SQL_DELETE_ENTRIES =
+                "DROP TABLE "+ TABLE_NAME +" IF EXISTS";
+
+        public Tag() {}
+
+        private Tag(Cursor cursor) {
+            item = cursor.getLong(0);
+            tag = cursor.getString(1);
+        }
+
+        private ContentValues getValues() {
+            ContentValues result = new ContentValues();
+            result.put(_ITEM, item);
+            result.put(_TAG, tag);
+            return result;
+        }
+
+
+        public long insert() {
+            return connect().insert(TABLE_NAME, null, getValues());
+        }
+
+        public void delete() {
+            new ItemQuery().eq(_ITEM, this.item).eq(_TAG, this.tag).delete();
+        }
     }
 
     private static final String[] FOLDER_COLUMNS = {
@@ -311,6 +411,8 @@ public class Domain extends AbstractDomain {
         if (oldVersion < 5 && newVersion >= 5) {
             mustPopulateTypes = true;
         }
+
+        newTable(db, oldVersion, newVersion, Tag.SINCE, Tag.SQL_CREATE_ENTRIES, Tag.SQL_DELETE_ENTRIES);
     }
 
     protected void afterConnect() {
@@ -338,7 +440,7 @@ public class Domain extends AbstractDomain {
         return new ItemQuery();
     }
 
-    private List<Item> itemList(final Cursor cursor) {
+    private List<Item> itemList(final Cursor cursor, boolean loadTags) {
         return new CursorList<Item>(cursor) {
             @Override
             protected Item newEntity() {
@@ -348,12 +450,18 @@ public class Domain extends AbstractDomain {
     }
 
     public class ItemQuery extends Query<Item> {
+        private boolean loadTags = false;
         public ItemQuery() {
             super(Item.TABLE_NAME);
         }
 
+        public ItemQuery loadTags() {
+            this.loadTags = true;
+            return this;
+        }
+
         public List<Item> list() {
-            return itemList(list(ITEM_COLUMNS));
+            return itemList(list(ITEM_COLUMNS), loadTags);
         }
     }
 

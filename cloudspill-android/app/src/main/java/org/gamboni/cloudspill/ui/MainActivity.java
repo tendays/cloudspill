@@ -30,10 +30,11 @@ import org.gamboni.cloudspill.CloudSpillIntentService;
 import org.gamboni.cloudspill.R;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.FilterSpecification;
+import org.gamboni.cloudspill.domain.HasDomain;
 import org.gamboni.cloudspill.job.ThumbnailIntentService;
 import org.gamboni.cloudspill.message.StatusReport;
 
-public class MainActivity extends AppCompatActivity implements StatusReport, FilterFragment.FilterListener {
+public class MainActivity extends AppCompatActivity implements StatusReport, FilterFragment.FilterListener, HasDomain {
     private static final String TAG = "CloudSpill.Main";
 
     private Domain domain;

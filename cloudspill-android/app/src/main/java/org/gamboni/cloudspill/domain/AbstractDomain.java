@@ -6,9 +6,13 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
+import java.util.AbstractList;
+import java.util.AbstractSet;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 /** Base class for database data model.
  *
@@ -177,6 +181,59 @@ public abstract class AbstractDomain extends SQLiteOpenHelper {
             cursor.close();
         }
     }
+
+    protected abstract class TrackingList<T, E> extends AbstractList<T> {
+        private final List<E> delegate;
+        public TrackingList(List<E> delegate) {
+            this.delegate = delegate;
+        }
+        @Override
+        public void add(int index, T item) {
+            E entity = wrap(item);
+            insert(entity);
+            delegate.add(index, entity);
+        }
+
+        public T get(int index) {
+            return extract(delegate.get(index));
+        }
+
+        public T set(int index, T item) {
+            E entity = wrap(item);
+            E oldEntity = delegate.set(index, entity);
+            delete(oldEntity);
+            insert(entity);
+            return extract(oldEntity);
+        }
+
+        public T remove(int index) {
+            E oldEntity = delegate.remove(index);
+            delete(oldEntity);
+            return extract(oldEntity);
+        }
+
+        @Override
+        public int size() {
+            return delegate.size();
+        }
+
+        protected abstract T extract(E entity);
+
+        protected abstract E wrap(T item);
+
+        protected abstract void insert(E entity);
+
+        protected abstract void delete(E entity);
+
+        protected abstract void flush(E entity);
+
+        public void flush() {
+            for (int i=0; i<delegate.size(); i++) {
+                flush(delegate.get(i));
+            }
+        }
+    }
+
     private SQLiteDatabase connection;
     /** All cursors returned by this class, that are still open. */
     protected List<Cursor> cursors = new ArrayList<>();

@@ -21,6 +21,7 @@ import android.widget.TextView;
 import org.gamboni.cloudspill.R;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.FilterSpecification;
+import org.gamboni.cloudspill.domain.HasDomain;
 
 import java.text.ParseException;
 import java.util.Date;
@@ -62,8 +63,7 @@ public class FilterFragment extends DialogFragment {
         abstract FilterSpecification updateFilter(FilterSpecification current, Date date);
     }
 
-    public interface FilterListener {
-        Domain getDomain();
+    public interface FilterListener extends HasDomain {
         /** Return the current filter. */
         FilterSpecification getFilter();
         void filterChanged(FilterSpecification filter);
