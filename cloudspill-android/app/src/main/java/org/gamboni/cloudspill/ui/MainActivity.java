@@ -47,14 +47,6 @@ public class MainActivity extends AppCompatActivity implements StatusReport, Fil
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        // https://stackoverflow.com/a/7818794
-        Log.d(TAG, "Force-initialising AsyncTask from ui thread");
-        try {
-            Class.forName("android.os.AsyncTask");
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
-
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 

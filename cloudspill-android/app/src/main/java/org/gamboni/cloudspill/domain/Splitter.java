@@ -37,9 +37,10 @@ public class Splitter {
         return string.isEmpty() ? null : Long.valueOf(string);
     }
 
-    public void allRemainingTo(Collection<String> target) {
+    public Collection<String> allRemainingTo(Collection<String> target) {
         while (right < input.length()) {
             target.add(getString());
         }
+        return target;
     }
 }

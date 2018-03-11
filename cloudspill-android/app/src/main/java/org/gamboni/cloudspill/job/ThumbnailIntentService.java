@@ -6,7 +6,6 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.ThumbnailUtils;
-import android.os.AsyncTask;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.support.annotation.Nullable;
@@ -24,17 +23,13 @@ import org.gamboni.cloudspill.domain.ItemType;
 import org.gamboni.cloudspill.file.DiskLruCache;
 import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.message.SettableStatusListener;
-import org.gamboni.cloudspill.message.StatusReport;
 import org.gamboni.cloudspill.server.CloudSpillServerProxy;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.OutputStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -53,6 +48,7 @@ import static android.os.Environment.isExternalStorageRemovable;
 public class ThumbnailIntentService extends IntentService {
 
     public static final String POSITION_PARAM = "position";
+    public static final String ITEM_ID_PARAM = "itemId";
     private static final String TAG = "CloudSpill.Thumbnails";
     private static final int THUMB_SIZE = 90;
     private static final int DISK_CACHE_SIZE = 1024 * 1024 * 10; // 10MB
@@ -84,8 +80,11 @@ public class ThumbnailIntentService extends IntentService {
         int size() {
             return itemList.size();
         }
-        Domain.Item get(int position) {
+        Domain.Item getByPosition(int position) {
             return itemList.get(position);
+        }
+        Domain.Item getById(long id) {
+            return domain.selectItems().eq(Domain.Item._ID, id).detachedList().get(0);
         }
         boolean isStale() {
             return this.filter != ThumbnailIntentService.currentFilter;
@@ -98,8 +97,8 @@ public class ThumbnailIntentService extends IntentService {
     private EvaluatedFilter evaluatedFilter = null;
 
     // Using a Set in case callbacks define equality, to avoid redundant invocations
-    private static final Map<String, Set<Callback>> callbacks = new HashMap<>();
-    private static final Map<Callback, String> callbackKeys = new HashMap<>();
+    private static final Map<CallbackKey, Set<Callback>> callbacks = new HashMap<>();
+    private static final Map<Callback, CallbackKey> callbackKeys = new HashMap<>();
     private static FilterSpecification currentFilter = FilterSpecification.defaultFilter();
 
     private static final LruCache<Integer, BitmapWithItem> memoryCache;
@@ -228,12 +227,42 @@ public class ThumbnailIntentService extends IntentService {
         super.onDestroy();
     }
 
-    private static String key(int position) {
-        return String.valueOf(position);
+    private interface CallbackKey {}
+
+    private static class PositionKey implements CallbackKey {
+        public final int position;
+        public PositionKey(int position) {
+            this.position = position;
+        }
+        public int hashCode() {
+            return position;
+        }
+        public boolean equals(Object o) {
+            return (o instanceof PositionKey) && ((PositionKey)o).position == this.position;
+        }
+    }
+    private static class IdKey implements CallbackKey {
+        public final long id;
+        public IdKey(long id) {
+            this.id = id;
+        }
+        public int hashCode() {
+            return Long.valueOf(id).hashCode();
+        }
+        public boolean equals(Object o) {
+            return (o instanceof IdKey) && ((IdKey)o).id == this.id;
+        }
     }
 
-    private static void registerCallback(int position, Callback callback) {
-        String key = key(position);
+    private static CallbackKey positionKey(int position) {
+        return new PositionKey(position);
+    }
+
+    private static CallbackKey idKey(long id) {
+        return new IdKey(id);
+    }
+
+    private static void registerCallback(CallbackKey key, Callback callback) {
         synchronized (callbacks) {
             Set<Callback> set = callbacks.get(key);
             if (set == null) {
@@ -247,7 +276,7 @@ public class ThumbnailIntentService extends IntentService {
 
     public static void cancelCallback(Callback callback) {
         synchronized (callbacks) {
-            String key = callbackKeys.remove(callback);
+            CallbackKey key = callbackKeys.remove(callback);
             Set<Callback> set = callbacks.get(key);
             if (set != null) {
                 set.remove(callback);
@@ -255,16 +284,14 @@ public class ThumbnailIntentService extends IntentService {
         }
     }
 
-    private static boolean hasCallbacks(int position) {
-        String key = key(position);
+    private static boolean hasCallbacks(CallbackKey key) {
         synchronized (callbacks) {
             Set<Callback> result = callbacks.get(key);
             return (result != null) && result.size() > 0;
         }
     }
 
-    private static Set<Callback> peekCallbacks(int position) {
-        String key = key(position);
+    private static Set<Callback> peekCallbacks(CallbackKey key) {
         synchronized (callbacks) {
             Set<Callback> result = callbacks.get(key);
             Set<Callback> copy = new HashSet<>();
@@ -275,8 +302,7 @@ public class ThumbnailIntentService extends IntentService {
         }
     }
 
-    private static Set<Callback> getCallbacks(int position) {
-        String key = key(position);
+    private static Set<Callback> getCallbacks(CallbackKey key) {
         synchronized (callbacks) {
             Set<Callback> result = callbacks.remove(key);
             return (result == null) ? Collections.<Callback>emptySet() : result;
@@ -301,7 +327,7 @@ public class ThumbnailIntentService extends IntentService {
         }
     }
 
-    public static void loadThumbnail(Context context, int position, Callback callback) {
+    public static void loadThumbnailAtPosition(Context context, int position, Callback callback) {
         BitmapWithItem cached = memoryCache.get(position);
 
         if (cached != null) {
@@ -312,11 +338,21 @@ public class ThumbnailIntentService extends IntentService {
             return;
         }
 
-        Log.d(TAG, "Loading "+ position);
+        Log.d(TAG, "Loading position "+ position);
         Intent intent = new Intent(context, ThumbnailIntentService.class);
         intent.putExtra(POSITION_PARAM, position);
 
-        registerCallback(position, callback);
+        registerCallback(positionKey(position), callback);
+
+        context.startService(intent);
+    }
+
+    public static void loadThumbnailForId(Context context, long id, Callback callback) {
+        Log.d(TAG, "Loading item id "+ id);
+        Intent intent = new Intent(context, ThumbnailIntentService.class);
+        intent.putExtra(ITEM_ID_PARAM, id);
+
+        registerCallback(idKey(id), callback);
 
         context.startService(intent);
     }
@@ -329,19 +365,26 @@ public class ThumbnailIntentService extends IntentService {
         }
         EvaluatedFilter myFilter = this.evaluatedFilter;
         final int position = intent.getIntExtra(POSITION_PARAM, -1);
-        if (!hasCallbacks(position)) {
-            Log.d(TAG, "Task "+ position +" got cancelled");
+        final long id = intent.getLongExtra(ITEM_ID_PARAM, -1);
+        final CallbackKey key = (position == -1) ? idKey(id) : positionKey(position);
+        if (!hasCallbacks(key)) {
+            Log.d(TAG, "Task "+ key +" got cancelled");
             return;
         }
-        if (position >= myFilter.size()) {
-            Log.d(TAG, "Aborting task "+ position +": exceeds size "+ myFilter.size());
+        if (position >= myFilter.size()) { // note: won't apply if position == -1
+            Log.d(TAG, "Aborting task "+ key +": exceeds size "+ myFilter.size());
             return;
         }
-        final Domain.Item item = myFilter.get(position);
+        final Domain.Item item;
+        if (position != -1) {
+            item = myFilter.getByPosition(position);
+        } else {
+            item = myFilter.getById(id);
+        }
         Log.d(TAG, "Item "+ item.id +" at "+ item.path +" with server id "+ item.serverId);
         final String diskCacheKey = String.valueOf(item.serverId);
 
-        publishItem(peekCallbacks(position), item);
+        publishItem(peekCallbacks(key), item);
 
         final DiskLruCache diskCache = getDiskCache();
 
@@ -360,7 +403,7 @@ public class ThumbnailIntentService extends IntentService {
                     }
                     final Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0, off);
 
-                    publishBitmap(getCallbacks(position), bitmap);
+                    publishBitmap(getCallbacks(key), bitmap);
                     cacheThumb(position, item, bitmap);
                     return;
                 }
@@ -391,7 +434,7 @@ public class ThumbnailIntentService extends IntentService {
                     bitmap = Bitmap.createScaledBitmap(bitmap,
                             (int) (bitmap.getWidth() * ratio),
                             (int) (bitmap.getHeight() * ratio), false);
-                    publishBitmap(getCallbacks(position), bitmap);
+                    publishBitmap(getCallbacks(key), bitmap);
 
                 /* Don't bother caching thumbnail if full image exists on disk. */
                     cacheThumb(position, item, bitmap);
@@ -399,7 +442,7 @@ public class ThumbnailIntentService extends IntentService {
                     final File fileEquivalent = file.getFileEquivalent();
                     if (fileEquivalent != null) {
                         final Bitmap thumbnail = ThumbnailUtils.createVideoThumbnail(fileEquivalent.getPath(), MediaStore.Images.Thumbnails.MINI_KIND);
-                        publishBitmap(getCallbacks(position), thumbnail);
+                        publishBitmap(getCallbacks(key), thumbnail);
                     }
                 } else {
                     Log.w(TAG, item.path +" has no specified type");
@@ -415,14 +458,14 @@ public class ThumbnailIntentService extends IntentService {
             if (server == null) { // offline
                 Log.i(TAG, "Thumbnail download disabled because offline");
 
-                publishStatus(getCallbacks(position), DownloadStatus.OFFLINE);
+                publishStatus(getCallbacks(key), DownloadStatus.OFFLINE);
             } else { // online
-                publishStatus(peekCallbacks(position), DownloadStatus.DOWNLOADING);
+                publishStatus(peekCallbacks(key), DownloadStatus.DOWNLOADING);
                 server.downloadThumb(item.serverId, THUMB_SIZE, new Response.Listener<byte[]>() {
                     @Override
                     public void onResponse(byte[] response) {
                         final Bitmap bitmap = BitmapFactory.decodeByteArray(response, 0, response.length);
-                        publishBitmap(getCallbacks(position), bitmap);
+                        publishBitmap(getCallbacks(key), bitmap);
                         cacheThumb(position, item, bitmap);
                         if (diskCache != null) {
                             try {
@@ -442,7 +485,7 @@ public class ThumbnailIntentService extends IntentService {
                     @Override
                     public void onErrorResponse(VolleyError error) {
                         Log.e(TAG, "Failed downloading thumbnail: "+ error);
-                        publishStatus(getCallbacks(position), DownloadStatus.ERROR);
+                        publishStatus(getCallbacks(key), DownloadStatus.ERROR);
                     }
                 });
             }
@@ -450,6 +493,8 @@ public class ThumbnailIntentService extends IntentService {
     }
 
     private void cacheThumb(int position, Domain.Item item, Bitmap bitmap) {
-        memoryCache.put(position, new BitmapWithItem(item, bitmap));
+        if (position != -1) {
+            memoryCache.put(position, new BitmapWithItem(item, bitmap));
+        }
     }
 }

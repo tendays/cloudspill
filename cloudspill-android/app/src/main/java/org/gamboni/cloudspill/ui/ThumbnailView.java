@@ -1,7 +1,5 @@
 package org.gamboni.cloudspill.ui;
 
-import android.app.Activity;
-import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
@@ -20,8 +18,6 @@ import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.job.DownloadStatus;
 import org.gamboni.cloudspill.job.MediaDownloader;
 import org.gamboni.cloudspill.job.ThumbnailIntentService;
-import org.gamboni.cloudspill.message.StatusReport;
-import org.gamboni.cloudspill.server.CloudSpillServerProxy;
 
 import java.io.File;
 
@@ -66,7 +62,7 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
         // TODO [NICETOHAVE] Maybe the concept of 'target' should instead be explicit in the thumbnailIntentService API, so it could
         // auto-delete old tasks pointing to the same target
         ThumbnailIntentService.cancelCallback(this);
-        ThumbnailIntentService.loadThumbnail(activity, position, this);
+        ThumbnailIntentService.loadThumbnailAtPosition(activity, position, this);
     }
 
     public boolean onLongClick(View view) {

@@ -146,6 +146,7 @@ public class Domain extends AbstractDomain {
             result.put(_PATH, path);
             result.put(_LATEST_ACCESS, fromDate(latestAccess));
             result.put(_DATE, fromDate(date));
+            result.put(_TYPE, type.name());
             return result;
         }
 

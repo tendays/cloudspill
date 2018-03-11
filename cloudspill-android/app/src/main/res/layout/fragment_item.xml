@@ -12,16 +12,18 @@
         app:layout_constraintTop_toTopOf="parent"
         android:layout_marginTop="8dp"
         android:layout_marginLeft="8dp"
-        app:layout_constraintLeft_toLeftOf="parent" />
+        app:layout_constraintLeft_toLeftOf="parent"
+        android:layout_marginStart="8dp" />
 
     <TextView
         android:id="@+id/itemAuthor"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        app:layout_constraintTop_toBottomOf="@id/itemDate"
+        app:layout_constraintTop_toBottomOf="@+id/itemDate"
         android:layout_marginLeft="8dp"
-        app:layout_constraintLeft_toLeftOf="parent" />
+        app:layout_constraintLeft_toLeftOf="parent"
+        android:layout_marginStart="8dp" />
 
     <TextView
         android:id="@+id/itemTagsLabel"
@@ -29,30 +31,36 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/item_tags"
-        app:layout_constraintTop_toBottomOf="@id/itemAuthor" />
+        app:layout_constraintTop_toBottomOf="@+id/itemAuthor"
+        tools:layout_editor_absoluteX="0dp" />
 
-    <MultiAutoCompleteTextView
+    <!-- TODO MultiAutoCompleteTextView -->
+    <EditText
         android:id="@id/itemTags"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        app:layout_constraintTop_toBottomOf="@id/itemTagsLabel"
+        app:layout_constraintTop_toBottomOf="@+id/itemTagsLabel"
         android:layout_marginLeft="8dp"
         app:layout_constraintLeft_toLeftOf="parent"
         android:layout_marginRight="8dp"
         app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintHorizontal_bias="0.0" />
+        app:layout_constraintHorizontal_bias="0.0"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp" />
 
     <ImageView
-        android:id="@+id/imageView"
+        android:id="@+id/itemImage"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         app:srcCompat="@mipmap/ic_launcher"
         android:layout_marginTop="8dp"
-        app:layout_constraintTop_toBottomOf="@id/itemTags"
+        app:layout_constraintTop_toBottomOf="@+id/itemTags"
         android:layout_marginRight="8dp"
         app:layout_constraintRight_toRightOf="parent"
         android:layout_marginLeft="8dp"
-        app:layout_constraintLeft_toLeftOf="parent" />
+        app:layout_constraintLeft_toLeftOf="parent"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp" />
 
 </android.support.constraint.ConstraintLayout>
