@@ -68,7 +68,7 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
     public boolean onLongClick(View view) {
         ItemFragment fragment = new ItemFragment();
         Bundle arguments = new Bundle();
-        arguments.putLong(ItemFragment.ITEM_ID_KEY, item.id);
+        arguments.putLong(ItemFragment.ITEM_ID_KEY, item.getId());
         fragment.setArguments(arguments);
         fragment.show(activity.getFragmentManager(), ItemFragment.class.getSimpleName());
         return true;
@@ -78,68 +78,23 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
             public void onClick(View view) {
                 if (item == null) { return; } // TODO Not threadsafe
 
-                final FileBuilder file = item.getFile();
-                Log.d(TAG, "Attempting to display "+ file);
-                if (file.exists()) {
-                    openExistingFile(file);
-                } else {
-                    // File doesn't exist - download it first
-                    Log.d(TAG, "Item#"+ item.serverId +" not found - issuing download");
+                MediaDownloader.open(activity, item, new MediaDownloader.OpenListener() {
 
-
-                    MediaDownloader.download(activity, item, new MediaDownloader.MediaListener() {
-                        @Override
-                        public void mediaReady(Uri location) {
-                            openExistingFile(file);
-                            // (location is using SAF which is unreliable) openItem(location, item.type.asMime());
+                    public void openItem(Uri uri, String mime) {
+                        Log.d(TAG, "Uri: "+ uri);
+                        Intent viewIntent = new Intent();
+                        viewIntent.setAction(Intent.ACTION_VIEW);
+                        if (mime == null) {
+                            viewIntent.setData(uri);
+                        } else {
+                            viewIntent.setDataAndType(uri, mime);
                         }
 
-                        @Override
-                        public void notifyStatus(final DownloadStatus status) {
-                            activity.runOnUiThread(new Runnable() {
-                                @Override
-                                public void run() {
+                        activity.startActivity(viewIntent);
+                    }
 
-                                    switch (status) {
-                                        case ERROR:
-                                            Toast.makeText(activity, activity.getResources().getText(R.string.download_error), Toast.LENGTH_SHORT).show();
-                                            return;
-                                        case OFFLINE:
-                                            Toast.makeText(activity, activity.getResources().getText(R.string.download_offline), Toast.LENGTH_SHORT).show();
-                                            return;
-                                    }
-
-                                }
-                            });
-                        }
-                    });
-                }
+                });
             }
-
-            private void openExistingFile(FileBuilder file) {
-                // try the java.io.File, as it is more reliable
-                File javaFile = file.getFileEquivalent();
-
-                Log.d(TAG, "File exists. Java File equivalent: "+ javaFile);
-                if (javaFile != null) {
-                    openItem(Uri.fromFile(javaFile), item.type.asMime());
-                } else {
-                    openItem(file.getUri(), /*mime=auto*/null);
-                }
-            }
-
-    private void openItem(Uri uri, String mime) {
-        Log.d(TAG, "Uri: "+ uri);
-        Intent viewIntent = new Intent();
-        viewIntent.setAction(Intent.ACTION_VIEW);
-        if (mime == null) {
-            viewIntent.setData(uri);
-        } else {
-            viewIntent.setDataAndType(uri, mime);
-        }
-
-        activity.startActivity(viewIntent);
-    }
 
     @Override
     public void setItem(Domain.Item item) {
@@ -161,7 +116,7 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
                 if (item == null) {
                     // TODO find out why this happens
                     Log.w(TAG, "item is not set! (ui thread)");
-                } else if (item.type == ItemType.VIDEO) {
+                } else if (item.getType() == ItemType.VIDEO) {
                     getOverlay().add(playIcon);
                 }
                 ThumbnailView.this.setImageBitmap(bitmap);

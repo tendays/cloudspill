@@ -1,15 +1,18 @@
 package org.gamboni.cloudspill.job;
 
+import android.app.Activity;
 import android.app.IntentService;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.support.v4.provider.DocumentFile;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 
+import org.gamboni.cloudspill.R;
 import org.gamboni.cloudspill.StorageFailedException;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.file.FileBuilder;
@@ -44,11 +47,67 @@ public class MediaDownloader extends IntentService {
         void notifyStatus(DownloadStatus status);
     }
 
+    public interface OpenListener {
+        void openItem(Uri uri, String mime);
+    }
+
     Domain domain = new Domain(this);
+
+    public static void open(final Activity activity, final Domain.Item item, final OpenListener callback) {
+
+        final FileBuilder file = item.getFile();
+        Log.d(TAG, "Attempting to display "+ file);
+        if (file.exists()) {
+            openExistingFile(callback, item, file);
+        } else {
+            // File doesn't exist - download it first
+            Log.d(TAG, "Item#"+ item.get(Domain.ItemSchema.SERVER_ID) +" not found - issuing download");
+
+
+            MediaDownloader.download(activity, item, new MediaDownloader.MediaListener() {
+                @Override
+                public void mediaReady(Uri location) {
+                    openExistingFile(callback, item, file);
+                    // (location is using SAF which is unreliable) openItem(location, item.type.asMime());
+                }
+
+                @Override
+                public void notifyStatus(final DownloadStatus status) {
+                    activity.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+
+                            switch (status) {
+                                case ERROR:
+                                    Toast.makeText(activity, activity.getResources().getText(R.string.download_error), Toast.LENGTH_SHORT).show();
+                                    return;
+                                case OFFLINE:
+                                    Toast.makeText(activity, activity.getResources().getText(R.string.download_offline), Toast.LENGTH_SHORT).show();
+                                    return;
+                            }
+
+                        }
+                    });
+                }
+            });
+        }
+    }
+
+    private static void openExistingFile(OpenListener callback, Domain.Item item, FileBuilder file) {
+        // try the java.io.File, as it is more reliable
+        File javaFile = file.getFileEquivalent();
+
+        Log.d(TAG, "File exists. Java File equivalent: "+ javaFile);
+        if (javaFile != null) {
+            callback.openItem(Uri.fromFile(javaFile), item.get(Domain.ItemSchema.TYPE).asMime());
+        } else {
+            callback.openItem(file.getUri(), /*mime=auto*/null);
+        }
+    }
 
     public static void download(Context context, Domain.Item item, MediaListener callback) {
         Intent intent = new Intent(context, MediaDownloader.class);
-        intent.putExtra(MediaDownloader.PARAM_SERVER_ID, item.serverId);
+        intent.putExtra(MediaDownloader.PARAM_SERVER_ID, item.get(Domain.ItemSchema.SERVER_ID));
         Uri uri = item.getFile().getUri();
         intent.putExtra(MediaDownloader.PARAM_FILE, uri);
 
@@ -57,10 +116,10 @@ public class MediaDownloader extends IntentService {
          }
 
          synchronized (callbacks) {
-             Set<MediaListener> set = callbacks.get(item.serverId);
+             Set<MediaListener> set = callbacks.get(item.get(Domain.ItemSchema.SERVER_ID));
              if (set == null) {
                  set = new HashSet<>();
-                 callbacks.put(item.serverId, set);
+                 callbacks.put(item.get(Domain.ItemSchema.SERVER_ID), set);
                  set.add(callback);
              } else {
                  set.add(callback);

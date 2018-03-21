@@ -5,9 +5,12 @@ import android.app.Dialog;
 import android.app.DialogFragment;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.graphics.Bitmap;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.format.DateFormat;
+import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -18,6 +21,7 @@ import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.HasDomain;
 import org.gamboni.cloudspill.domain.Splitter;
 import org.gamboni.cloudspill.job.DownloadStatus;
+import org.gamboni.cloudspill.job.MediaDownloader;
 import org.gamboni.cloudspill.job.ThumbnailIntentService;
 
 import java.util.ArrayList;
@@ -29,6 +33,8 @@ import java.util.Iterator;
  */
 
 public class ItemFragment extends DialogFragment {
+
+    private static final String TAG = "Cloudspill.UI";
 
     private Domain domain;
     private Domain.Item item;
@@ -44,15 +50,15 @@ public class ItemFragment extends DialogFragment {
     public void onAttach(Context context) {
         super.onAttach(context);
         this.domain = ((HasDomain)context).getDomain();
-        this.item = domain.selectItems().eq(Domain.Item._ID, itemId).detachedList().get(0);
+        this.item = domain.selectItems().eq(Domain.ItemSchema.ID, itemId).detachedList().get(0);
     }
 
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         // Pass null as the parent view because its going in the dialog layout
         final View layout = getActivity().getLayoutInflater().inflate(R.layout.fragment_item, null);
-        layout.<TextView>findViewById(R.id.itemAuthor).setText(getString(R.string.item_by, item.user));
-        layout.<TextView>findViewById(R.id.itemDate).setText("Created on "+ DateFormat.getDateFormat(getActivity()).format(item.date));
+        layout.<TextView>findViewById(R.id.itemAuthor).setText(getString(R.string.item_by, item.getUser()));
+        layout.<TextView>findViewById(R.id.itemDate).setText("Created on "+ DateFormat.getDateFormat(getActivity()).format(item.getDate()));
         StringBuilder tagString = new StringBuilder();
         String comma = "";
         for (String tag : item.getTags()) {
@@ -88,7 +94,8 @@ public class ItemFragment extends DialogFragment {
         ThumbnailIntentService.loadThumbnailForId(getActivity(), itemId, callback);
 
         return new AlertDialog.Builder(getActivity())
-                .setTitle(item.user +"/"+ item.folder +"/"+ item.path +"("+ item.type.name().toLowerCase() +")")
+                .setTitle(item.getUser() +"/"+ item.getFolder() +"/"+ item.getPath() +
+                        "("+ item.getType().name().toLowerCase() +")")
                 .setView(layout)
                 .setPositiveButton(R.string.save, new DialogInterface.OnClickListener() {
                     @Override
@@ -106,6 +113,28 @@ public class ItemFragment extends DialogFragment {
                                 item.getTags().add(tag);
                             }
                         }
+                    }
+                })
+                .setNeutralButton(R.string.share, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+
+                        MediaDownloader.open(getActivity(), item, new MediaDownloader.OpenListener() {
+
+                            public void openItem(Uri uri, String mime) {
+                                Log.d(TAG, "Uri: "+ uri);
+                                Intent shareIntent = new Intent();
+                                shareIntent.setAction(Intent.ACTION_SEND);
+                                if (mime == null) {
+                                    shareIntent.setData(uri);
+                                } else {
+                                    shareIntent.setDataAndType(uri, mime);
+                                }
+                                shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                                startActivity(Intent.createChooser(shareIntent, "Share via"));
+                            }
+
+                        });
                     }
                 })
                 .setNegativeButton(R.string.close, new DialogInterface.OnClickListener() {

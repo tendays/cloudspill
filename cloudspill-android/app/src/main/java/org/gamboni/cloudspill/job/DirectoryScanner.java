@@ -71,9 +71,9 @@ public class DirectoryScanner {
 
         Log.d(TAG, "Starting run with queue "+ queue);
 
-        AbstractDomain.Query<Domain.Item> q = domain.selectItems();
+        Domain.Query<Domain.Item> q = domain.selectItems();
         for (Domain.Item item : q.list()) { // TODO select current user/folder only
-            pathsInDb.add(item.path); // TODO support single attribute selects
+            pathsInDb.add(item.getPath()); // TODO support single attribute selects
         }
         q.close();
         Log.d(TAG, "Found "+ pathsInDb.size() +" items in database");
@@ -226,7 +226,7 @@ public class DirectoryScanner {
         queue(file.getUri().getPath());
         Log.d(TAG, "Loading file...");
 
-        final String folder = root.name;
+        final String folder = root.get(Domain.FolderSchema.NAME);
         byte[] body = loadFile(file, (int)file.length());
         final Date date = getMediaDate(file, body);
 
@@ -236,13 +236,13 @@ public class DirectoryScanner {
                 Log.d(TAG, "Received new id "+ response);
 
                 Domain.Item i = domain.new Item();
-                i.serverId = response;
-                i.folder = folder;
-                i.date = date;
-                i.latestAccess = date;
-                i.user = SettingsActivity.getUser(context);
-                i.path = path;
-                i.type = type;
+                i.set(Domain.ItemSchema.SERVER_ID, response);
+                i.set(Domain.ItemSchema.FOLDER, folder);
+                i.set(Domain.ItemSchema.DATE, date);
+                i.set(Domain.ItemSchema.LATEST_ACCESS, date);
+                i.set(Domain.ItemSchema.USER, SettingsActivity.getUser(context));
+                i.set(Domain.ItemSchema.PATH, path);
+                i.set(Domain.ItemSchema.TYPE, type);
 
                 long id = i.insert();
 
@@ -277,7 +277,7 @@ public class DirectoryScanner {
         queue(file.getUri().getPath());
         Log.d(TAG, "Loading file...");
 
-        final String folder = root.name;
+        final String folder = root.get(Domain.FolderSchema.NAME);
         InputStream body = getInputStream(file);
         final Date date = getMediaDate(file, /*body (unused)*/null);
 
@@ -287,14 +287,13 @@ public class DirectoryScanner {
                         Log.d(TAG, "Received new id "+ response);
 
                         Domain.Item i = domain.new Item();
-                        i.serverId = response;
-                        i.folder = folder;
-                        i.date = date;
-                        i.latestAccess = date;
-                        i.user = SettingsActivity.getUser(context);
-                        i.path = path;
-                        i.type = type;
-
+                        i.set(Domain.ItemSchema.SERVER_ID, response);
+                        i.set(Domain.ItemSchema.FOLDER, folder);
+                        i.set(Domain.ItemSchema.DATE, date);
+                        i.set(Domain.ItemSchema.LATEST_ACCESS, date);
+                        i.set(Domain.ItemSchema.USER, SettingsActivity.getUser(context));
+                        i.set(Domain.ItemSchema.PATH, path);
+                        i.set(Domain.ItemSchema.TYPE, type);
                         long id = i.insert();
 
                         Log.d(TAG, "Added Item with id "+ id);

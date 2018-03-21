@@ -42,7 +42,7 @@ public class FreeSpaceMaker {
     public FreeSpaceMaker(Context context, Domain domain, StatusReport status) {
         this.context = context;
         this.domain = domain;
-        this.items = domain.selectItems().orderAsc(Domain.Item._LATEST_ACCESS).list();
+        this.items = domain.selectItems().orderAsc(Domain.ItemSchema.LATEST_ACCESS).list();
         this.minSpace = SettingsActivity.getMinSpaceBytes(context);
         this.status = status;
     }

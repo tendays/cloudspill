@@ -58,8 +58,8 @@ public class ServersActivity extends AppCompatActivity implements EditServerFrag
                     convertView = getLayoutInflater().inflate(R.layout.server_list_item, parent, false);
                 }
                 Domain.Server server = getItem(position);
-                ((TextView) convertView.findViewById(R.id.serverName)).setText(server.name);
-                ((TextView) convertView.findViewById(R.id.serverUrl)).setText(server.url);
+                ((TextView) convertView.findViewById(R.id.serverName)).setText(server.get(Domain.ServerSchema.NAME));
+                ((TextView) convertView.findViewById(R.id.serverUrl)).setText(server.get(Domain.ServerSchema.URL));
                 return convertView;
             }
         });

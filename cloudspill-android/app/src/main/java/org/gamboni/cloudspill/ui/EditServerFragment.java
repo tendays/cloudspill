@@ -47,8 +47,8 @@ public class EditServerFragment extends DialogFragment {
                     @Override
                     public void onClick(DialogInterface dialogInterface, int i) {
                         Domain.Server server = domain.new Server();
-                        server.name = nameField.getText().toString();
-                        server.url = urlField.getText().toString();
+                        server.set(Domain.ServerSchema.NAME, nameField.getText().toString());
+                        server.set(Domain.ServerSchema.URL, urlField.getText().toString());
                         listener.onServerSaved(server);
                     }
                 })

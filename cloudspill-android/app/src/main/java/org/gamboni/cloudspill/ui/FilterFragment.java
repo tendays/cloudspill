@@ -84,7 +84,7 @@ public class FilterFragment extends DialogFragment {
 
         /* Fill 'by' spinner values. */
         final Spinner byEdit = layout.findViewById(R.id.byEdit);
-        List<String> items = domain.selectItems().selectDistinct(Domain.Item._USER, String.class).detachedList();
+        List<String> items = domain.selectItems().selectDistinct(Domain.ItemSchema.USER).detachedList();
         byEdit.setAdapter(new ArrayAdapter<>(getActivity(), android.R.layout.simple_spinner_item, items));
 
         this.currentFilter = listener.getFilter();

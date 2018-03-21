@@ -71,8 +71,8 @@ public class EditFolderFragment extends DialogFragment {
                     @Override
                     public void onClick(DialogInterface dialogInterface, int i) {
                         Domain.Folder folder = domain.new Folder();
-                        folder.name = nameField.getText().toString();
-                        folder.path = pathField.getText().toString();
+                        folder.set(Domain.FolderSchema.NAME, nameField.getText().toString());
+                        folder.set(Domain.FolderSchema.PATH, pathField.getText().toString());
                         listener.onFolderSaved(folder);
                     }
                 })

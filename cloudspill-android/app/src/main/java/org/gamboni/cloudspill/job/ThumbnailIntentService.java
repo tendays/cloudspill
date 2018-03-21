@@ -62,18 +62,18 @@ public class ThumbnailIntentService extends IntentService {
     private class EvaluatedFilter {
         final FilterSpecification filter;
         final List<Domain.Item> itemList;
-        final AbstractDomain.Query<Domain.Item> itemQuery;
+        final Domain.Query<Domain.Item> itemQuery;
         EvaluatedFilter(FilterSpecification filter) {
             this.filter = filter;
             this.itemQuery = domain.selectItems();
             if (currentFilter.from != null) {
-                itemQuery.ge(Domain.Item._DATE, currentFilter.from);
+                itemQuery.ge(Domain.ItemSchema.DATE, currentFilter.from);
             }
             if (currentFilter.to != null) {
-                itemQuery.le(Domain.Item._DATE, currentFilter.to);
+                itemQuery.le(Domain.ItemSchema.DATE, currentFilter.to);
             }
             if (currentFilter.by != null) {
-                itemQuery.eq(Domain.Item._USER, currentFilter.by);
+                itemQuery.eq(Domain.ItemSchema.USER, currentFilter.by);
             }
             this.itemList = apply(itemQuery, currentFilter.sort).list();
         }
@@ -84,7 +84,7 @@ public class ThumbnailIntentService extends IntentService {
             return itemList.get(position);
         }
         Domain.Item getById(long id) {
-            return domain.selectItems().eq(Domain.Item._ID, id).detachedList().get(0);
+            return domain.selectItems().eq(Domain.ItemSchema.ID, id).detachedList().get(0);
         }
         boolean isStale() {
             return this.filter != ThumbnailIntentService.currentFilter;
@@ -207,9 +207,9 @@ public class ThumbnailIntentService extends IntentService {
     private Domain.Query<Domain.Item> apply(Domain.Query<Domain.Item> query, FilterSpecification.Sort sort) {
         switch (sort) {
             case DATE_ASC:
-                return query.orderAsc(Domain.Item._DATE);
+                return query.orderAsc(Domain.ItemSchema.DATE);
             case DATE_DESC:
-                return query.orderDesc(Domain.Item._DATE);
+                return query.orderDesc(Domain.ItemSchema.DATE);
         }
         throw new UnsupportedOperationException(sort.toString());
     }
@@ -331,7 +331,7 @@ public class ThumbnailIntentService extends IntentService {
         BitmapWithItem cached = memoryCache.get(position);
 
         if (cached != null) {
-            Log.d(TAG, "Found "+ position +" in mem cache (serverId="+ cached.item.serverId +")");
+            Log.d(TAG, "Found "+ position +" in mem cache (serverId="+ cached.item.getServerId() +")");
             final Set<Callback> callbackSet = Collections.singleton(callback);
             publishItem(callbackSet, cached.item);
             publishBitmap(callbackSet, cached.bitmap);
@@ -381,8 +381,8 @@ public class ThumbnailIntentService extends IntentService {
         } else {
             item = myFilter.getById(id);
         }
-        Log.d(TAG, "Item "+ item.id +" at "+ item.path +" with server id "+ item.serverId);
-        final String diskCacheKey = String.valueOf(item.serverId);
+        Log.d(TAG, "Item "+ item.getId() +" at "+ item.getPath() +" with server id "+ item.getServerId());
+        final String diskCacheKey = String.valueOf(item.getServerId());
 
         publishItem(peekCallbacks(key), item);
 
@@ -408,7 +408,7 @@ public class ThumbnailIntentService extends IntentService {
                     return;
                 }
             } catch (IOException e) {
-                Log.w(TAG, "Failed reading item " + item.serverId + " from disk cache", e);
+                Log.w(TAG, "Failed reading item " + item.getServerId() + " from disk cache", e);
                 // Behave as if missing from cache
             }
         }
@@ -417,8 +417,8 @@ public class ThumbnailIntentService extends IntentService {
 
         if (file.exists()) {
             try {
-                Log.d(TAG, "Creating thumbnail for local "+ item.type.name().toLowerCase());
-                if (item.type == ItemType.IMAGE) {
+                Log.d(TAG, "Creating thumbnail for local "+ item.getType().name().toLowerCase());
+                if (item.getType() == ItemType.IMAGE) {
                     // Thumbnails are 90dp wide. Convert that to the pixel equivalent:
                     final float smallPx = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, THUMB_SIZE, getResources().getDisplayMetrics());
 
@@ -438,14 +438,14 @@ public class ThumbnailIntentService extends IntentService {
 
                 /* Don't bother caching thumbnail if full image exists on disk. */
                     cacheThumb(position, item, bitmap);
-                } else if (item.type == ItemType.VIDEO) {
+                } else if (item.getType() == ItemType.VIDEO) {
                     final File fileEquivalent = file.getFileEquivalent();
                     if (fileEquivalent != null) {
                         final Bitmap thumbnail = ThumbnailUtils.createVideoThumbnail(fileEquivalent.getPath(), MediaStore.Images.Thumbnails.MINI_KIND);
                         publishBitmap(getCallbacks(key), thumbnail);
                     }
                 } else {
-                    Log.w(TAG, item.path +" has no specified type");
+                    Log.w(TAG, item.getPath() +" has no specified type");
                 }
             } catch (FileNotFoundException fnf) {
                 Log.e(TAG, "Could not load file but exists returns true", fnf);
@@ -461,7 +461,7 @@ public class ThumbnailIntentService extends IntentService {
                 publishStatus(getCallbacks(key), DownloadStatus.OFFLINE);
             } else { // online
                 publishStatus(peekCallbacks(key), DownloadStatus.DOWNLOADING);
-                server.downloadThumb(item.serverId, THUMB_SIZE, new Response.Listener<byte[]>() {
+                server.downloadThumb(item.getServerId(), THUMB_SIZE, new Response.Listener<byte[]>() {
                     @Override
                     public void onResponse(byte[] response) {
                         final Bitmap bitmap = BitmapFactory.decodeByteArray(response, 0, response.length);

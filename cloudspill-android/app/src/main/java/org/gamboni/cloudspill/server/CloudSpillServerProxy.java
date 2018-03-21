@@ -85,16 +85,16 @@ public class CloudSpillServerProxy {
         }
         CloudSpillServerProxy server = null;
         for (final Domain.Server serverEntity : domain.selectServers()) {
-            CloudSpillServerProxy testServer = new CloudSpillServerProxy(context, domain, serverEntity.url);
-            listener.updateMessage(StatusReport.Severity.INFO, "Connecting to "+ serverEntity.name);
+            CloudSpillServerProxy testServer = new CloudSpillServerProxy(context, domain, serverEntity.getUrl());
+            listener.updateMessage(StatusReport.Severity.INFO, "Connecting to "+ serverEntity.getName());
             // First verify we are online
             if (testServer.checkLink()) {
                 Log.i(TAG, "Server is up");
-                listener.updateMessage(StatusReport.Severity.INFO, "Connected to "+ serverEntity.name);
+                listener.updateMessage(StatusReport.Severity.INFO, "Connected to "+ serverEntity.getName());
                 server = testServer;
                 break;
             } else {
-                Log.i(TAG, "No connection to server "+ serverEntity.name +" at "+ serverEntity.url);
+                Log.i(TAG, "No connection to server "+ serverEntity.getName() +" at "+ serverEntity.getUrl());
             }
         }
 

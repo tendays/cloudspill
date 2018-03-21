@@ -70,8 +70,8 @@ public class FoldersActivity extends AppCompatActivity implements EditFolderFrag
                     convertView = getLayoutInflater().inflate(R.layout.folder_list_item, parent, false);
                 }
                 Domain.Folder folder = getItem(position);
-                ((TextView) convertView.findViewById(R.id.folderName)).setText(folder.name);
-                ((TextView) convertView.findViewById(R.id.folderPath)).setText(folder.path);
+                ((TextView) convertView.findViewById(R.id.folderName)).setText(folder.get(Domain.FolderSchema.NAME));
+                ((TextView) convertView.findViewById(R.id.folderPath)).setText(folder.get(Domain.FolderSchema.PATH));
                 return convertView;
             }
         };
@@ -124,12 +124,12 @@ public class FoldersActivity extends AppCompatActivity implements EditFolderFrag
 
     @Override
     public String getFolderName() {
-        return (currentFolder == null) ? "" : currentFolder.name;
+        return (currentFolder == null) ? "" : currentFolder.get(Domain.FolderSchema.NAME);
     }
 
     @Override
     public String getFolderPath() {
-        return (currentFolder == null) ? "" : currentFolder.path;
+        return (currentFolder == null) ? "" : currentFolder.get(Domain.FolderSchema.PATH);
     }
 
     @Override
@@ -140,7 +140,7 @@ public class FoldersActivity extends AppCompatActivity implements EditFolderFrag
     @Override
     public void onFolderSaved(Domain.Folder folder) {
         if (currentFolder != null) {
-            folder.id = currentFolder.id;
+            folder.set(Domain.FolderSchema.ID, currentFolder.getId());
         }
         folder.save();
     }

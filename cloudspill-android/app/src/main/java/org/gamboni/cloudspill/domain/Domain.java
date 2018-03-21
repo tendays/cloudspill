@@ -12,6 +12,8 @@ import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.ui.SettingsActivity;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -21,102 +23,126 @@ import java.util.Set;
  *
  * @author tendays
  */
-public class Domain extends AbstractDomain {
+public class Domain extends AbstractDomain<Domain> {
 
     // If you change the database schema, you must increment the database version.
     private static final int DATABASE_VERSION = 6;
     private static final String DATABASE_NAME = "CloudSpill.db";
 
-    private static final String[] ITEM_COLUMNS = new String[]{
-            Item._ID,
-            Item._SERVER_ID,
-            Item._USER,
-            Item._FOLDER,
-            Item._PATH,
-            Item._LATEST_ACCESS,
-            Item._DATE,
-            Item._TYPE
-    };
-
-    public class Item implements BaseColumns {
-        private static final String TABLE_NAME = "ITEM";
-        /** Table exists since this version. */
-        private static final int SINCE = 1;
+    private static final ItemSchema itemSchema = new ItemSchema();
+    public static class ItemSchema extends Schema<Domain, Item> {
         /* Columns */
-        public static final String _SERVER_ID = "SERVER_ID";
-        public static final String _USER = "USER";
+        public static final Column<Long> ID = id();
+        public static final Column<Long> SERVER_ID = longColumn("SERVER_ID");
+        public static final Column<String> USER = string("USER");
         /** Folder name. The folder does not need to exist in the "folder" table
          * in case it's an "external" folder.
          */
-        public static final String _FOLDER = "FOLDER";
+        public static final Column<String> FOLDER = string("FOLDER");
 
-        public static final String _PATH = "PATH";
+        public static final Column<String> PATH = string("PATH");
         /** The time the item was last opened in the application.
          * This is used to decide when it may be deleted locally.
          */
-        public static final String _LATEST_ACCESS = "LATEST_ACCESS";
+        public static final Column<Date> LATEST_ACCESS = date("LATEST_ACCESS");
         /** The time the item was created (for a photo, that would be the time the photo was taken). */
-        public static final String _DATE = "DATE";
+        public static final Column<Date> DATE = date("DATE");
         /** The type of media in this item, as an {@link ItemType}. */
-        public static final String _TYPE = "TYPE";
+        public static final Column<ItemType> TYPE = enumerated(ItemType.class, ItemType.UNKNOWN, "TYPE");
 
-        private static final String SQL_CREATE_ENTRIES =
-                "CREATE TABLE " + TABLE_NAME + " (" +
-                        _ID + " INTEGER PRIMARY KEY, " +
-                        _SERVER_ID + " INTEGER, " +
-                        _USER + " TEXT, " +
-                        _FOLDER + " TEXT, " +
-                        _PATH + " TEXT, " +
-                        _LATEST_ACCESS + " INTEGER," +
-                        _DATE +" INTEGER," +
-                        _TYPE +" TEXT" +
-                        ")";
+        @Override
+        public int since() {
+            return 1;
+        }
 
-        private static final String SQL_DELETE_ENTRIES =
-                "DROP TABLE "+ TABLE_NAME +" IF EXISTS";
+        @Override
+        public String tableName() {
+            return "ITEM";
+        }
 
-        public long id;
-        public long serverId;
-        public String user;
-        public String folder;
-        public String path;
-        public Date latestAccess;
-        public Date date;
-        public ItemType type;
+        @Override
+        public List<? extends Column<?>> columns() {
+            return list(ID, SERVER_ID, USER, FOLDER, PATH, LATEST_ACCESS, DATE, TYPE);
+        }
+
+        @Override
+        public List<? extends Column<?>> idColumns() {
+            return list(ID);
+        }
+
+        @Override
+        protected Item newInstance(Domain domain, Cursor cursor) {
+            return domain.new Item(cursor);
+        }
+    }
+
+    private static List<Column<?>> list(Column<?>... columns) {
+        return Collections.unmodifiableList(Arrays.asList(columns));
+    }
+
+    public class Item extends Entity {
+
+        @Override
+        Schema getSchema() {
+            return itemSchema;
+        }
+
         private TrackingList<String, Tag> tags;
 
-        public Item() {}
+        public Item() {
+        }
 
         private Item(Cursor cursor) {
-            id = cursor.getLong(0);
-            serverId = cursor.getLong(1);
-            user = cursor.getString(2);
-            folder = cursor.getString(3);
-            path = cursor.getString(4);
-            latestAccess = toDate(cursor.getLong(5));
-            date = toDate(cursor.getLong(6));
-            type = ItemType.valueOfOptional(cursor.getString(7));
+            super(cursor);
         }
 
         /** Construct an Item from its serialized form as constructed by the server. */
         public Item(String serialisedForm) {
             Splitter splitter = new Splitter(serialisedForm, ';');
-            serverId = splitter.getLong();
-            user = splitter.getString();
-            folder = splitter.getString();
-            path = splitter.getString();
-            date = toDate(splitter.getLong()); // TODO this is supposed to be UTC - check!
-            type = ItemType.valueOfOptional(splitter.getString());
+            set(ItemSchema.SERVER_ID, splitter.getLong());
+            set(ItemSchema.USER, splitter.getString());
+            set(ItemSchema.FOLDER, splitter.getString());
+            set(ItemSchema.PATH, splitter.getString());
+            set(ItemSchema.DATE, toDate(splitter.getLong())); // TODO this is supposed to be UTC - check!
+            set(ItemSchema.TYPE, ItemType.valueOfOptional(splitter.getString()));
             new Splitter(splitter.getString(), ',').allRemainingTo(getTags());
         }
 
         private Boolean local = null;
         public boolean isLocal() {
             if (local == null) {
-                local = (user.equals(SettingsActivity.getUser(context)));
+                local = (getUser().equals(SettingsActivity.getUser(context)));
                 //&&                       folder.equals(SettingsActivity.getFolder(context)));
             }
             return local;
+        }
+
+        public Long getId() {
+            return get(ItemSchema.ID);
+        }
+
+        public Long getServerId() {
+            return get(ItemSchema.SERVER_ID);
+        }
+
+        public String getUser() {
+            return get(ItemSchema.USER);
+        }
+
+        public Date getDate() {
+            return get(ItemSchema.DATE);
+        }
+
+        public String getFolder() {
+            return get(ItemSchema.FOLDER);
+        }
+
+        public String getPath() {
+            return get(ItemSchema.PATH);
+        }
+
+        public ItemType getType() {
+            return get(ItemSchema.TYPE);
         }
 
         FileBuilder file = null;
@@ -125,8 +151,8 @@ public class Domain extends AbstractDomain {
             //Log.d(TAG, "getFile: u "+ this.user +" /f "+ this.folder +" /p "+ this.path);
             if (isLocal()) {
                 for (Folder folder : selectFolders()) {
-                    if (folder.name.equals(this.folder)) {
-                        file = folder.getFile().append(path);
+                    if (folder.get(FolderSchema.NAME).equals(this.getFolder())) {
+                        file = folder.getFile().append(getPath());
                         //Log.d(TAG, "Creating fileBuilder object "+ folder.getFile() +" -> "+ file);
                         return file;
                     }
@@ -134,61 +160,49 @@ public class Domain extends AbstractDomain {
             }
             //Log.d(TAG, "(not local)");
 
-            file = SettingsActivity.getDownloadPath(context).append(user).append(folder).append(path);
+            file = SettingsActivity.getDownloadPath(context).append(getUser()).append(getFolder()).append(getPath());
             return file;
         }
 
-        private ContentValues getValues() {
-            ContentValues result = new ContentValues();
-            result.put(_SERVER_ID, serverId);
-            result.put(_USER, user);
-            result.put(_FOLDER, folder);
-            result.put(_PATH, path);
-            result.put(_LATEST_ACCESS, fromDate(latestAccess));
-            result.put(_DATE, fromDate(date));
-            result.put(_TYPE, type.name());
-            return result;
-        }
-
         public void copyFrom(Item that) {
-            this.date = that.date;
-            this.serverId = that.serverId;
+            this.values.putAll(that.values);
         }
 
         public List<String> getTags() {
             if (tags == null) {
-                tags = new TrackingList<String, Tag>(new TagQuery()
-                .eq(Tag._ITEM, this.id).detachedList()) {
+                tags = new TrackingList<String, Tag>(
+                        new EntityQuery<>(tagSchema)
+                .eq(TagSchema.ITEM, this.getId()).detachedList()) {
                     @Override
                     protected String extract(Tag entity) {
-                        return entity.tag;
+                        return entity.get(TagSchema.TAG);
                     }
 
                     @Override
                     protected Tag wrap(String tag) {
                         Tag entity = new Tag();
-                        entity.item = Item.this.id;
-                        entity.tag = tag;
+                        entity.set(TagSchema.ITEM, Item.this.getId());
+                        entity.set(TagSchema.TAG, tag);
                         return entity;
                     }
 
                     @Override
                     protected void insert(Tag tag) {
-                        if (tag.item != 0) {
+                        if (tag.get(TagSchema.ITEM) != 0) {
                             tag.insert();
                         }
                     }
 
                     @Override
                     protected void delete(Tag tag) {
-                        if (tag.item != 0) {
+                        if (tag.get(TagSchema.ITEM) != 0) {
                             tag.delete();
                         }
                     }
 
                     protected void flush(Tag tag) {
-                        if (tag.item == 0 && Item.this.id != 0) {
-                            tag.item = Item.this.id;
+                        if (tag.getItem() == 0 && Item.this.getId() != 0) {
+                            tag.set(TagSchema.ITEM, Item.this.getId());
                             insert(tag);
                         }
                     }
@@ -198,19 +212,11 @@ public class Domain extends AbstractDomain {
         }
 
         public long insert() {
-            id = connect().insert(TABLE_NAME, null, getValues());
+            set(ItemSchema.ID, super.insert());
             if (this.tags != null) {
                 this.tags.flush();
             }
-            return id;
-        }
-
-        public void update() {
-            new ItemQuery().eq(_ID, this.id).update(getValues());
-        }
-
-        public void delete() {
-            new ItemQuery().eq(_ID, this.id).delete();
+            return get(ItemSchema.ID);
         }
     }
 
@@ -219,175 +225,182 @@ public class Domain extends AbstractDomain {
         return 0;
     }
 
-    private class TagQuery extends Query<Tag> {
-        private boolean loadTags = false;
-        public TagQuery() {
-            super(Tag.TABLE_NAME);
+    private static final Column<?>[] TAG_COLUMNS = new Column<?>[]{
+            TagSchema.ITEM,
+            TagSchema.TAG};
+
+    public static final TagSchema tagSchema = new TagSchema();
+    public static class TagSchema extends Schema<Domain, Tag> {
+        @Override
+        public int since() {
+            return 6;
         }
 
-        public List<Tag> list() {
-            return new CursorList<Tag>(list(TAG_COLUMNS)) {
-                @Override
-                protected Tag newEntity() {
-                    return new Tag(cursor);
-                }
-            };
+        @Override
+        public String tableName() {
+            return "TAG";
+        }
+
+        @Override
+        public List<? extends Column<?>> columns() {
+            return list(ITEM, TAG, DIRTY);
+        }
+
+        public static final Column<Long> ITEM = longColumn("ITEM");
+        public static final Column<String> TAG = string("TAG");
+        public static final Column<String> DIRTY = string("DIRTY");
+
+        @Override
+        public List<? extends Column<?>> idColumns() {
+            return list(ITEM, TAG);
+        }
+
+        @Override
+        protected Tag newInstance(Domain domain, Cursor cursor) {
+            return domain.new Tag(cursor);
         }
     }
+    public class Tag extends Entity {
 
-
-    private static final String[] TAG_COLUMNS = new String[]{
-            Tag._ITEM,
-            Tag._TAG};
-
-    public class Tag {
-        private static final int SINCE = 6;
-        public static final String TABLE_NAME = "TAG";
-        public static final String _ITEM = "ITEM";
-        public long item;
-        public String tag;
-        public static final String _TAG = "TAG";
-
-        private static final String SQL_CREATE_ENTRIES =
-                "CREATE TABLE " + TABLE_NAME + " (" +
-                        _ITEM + " TEXT, " +
-                        _TAG + " TEXT" +
-                        ")";
-
-        private static final String SQL_DELETE_ENTRIES =
-                "DROP TABLE "+ TABLE_NAME +" IF EXISTS";
-
-        public Tag() {}
+        public Tag() {
+        }
 
         private Tag(Cursor cursor) {
-            item = cursor.getLong(0);
-            tag = cursor.getString(1);
+            super(cursor);
         }
 
-        private ContentValues getValues() {
-            ContentValues result = new ContentValues();
-            result.put(_ITEM, item);
-            result.put(_TAG, tag);
-            return result;
+        @Override
+        Schema getSchema() {
+            return tagSchema;
         }
 
-
-        public long insert() {
-            return connect().insert(TABLE_NAME, null, getValues());
-        }
-
-        public void delete() {
-            new ItemQuery().eq(_ITEM, this.item).eq(_TAG, this.tag).delete();
+        public Long getItem() {
+            return get(TagSchema.ITEM);
         }
     }
 
-    private static final String[] FOLDER_COLUMNS = {
-            Folder._ID,
-            Folder._NAME,
-            Folder._PATH
-    };
-    public class Folder implements BaseColumns {
-        public static final String TABLE_NAME="FOLDER";
-        public Long id;
-        public static final String _NAME = "NAME";
-        public String name;
-        public static final String _PATH = "PATH";
-        public String path;
+    public static FolderSchema folderSchema = new FolderSchema();
+    public static class FolderSchema extends Schema<Domain, Folder> {
 
-        private static final String SQL_CREATE_ENTRIES =
-                "CREATE TABLE " + TABLE_NAME + " (" +
-                        _ID + " INTEGER PRIMARY KEY, " +
-                        _NAME + " TEXT, " +
-                        _PATH + " TEXT" +
-                        ")";
+        public static final Column<Long> ID = id();
+        public static final Column<String> NAME = string("name");
+        public static final Column<String> PATH = string("path");
+        @Override
+        public int since() {
+            return 2;
+        }
 
-        private static final String SQL_DELETE_ENTRIES =
-                "DROP TABLE "+ TABLE_NAME +" IF EXISTS";
+        @Override
+        public String tableName() {
+            return "FOLDER";
+        }
 
-        public Folder() {}
+        @Override
+        public List<? extends Column<?>> columns() {
+            return list(ID,
+                    NAME,
+                    PATH);
+        }
+
+        @Override
+        public List<? extends Column<?>> idColumns() {
+            return list(ID);
+        }
+
+        @Override
+        protected Folder newInstance(Domain domain, Cursor cursor) {
+            return domain.new Folder(cursor);
+        }
+    }
+
+    public class Folder extends Entity {
+        public Folder() {
+        }
 
         private Folder(Cursor cursor) {
-            id = cursor.getLong(0);
-            name = cursor.getString(1);
-            path = cursor.getString(2);
+            super(cursor);
         }
 
-        private ContentValues getValues() {
-            ContentValues result = new ContentValues();
-            if (id != null) {
-                result.put(_ID, id);
-            }
-            result.put(_NAME, name);
-            result.put(_PATH, path);
-            return result;
+        @Override
+        Schema<Domain, ?> getSchema() {
+            return folderSchema;
         }
-        public long insert() {
-            return connect().insert(TABLE_NAME, null, getValues());
+
+        public Long getId() {
+            return get(FolderSchema.ID);
         }
 
         public void save() {
-            if (id == null) {
+            if (getId() == null) {
                 insert();
             } else {
-                connect().update(TABLE_NAME, getValues(), _ID +" = ?", new String[]{String.valueOf(id)});
+                update();
             }
         }
 
         public void delete() {
-            if (id != null) {
-                connect().delete(TABLE_NAME, _ID +" = ?", new String[]{String.valueOf(id)});
+            if (getId() != null) {
+                super.delete();
             }
         }
 
         /** @throws java.lang.IllegalArgumentException if the path is not a valid URI. */
         public FileBuilder getFile() {
-            return new FileBuilder.Found(context, Uri.parse(path));
+            return new FileBuilder.Found(context, Uri.parse(get(FolderSchema.PATH)));
         }
     }
 
+    public static final ServerSchema serverSchema = new ServerSchema();
+    public static class ServerSchema extends Schema<Domain, Server> {
+        public static final Column<Long> ID = id();
+        public static final Column<String> NAME = string("name");
+        public static final Column<String> URL = string("url");
+        @Override
+        public int since() {
+            return 3;
+        }
 
-    private static final String[] SERVER_COLUMNS = {
-            Server._ID,
-            Server._NAME,
-            Server._URL
-    };
-    public class Server implements BaseColumns {
-        public static final String TABLE_NAME="SERVER";
-        public Long id;
-        public static final String _NAME = "NAME";
-        public String name;
-        public static final String _URL = "URL";
-        public String url;
+        @Override
+        public String tableName() {
+            return "SERVER";
+        }
 
-        private static final String SQL_CREATE_ENTRIES =
-                "CREATE TABLE " + TABLE_NAME + " (" +
-                        _ID + " INTEGER PRIMARY KEY, " +
-                        _NAME + " TEXT, " +
-                        _URL + " TEXT" +
-                        ")";
+        @Override
+        public List<? extends Column<?>> columns() {
+            return list(ID, NAME, URL);
+        }
 
-        private static final String SQL_DELETE_ENTRIES =
-                "DROP TABLE "+ TABLE_NAME +" IF EXISTS";
+        @Override
+        public List<? extends Column<?>> idColumns() {
+            return list(ID);
+        }
 
-        public Server() {}
+        @Override
+        protected Server newInstance(Domain domain, Cursor cursor) {
+            return domain.new Server(cursor);
+        }
+    }
+
+    public class Server extends Entity {
+
+        public Server() {
+        }
 
         private Server(Cursor cursor) {
-            id = cursor.getLong(0);
-            name = cursor.getString(1);
-            url = cursor.getString(2);
+            super(cursor);
         }
 
-        private ContentValues getValues() {
-            ContentValues result = new ContentValues();
-            if (id != null) {
-                result.put(_ID, id);
-            }
-            result.put(_NAME, name);
-            result.put(_URL, url);
-            return result;
+        @Override
+        Schema<Domain, ?> getSchema() {
+            return serverSchema;
         }
-        public long insert() {
-            return connect().insert(TABLE_NAME, null, getValues());
+
+        public String getUrl() {
+            return get(ServerSchema.URL);
+        }
+
+        public String getName() {
+            return get(ServerSchema.NAME);
         }
     }
 
@@ -403,17 +416,17 @@ public class Domain extends AbstractDomain {
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         Log.d(TAG, "Current version: " + oldVersion + ". New version: " + newVersion);
 
-        newTable(db, oldVersion, newVersion, Item.SINCE, Item.SQL_CREATE_ENTRIES, Item.SQL_DELETE_ENTRIES);
-        newTable(db, oldVersion, newVersion, 2, Folder.SQL_CREATE_ENTRIES, Folder.SQL_DELETE_ENTRIES);
-        newTable(db, oldVersion, newVersion, 3, Server.SQL_CREATE_ENTRIES, Server.SQL_DELETE_ENTRIES);
-        newColumn(db, oldVersion, newVersion, Item.SINCE, 4, Item.TABLE_NAME, Item._DATE, "INTEGER");
-        newColumn(db, oldVersion, newVersion, Item.SINCE, 5, Item.TABLE_NAME, Item._TYPE, "TEXT");
+        newTable(db, oldVersion, newVersion, itemSchema);
+        newTable(db, oldVersion, newVersion, folderSchema);
+        newTable(db, oldVersion, newVersion, serverSchema);
+        newColumn(db, oldVersion, newVersion, itemSchema, 4, ItemSchema.DATE);
+        newColumn(db, oldVersion, newVersion, itemSchema, 5, ItemSchema.TYPE);
 
         if (oldVersion < 5 && newVersion >= 5) {
             mustPopulateTypes = true;
         }
 
-        newTable(db, oldVersion, newVersion, Tag.SINCE, Tag.SQL_CREATE_ENTRIES, Tag.SQL_DELETE_ENTRIES);
+        newTable(db, oldVersion, newVersion, new TagSchema());
     }
 
     protected void afterConnect() {
@@ -422,13 +435,13 @@ public class Domain extends AbstractDomain {
             Log.d(TAG, "Upgrading database...");
             Query<Item> query = selectItems();
             for (Item i : query.list()) {
-                if (i.type != ItemType.UNKNOWN) { continue; }
-                if (i.path.toLowerCase().endsWith(".jpg")) {
-                    i.type = ItemType.IMAGE;
-                } else if (i.path.toLowerCase().endsWith(".mp4")) {
-                    i.type = ItemType.VIDEO;
+                if (i.getType() != ItemType.UNKNOWN) { continue; }
+                if (i.getPath().toLowerCase().endsWith(".jpg")) {
+                    i.set(ItemSchema.TYPE, ItemType.IMAGE);
+                } else if (i.getPath().toLowerCase().endsWith(".mp4")) {
+                    i.set(ItemSchema.TYPE, ItemType.VIDEO);
                 } else {
-                    throw new IllegalArgumentException("Unrecognised extension "+ i.path);
+                    throw new IllegalArgumentException("Unrecognised extension "+ i.getPath());
                 }
                 i.update();
             }
@@ -438,72 +451,24 @@ public class Domain extends AbstractDomain {
     }
 
     public Query<Item> selectItems() {
-        return new ItemQuery();
-    }
-
-    private List<Item> itemList(final Cursor cursor, boolean loadTags) {
-        return new CursorList<Item>(cursor) {
-            @Override
-            protected Item newEntity() {
-                return new Item(cursor);
-            }
-        };
-    }
-
-    public class ItemQuery extends Query<Item> {
-        private boolean loadTags = false;
-        public ItemQuery() {
-            super(Item.TABLE_NAME);
-        }
-
-        public ItemQuery loadTags() {
-            this.loadTags = true;
-            return this;
-        }
-
-        public List<Item> list() {
-            return itemList(list(ITEM_COLUMNS), loadTags);
-        }
+        return itemSchema.query(this);
     }
 
     public List<Item> selectItemsByServerId(long serverId) {
-        return new ItemQuery()
-                .eq(Item._SERVER_ID, serverId)
+        return selectItems()
+                .eq(ItemSchema.SERVER_ID, serverId)
                 .detachedList();
     }
 
     private List<Folder> folders = null;
     public List<Folder> selectFolders() {
         if (folders == null) {
-            Cursor cursor = connect().query(
-                    Folder.TABLE_NAME, FOLDER_COLUMNS, null, null, null, null,
-                    Folder._NAME + " ASC",
-                    null);
-            try {
-                folders = new ArrayList<>(new CursorList<Folder>(cursor) {
-                    @Override
-                    protected Folder newEntity() {
-                        return new Folder(cursor);
-                    }
-                });
-            } finally {
-                cursor.close();
-            }
+            folders = folderSchema.query(this).detachedList();
         }
         return folders;
     }
 
     public List<Server> selectServers() {
-        Cursor cursor = connect().query(
-                Server.TABLE_NAME, SERVER_COLUMNS, null, null, null, null,
-                Server._NAME + " ASC",
-                null);
-        this.cursors.add(cursor);
-        return new CursorList<Server>(cursor) {
-                    @Override
-                    protected Server newEntity() {
-                        return new Server(cursor);
-                    }
-                };
+        return serverSchema.query(this).detachedList();
     }
 }

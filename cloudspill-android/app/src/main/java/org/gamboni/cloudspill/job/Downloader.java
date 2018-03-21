@@ -89,10 +89,10 @@ public class Downloader {
 
         for (Domain.Item item : items) {
             loaded++;
-            if (falseMeansDelete.size() > item.serverId) {
-                falseMeansDelete.set((int) item.serverId);
+            if (falseMeansDelete.size() > item.getServerId()) {
+                falseMeansDelete.set(item.getServerId().intValue());
             }
-            List<Domain.Item> allExisting = domain.selectItemsByServerId(item.serverId);
+            List<Domain.Item> allExisting = domain.selectItemsByServerId(item.getServerId());
             if (allExisting.isEmpty()) {
                 item.insert();
                 created++;
@@ -101,7 +101,7 @@ public class Downloader {
                 existing.copyFrom(item);
                 existing.update();
             }
-            highestId = item.serverId;
+            highestId = item.getServerId();
 
             if (slowDown-- == 0) { // TODO move this into StatusReport implementation (with new Severity.PROGRESS)
                 listener.updateMessage(StatusReport.Severity.INFO, "Downloading new items @" + firstId + ". Created " + created + "/" + loaded);
@@ -113,7 +113,7 @@ public class Downloader {
         for (int serverIdToDelete=falseMeansDelete.nextClearBit(0);
              serverIdToDelete < falseMeansDelete.size();
              serverIdToDelete = falseMeansDelete.nextClearBit(serverIdToDelete+1)) {
-            domain.new ItemQuery().eq(Domain.Item._SERVER_ID, serverIdToDelete).delete();
+            domain.selectItems().eq(Domain.ItemSchema.SERVER_ID, (long)serverIdToDelete).delete();
             deleteCount++;
 
             if (slowDown-- == 0) { // TODO move this into StatusReport implementation (with new Severity.PROGRESS)

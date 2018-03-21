@@ -5,105 +5,371 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.provider.BaseColumns;
 
 import java.util.AbstractList;
 import java.util.AbstractSet;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /** Base class for database data model.
  *
  * @author tendays
  */
-public abstract class AbstractDomain extends SQLiteOpenHelper {
+public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends SQLiteOpenHelper {
 
     protected static final String TAG = "CloudSpill.Domain";
 
     protected final Context context;
+
+    public static abstract class Schema<D extends AbstractDomain<D>, E extends AbstractDomain<D>.Entity> {
+        public abstract int since();
+        public abstract String tableName();
+        public abstract List<? extends Column<?>> columns();
+        public abstract List<? extends Column<?>> idColumns();
+        protected abstract E newInstance(D domain, Cursor cursor);
+        public AbstractDomain<D>.Query<E> query(AbstractDomain<D> domain) {
+            return domain.new EntityQuery<E>(this);
+        }
+    }
+
+    protected SELF domain() {
+        return (SELF)this;
+    }
+
+    public class EntityQuery<T extends Entity> extends Query<T> {
+        protected final Schema<SELF, T> schema;
+        public EntityQuery(Schema<SELF, T> schema) {
+            super(schema);
+            this.schema = schema;
+        }
+
+        public List<T> list() {
+            return new CursorList<T>(listAllColumns()) {
+                @Override
+                protected T newEntity() {
+                    return schema.newInstance(domain(), cursor);
+                }
+            };
+        }
+    }
+
+    public abstract class Entity {
+        protected final Map<Column<?>, Object> values = new HashMap<>();
+        protected Entity() {
+        }
+
+        public <T> T get(Column<T> column) {
+            return (T)values.get(column);
+        }
+
+        public <T> void set(Column<T> column, T value) {
+            values.put(column, value);
+        }
+
+        protected Entity(Cursor cursor) {
+            int counter=0;
+            for (Column<?> column : getSchema().columns()) {
+                values.put(column, column.getFrom(cursor, counter++));
+            }
+        }
+
+        abstract Schema<SELF, ?> getSchema();
+
+        public ContentValues getValues() {
+            ContentValues result = new ContentValues();
+            for (Column<?> col : getSchema().columns()) {
+                getSql(result, this, col);
+            }
+            return result;
+        }
+        public long insert() {
+            return connect().insert(getSchema().tableName(), null, getValues());
+        }
+
+        protected <T> void likeThis(Query<?> query, Column<T> column) {
+            query.eq(column, this.get(column));
+        }
+
+        public void update() {
+            Query<?> query = getSchema().query(domain());
+            for (Column<?> idColumn : getSchema().idColumns()) {
+                likeThis(query, idColumn);
+            }
+            query.update(getValues());
+        }
+
+        public void delete() {
+            Query<?> query = getSchema().query(domain());
+            for (Column<?> idColumn : getSchema().idColumns()) {
+                likeThis(query, idColumn);
+            }
+            query.delete();
+        }
+    }
+
+    private static <T> void getSql(ContentValues output, AbstractDomain<?>.Entity e, Column<T> column) {
+        column.addTo(output, e.get(column));
+    }
+
+    public static abstract class Column<T> {
+        public final String name;
+        protected Column(String name) {
+            this.name = name;
+        }
+        public abstract String sqlType();
+        public abstract Object getSql(T value);
+        public abstract T getFrom(Cursor cursor, int index);
+        public abstract void addTo(ContentValues out, T in);
+    }
+
+    protected static class IntColumn extends Column<Integer> {
+        private IntColumn(String name) {
+            super(name);
+        }
+
+        @Override
+        public String sqlType() {
+            return "INTEGER";
+        }
+
+        @Override
+        public Integer getSql(Integer value) {
+            return value;
+        }
+
+        @Override
+        public Integer getFrom(Cursor cursor, int index) {
+            return cursor.getInt(index);
+        }
+
+        @Override
+        public void addTo(ContentValues out, Integer value) {
+            out.put(name, value);
+        }
+    }
+
+    protected static class LongColumn extends Column<Long> {
+        private LongColumn(String name) {
+            super(name);
+        }
+
+        @Override
+        public String sqlType() {
+            return "INTEGER";
+        }
+
+        @Override
+        public Long getSql(Long value) {
+            return value;
+        }
+
+        @Override
+        public Long getFrom(Cursor cursor, int index) {
+            return cursor.getLong(index);
+        }
+
+        public void addTo(ContentValues out, Long value) {
+            out.put(name, value);
+        }
+    }
+
+    protected static class IdColumn extends LongColumn {
+        private IdColumn() {
+            super(BaseColumns._ID);
+        }
+        public String sqlType() {
+            return super.sqlType() +" PRIMARY KEY";
+        }
+    }
+
+    protected static class StringColumn extends Column<String> {
+        private StringColumn(String name) {
+            super(name);
+        }
+        public String sqlType() {
+            return "TEXT";
+        }
+
+        @Override
+        public String getSql(String value) {
+            return value;
+        }
+        public String getFrom(Cursor cursor, int index) {
+            return cursor.getString(index);
+        }
+
+        @Override
+        public void addTo(ContentValues out, String value) {
+            out.put(name, value);
+        }
+    }
+
+    protected static class EnumColumn<T extends Enum<T>> extends Column<T> {
+        private final Class<T> type;
+        private final T unknownValue;
+        private EnumColumn(Class<T> type, T unknownValue, String name) {
+            super(name);
+            this.type = type;
+            this.unknownValue = unknownValue;
+        }
+        public String sqlType() {
+            return "TEXT";
+        }
+        public T getFrom(Cursor cursor, int index) {
+            String name = cursor.getString(index);
+            if (name == null) {
+                return unknownValue;
+            } else try {
+                return Enum.valueOf(type, name);
+            } catch (IllegalArgumentException e) {
+                return unknownValue;
+            }
+        }
+
+        @Override
+        public String getSql(T value) {
+            return (value == null) ? null : value.name();
+        }
+
+        @Override
+        public void addTo(ContentValues out, T value) {
+            out.put(name, getSql(value));
+        }
+    }
+
+    protected static class DateColumn extends Column<Date> {
+        private DateColumn(String name) {
+            super(name);
+        }
+        public String sqlType() {
+            return "INTEGER";
+        }
+        public Date getFrom(Cursor cursor, int index) {
+            return toDate(cursor.getLong(index));
+        }
+
+        @Override
+        public Long getSql(Date value) {
+            return fromDate(value);
+        }
+
+            @Override
+        public void addTo(ContentValues out, Date value) {
+            out.put(name, getSql(value));
+        }
+    }
+
+    protected static Column<Long> id() {
+        return new IdColumn();
+    }
+
+    protected static Column<Long> longColumn(String name) {
+        return new LongColumn(name);
+    }
+
+    protected static Column<String> string(String name) {
+        return new StringColumn(name);
+    }
+
+    protected static Column<Date> date(String name) {
+        return new DateColumn(name);
+    }
+
+    protected static <T extends Enum<T>> Column<T> enumerated(Class<T> type, T unknownValue, String name) {
+        return new EnumColumn<T>(type, unknownValue, name);
+    }
 
     protected AbstractDomain(Context context, String dbName, int dbVersion) {
         super(context, dbName, null, dbVersion);
         this.context = context;
     }
 
-    protected static void newColumn(SQLiteDatabase db, int oldVersion, int newVersion, int tableSince, int since, String table, String column, String type) {
+    protected static void newColumn(SQLiteDatabase db, int oldVersion, int newVersion, Schema<?, ?> table, int since, Column<?> column) {
         // If table did not exist in oldVersion then newTable created it with all required columns
         // so we don't need to add the column here
-        if (oldVersion < since && newVersion >= since && oldVersion >= tableSince) {
-            db.execSQL("ALTER TABLE "+ table +" ADD COLUMN "+ column +" "+ type);
+        if (oldVersion < since && newVersion >= since && oldVersion >= table.since()) {
+            db.execSQL("ALTER TABLE "+ table.tableName() +" ADD COLUMN "+ column.name +" "+ column.sqlType());
         } // TODO remove column on downgrade
     }
 
-    protected static void newTable(SQLiteDatabase db, int oldVersion, int newVersion, int since, String create, String delete) {
+    protected static void newTable(SQLiteDatabase db, int oldVersion, int newVersion, Schema<?, ?> schema) {
+        int since = schema.since();
+
+        StringBuilder create = new StringBuilder("CREATE TABLE "+ schema.tableName() +" (");
+        String comma = "";
+        for (Column<?> column : schema.columns()) {
+            create.append(comma).append(column.name +" "+ column.sqlType());
+            comma = ", ";
+        }
+        create.append(")");
+        String delete = "DROP TABLE "+ schema.tableName() +" IF EXISTS";
         if (oldVersion < since && newVersion >= since) {
-            db.execSQL(create);
+            db.execSQL(create.toString());
         } else if (oldVersion >= since && newVersion < since) {
             db.execSQL(delete);
         }
     }
 
     private class ColumnQuery<U> extends Query<U> {
-        final String selection;
-        final Class<U> columnType;
+        final Column<U> selection;
 
-        ColumnQuery(Query<?> base, String selection, Class<U> columnType) {
-            super(base.tableName);
+        ColumnQuery(Query<?> base, Column<U> column) {
+            super(base.schema);
             this.restriction = base.restriction;
             this.ordering = base.ordering;
             this.args.addAll(base.args);
 
-            this.selection = selection;
-            this.columnType = columnType;
+            this.selection = column;
         }
 
         @Override
         public List<U> list() {
-            return new CursorList<U>(list(selection)) {
+            return new CursorList<U>(list(selection.name)) {
                 @Override
                 protected U newEntity() {
-                    if (columnType == String.class) {
-                        return (U) cursor.getString(0);
-                    } else {
-                        throw new UnsupportedOperationException("Selecting type "+ columnType.getSimpleName() +" not supported");
-                    }
+                    return selection.getFrom(cursor, 0);
                 }
             };
         }
     }
 
     public abstract class Query<T> {
-        final String tableName;
+        final Schema<SELF, ?> schema;
         String restriction = null;
         String ordering = null;
         Cursor cursor = null;
         protected final List<String> args = new ArrayList<>();
 
-        Query(String tableName) {
-            this.tableName = tableName;
+        Query(Schema<SELF, ?> schema) {
+            this.schema = schema;
         }
 
         /** Add an equality condition. {@code value} may be null, in which case an "is null" restriction
          * is generated.
          */
-        public Query<T> eq(String column, Object value) {
-            return (value == null) ? restriction(column +" is null") : restriction(column +" = ?", value);
+        public <V> Query<T> eq(Column<V> column, V value) {
+            return (value == null) ? restriction(column.name +" is null") : restriction(column.name +" = ?",
+                    column.getSql(value));
         }
 
         /** Add a "greater-than-or-equal" restriction. */
-        public Query<T> ge(String column, Object value) {
-            return restriction(column +" >= ?", preprocess(value));
+        public <V extends Comparable<V>> Query<T> ge(Column<V> column, V value) {
+            return restriction(column.name +" >= ?", column.getSql(value));
         }
 
         /** Add a "less-than-or-equl" restriction. */
-        public Query<T> le(String column, Object value) {
-            return restriction(column +" <= ?", preprocess(value));
+        public <V extends Comparable<V>> Query<T> le(Column<V> column, V value) {
+            return restriction(column.name +" <= ?", column.getSql(value));
         }
 
-        public Query<T> like(String column, String pattern) {
-            return restriction(column +" like ?", pattern);
+        public Query<T> like(Column<String> column, String pattern) {
+            return restriction(column.name +" like ?", pattern);
         }
 
         protected Query<T> restriction(String sql, Object arg) {
@@ -122,29 +388,39 @@ public abstract class AbstractDomain extends SQLiteOpenHelper {
             return this;
         }
 
-        public <U> Query<U> selectDistinct(String column, Class<U> columnType) {
-            return new ColumnQuery<>(this, column, columnType);
+        public <U> Query<U> selectDistinct(Column<U> column) {
+            return new ColumnQuery<>(this, column);
         }
 
-        public Query<T> orderAsc(String column) {
+        public Query<T> orderAsc(Column<?> column) {
             ordering = (ordering == null) ? "" : (ordering +", ");
-            ordering += column;
+            ordering += column.name;
             return this;
         }
 
-        public Query<T> orderDesc(String column) {
+        public Query<T> orderDesc(Column<?> column) {
             ordering = (ordering == null) ? "" : (ordering +", ");
-            ordering += column +" DESC";
+            ordering += column.name +" DESC";
             return this;
         }
 
         protected Cursor list(String... columns) {
             cursor = connect().query(
-                    tableName, columns, restriction,
+                    schema.tableName(), columns, restriction,
                     restrictionArgs(), null, null, ordering);
 
             cursors.add(cursor);
             return cursor;
+        }
+
+        protected Cursor listAllColumns() {
+            // TODO store into schema
+            String[] columnNames = new String[schema.columns().size()];
+            int index=0;
+            for (Column<?> column : schema.columns()) {
+                columnNames[index++] = column.name;
+            }
+            return list(columnNames);
         }
 
         /** Return a List of results that dynamically read through the Cursor.
@@ -162,7 +438,7 @@ public abstract class AbstractDomain extends SQLiteOpenHelper {
         }
 
         public int update(ContentValues values) {
-            return connect().update(tableName, values, restriction, restrictionArgs());
+            return connect().update(schema.tableName(), values, restriction, restrictionArgs());
         }
 
         /** Delete all rows corresponding to this query.
@@ -170,7 +446,7 @@ public abstract class AbstractDomain extends SQLiteOpenHelper {
          * @return the number of affected rows.
          */
         public int delete() {
-            return connect().delete(tableName, restriction, restrictionArgs());
+            return connect().delete(schema.tableName(), restriction, restrictionArgs());
         }
 
         private String[] restrictionArgs() {
@@ -292,13 +568,5 @@ public abstract class AbstractDomain extends SQLiteOpenHelper {
     /** Convert a nullable Date coming from an entity object to a number suitable for storing in the database. */
     protected static Long fromDate(Date date) {
         return (date == null) ? null : date.getTime();
-    }
-
-    private static Object preprocess(Object value) {
-        if (value instanceof Date) {
-            return fromDate((Date)value);
-        } else {
-            return value;
-        }
     }
 }
