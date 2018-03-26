@@ -14,7 +14,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <service android:name="CloudSpillIntentService" />
+        <service android:name=".job.CloudSpillIntentService" />
         <service android:name=".job.ThumbnailIntentService" />
         <service android:name=".job.MediaDownloader" />
         <activity android:name=".ui.MainActivity">

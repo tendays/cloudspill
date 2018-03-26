@@ -22,7 +22,7 @@ import java.util.Map;
  * @author tendays
  */
 
-public class ConnectivityTestRequest extends AuthenticatingRequest<String> {
+public class ConnectivityTestRequest extends StringBasedAuthenticatingRequest<String> {
 
     private final Listener listener;
     private static final String PREAMBLE = "CloudSpill server.\nData-Version: ";
@@ -69,16 +69,8 @@ public class ConnectivityTestRequest extends AuthenticatingRequest<String> {
         return listener.getResponse();
     }
 
-    // TODO [NICETOHAVE][Maintenance] copy-pasted from StringRequest.
-    // Either use decorator pattern, or externalised response parsers
     @Override
-    protected Response<String> parseNetworkResponse(NetworkResponse response) {
-        String parsed;
-        try {
-            parsed = new String(response.data, HttpHeaderParser.parseCharset(response.headers));
-        } catch (UnsupportedEncodingException e) {
-            parsed = new String(response.data);
-        }
-        return Response.success(parsed, HttpHeaderParser.parseCacheHeaders(response));
+    protected String parseResponse(String response) {
+        return response;
     }
 }

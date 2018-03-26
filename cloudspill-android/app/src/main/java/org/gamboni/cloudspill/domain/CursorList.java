@@ -11,7 +11,7 @@ import java.util.NoSuchElementException;
  *
  * @author tendays
  */
-public abstract class CursorList<T> extends AbstractList<T> {
+public abstract class CursorList<T> extends AbstractList<T> implements AbstractDomain.CloseableList<T> {
 
     private static final String TAG = "CloudSpill.DB";
     protected final Cursor cursor;
@@ -70,5 +70,10 @@ public abstract class CursorList<T> extends AbstractList<T> {
                 }
             }
         };
+    }
+
+    @Override
+    public void close() {
+        cursor.close();
     }
 }

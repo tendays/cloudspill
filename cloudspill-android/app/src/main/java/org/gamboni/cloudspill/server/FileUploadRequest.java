@@ -21,7 +21,7 @@ import java.util.Map;
  * Created by tendays on 25.06.17.
  */
 
-public class FileUploadRequest extends AuthenticatingRequest<Long> {
+public class FileUploadRequest extends StringBasedAuthenticatingRequest<Long> {
     private final Date date;
     private final ItemType type;
     private final byte[] body;
@@ -69,22 +69,7 @@ public class FileUploadRequest extends AuthenticatingRequest<Long> {
     }
 
     @Override
-    protected Response<Long> parseNetworkResponse(NetworkResponse response) {
-        try {
-            Log.d(TAG, "Received response from server");
-            return Response.success(Long.parseLong(new String(response.data,
-                    HttpHeaderParser.parseCharset(response.headers))),
-                    HttpHeaderParser.parseCacheHeaders(response)
-                    );
-
-        } catch (UnsupportedEncodingException e) {
-            return Response.error(new VolleyError(e));
-        }
-    }
-
-    protected void deliverResponse(Long response) {
-        Log.d(TAG, "Received response "+ response +" from server");
-
-        super.deliverResponse(response);
+    protected Long parseResponse(String response) {
+        return Long.parseLong(response);
     }
 }

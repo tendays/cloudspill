@@ -8,14 +8,11 @@ import android.database.sqlite.SQLiteOpenHelper;
 import android.provider.BaseColumns;
 
 import java.util.AbstractList;
-import java.util.AbstractSet;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /** Base class for database data model.
  *
@@ -49,7 +46,7 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
             this.schema = schema;
         }
 
-        public List<T> list() {
+        public CloseableList<T> list() {
             return new CursorList<T>(listAllColumns()) {
                 @Override
                 protected T newEntity() {
@@ -57,6 +54,11 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
                 }
             };
         }
+    }
+
+    protected static <T extends AbstractDomain<?>.Entity> T load(T entity, Cursor c) {
+        entity.load(c);
+        return entity;
     }
 
     public abstract class Entity {
@@ -72,7 +74,8 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
             values.put(column, value);
         }
 
-        protected Entity(Cursor cursor) {
+        /** Initialise this entity from the given cursor. */
+        protected void load(Cursor cursor) {
             int counter=0;
             for (Column<?> column : getSchema().columns()) {
                 values.put(column, column.getFrom(cursor, counter++));
@@ -119,8 +122,10 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
 
     public static abstract class Column<T> {
         public final String name;
-        protected Column(String name) {
+        private final int since;
+        protected Column(String name, int since) {
             this.name = name;
+            this.since = since;
         }
         public abstract String sqlType();
         public abstract Object getSql(T value);
@@ -129,8 +134,8 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
     }
 
     protected static class IntColumn extends Column<Integer> {
-        private IntColumn(String name) {
-            super(name);
+        private IntColumn(String name, int since) {
+            super(name, since);
         }
 
         @Override
@@ -155,8 +160,8 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
     }
 
     protected static class LongColumn extends Column<Long> {
-        private LongColumn(String name) {
-            super(name);
+        private LongColumn(String name, int since) {
+            super(name, since);
         }
 
         @Override
@@ -180,8 +185,8 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
     }
 
     protected static class IdColumn extends LongColumn {
-        private IdColumn() {
-            super(BaseColumns._ID);
+        private IdColumn(int since) {
+            super(BaseColumns._ID, since);
         }
         public String sqlType() {
             return super.sqlType() +" PRIMARY KEY";
@@ -189,8 +194,8 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
     }
 
     protected static class StringColumn extends Column<String> {
-        private StringColumn(String name) {
-            super(name);
+        private StringColumn(String name, int since) {
+            super(name, since);
         }
         public String sqlType() {
             return "TEXT";
@@ -213,8 +218,8 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
     protected static class EnumColumn<T extends Enum<T>> extends Column<T> {
         private final Class<T> type;
         private final T unknownValue;
-        private EnumColumn(Class<T> type, T unknownValue, String name) {
-            super(name);
+        private EnumColumn(Class<T> type, T unknownValue, String name, int since) {
+            super(name, since);
             this.type = type;
             this.unknownValue = unknownValue;
         }
@@ -244,8 +249,8 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
     }
 
     protected static class DateColumn extends Column<Date> {
-        private DateColumn(String name) {
-            super(name);
+        private DateColumn(String name, int since) {
+            super(name, since);
         }
         public String sqlType() {
             return "INTEGER";
@@ -265,37 +270,29 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
         }
     }
 
-    protected static Column<Long> id() {
-        return new IdColumn();
+    protected static Column<Long> id(int since) {
+        return new IdColumn(since);
     }
 
-    protected static Column<Long> longColumn(String name) {
-        return new LongColumn(name);
+    protected static Column<Long> longColumn(String name, int since) {
+        return new LongColumn(name, since);
     }
 
-    protected static Column<String> string(String name) {
-        return new StringColumn(name);
+    protected static Column<String> string(String name, int since) {
+        return new StringColumn(name, since);
     }
 
-    protected static Column<Date> date(String name) {
-        return new DateColumn(name);
+    protected static Column<Date> date(String name, int since) {
+        return new DateColumn(name, since);
     }
 
-    protected static <T extends Enum<T>> Column<T> enumerated(Class<T> type, T unknownValue, String name) {
-        return new EnumColumn<T>(type, unknownValue, name);
+    protected static <T extends Enum<T>> Column<T> enumerated(Class<T> type, T unknownValue, String name, int since) {
+        return new EnumColumn<T>(type, unknownValue, name, since);
     }
 
     protected AbstractDomain(Context context, String dbName, int dbVersion) {
         super(context, dbName, null, dbVersion);
         this.context = context;
-    }
-
-    protected static void newColumn(SQLiteDatabase db, int oldVersion, int newVersion, Schema<?, ?> table, int since, Column<?> column) {
-        // If table did not exist in oldVersion then newTable created it with all required columns
-        // so we don't need to add the column here
-        if (oldVersion < since && newVersion >= since && oldVersion >= table.since()) {
-            db.execSQL("ALTER TABLE "+ table.tableName() +" ADD COLUMN "+ column.name +" "+ column.sqlType());
-        } // TODO remove column on downgrade
     }
 
     protected static void newTable(SQLiteDatabase db, int oldVersion, int newVersion, Schema<?, ?> schema) {
@@ -313,6 +310,15 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
             db.execSQL(create.toString());
         } else if (oldVersion >= since && newVersion < since) {
             db.execSQL(delete);
+        } else if (oldVersion >= since && newVersion >= since) {
+            /* Table already exists but columns may have to be created. */
+            for (Column<?> column : schema.columns()) {
+                // If table did not exist in oldVersion then newTable created it with all required columns
+                // so we don't need to add the column here
+                if (oldVersion < column.since && newVersion >= column.since) {
+                    db.execSQL("ALTER TABLE "+ schema.tableName() +" ADD COLUMN "+ column.name +" "+ column.sqlType());
+                } // TODO remove column on downgrade
+            }
         }
     }
 
@@ -329,7 +335,7 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
         }
 
         @Override
-        public List<U> list() {
+        public CloseableList<U> list() {
             return new CursorList<U>(list(selection.name)) {
                 @Override
                 protected U newEntity() {
@@ -355,6 +361,14 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
          */
         public <V> Query<T> eq(Column<V> column, V value) {
             return (value == null) ? restriction(column.name +" is null") : restriction(column.name +" = ?",
+                    column.getSql(value));
+        }
+
+        /** Add an inequality condition. {@code value} may be null, in which case an "is not null" restriction
+         * is generated.
+         */
+        public <V> Query<T> ne(Column<V> column, V value) {
+            return (value == null) ? restriction(column.name +" is not null") : restriction(column.name +" != ?",
                     column.getSql(value));
         }
 
@@ -426,7 +440,7 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
         /** Return a List of results that dynamically read through the Cursor.
          * You must close() this object when you are done accessing the list.
          */
-        public abstract List<T> list();
+        public abstract CloseableList<T> list();
 
         /** Return a List of result that is entirely copied in memory. You
          * must not close() this object when you are done.
@@ -456,6 +470,11 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
         public void close() {
             cursor.close();
         }
+    }
+
+    public interface CloseableList<T> extends List<T>, AutoCloseable {
+        /** Forbid checked exceptions on closeable lists. */
+        void close();
     }
 
     protected abstract class TrackingList<T, E> extends AbstractList<T> {

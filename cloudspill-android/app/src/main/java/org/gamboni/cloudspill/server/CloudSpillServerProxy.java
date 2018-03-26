@@ -227,4 +227,10 @@ public class CloudSpillServerProxy {
     public void itemsSince(long id, Response.Listener<Iterable<Domain.Item>> listener, Response.ErrorListener errorListener) {
         queue.add(new ItemsSinceRequest(context, url, domain, id, listener, errorListener));
     }
+
+    public void tag(Domain.Tag tag, boolean create, Response.Listener<Void> listener, Response.ErrorListener errorListener) {
+        queue.add(new TagRequest(context, url, tag.getItem(), tag.get(Domain.TagSchema.TAG),
+                create,
+                listener, errorListener));
+    }
 }

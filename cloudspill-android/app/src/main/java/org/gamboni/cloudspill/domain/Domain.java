@@ -1,23 +1,18 @@
 package org.gamboni.cloudspill.domain;
 
-import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
-import android.provider.BaseColumns;
 import android.util.Log;
 
 import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.ui.SettingsActivity;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /** CloudSpill Android database.
  *
@@ -26,29 +21,29 @@ import java.util.Set;
 public class Domain extends AbstractDomain<Domain> {
 
     // If you change the database schema, you must increment the database version.
-    private static final int DATABASE_VERSION = 6;
+    private static final int DATABASE_VERSION = 7;
     private static final String DATABASE_NAME = "CloudSpill.db";
 
     private static final ItemSchema itemSchema = new ItemSchema();
     public static class ItemSchema extends Schema<Domain, Item> {
         /* Columns */
-        public static final Column<Long> ID = id();
-        public static final Column<Long> SERVER_ID = longColumn("SERVER_ID");
-        public static final Column<String> USER = string("USER");
+        public static final Column<Long> ID = id(1);
+        public static final Column<Long> SERVER_ID = longColumn("SERVER_ID", 1);
+        public static final Column<String> USER = string("USER", 1);
         /** Folder name. The folder does not need to exist in the "folder" table
          * in case it's an "external" folder.
          */
-        public static final Column<String> FOLDER = string("FOLDER");
+        public static final Column<String> FOLDER = string("FOLDER", 1);
 
-        public static final Column<String> PATH = string("PATH");
+        public static final Column<String> PATH = string("PATH", 1);
         /** The time the item was last opened in the application.
          * This is used to decide when it may be deleted locally.
          */
-        public static final Column<Date> LATEST_ACCESS = date("LATEST_ACCESS");
+        public static final Column<Date> LATEST_ACCESS = date("LATEST_ACCESS", 1);
         /** The time the item was created (for a photo, that would be the time the photo was taken). */
-        public static final Column<Date> DATE = date("DATE");
+        public static final Column<Date> DATE = date("DATE", 4);
         /** The type of media in this item, as an {@link ItemType}. */
-        public static final Column<ItemType> TYPE = enumerated(ItemType.class, ItemType.UNKNOWN, "TYPE");
+        public static final Column<ItemType> TYPE = enumerated(ItemType.class, ItemType.UNKNOWN, "TYPE", 5);
 
         @Override
         public int since() {
@@ -72,7 +67,7 @@ public class Domain extends AbstractDomain<Domain> {
 
         @Override
         protected Item newInstance(Domain domain, Cursor cursor) {
-            return domain.new Item(cursor);
+            return load(domain.new Item(), cursor);
         }
     }
 
@@ -83,18 +78,13 @@ public class Domain extends AbstractDomain<Domain> {
     public class Item extends Entity {
 
         @Override
-        Schema getSchema() {
+        ItemSchema getSchema() {
             return itemSchema;
         }
 
         private TrackingList<String, Tag> tags;
 
-        public Item() {
-        }
-
-        private Item(Cursor cursor) {
-            super(cursor);
-        }
+        public Item() {}
 
         /** Construct an Item from its serialized form as constructed by the server. */
         public Item(String serialisedForm) {
@@ -188,20 +178,20 @@ public class Domain extends AbstractDomain<Domain> {
 
                     @Override
                     protected void insert(Tag tag) {
-                        if (tag.get(TagSchema.ITEM) != 0) {
+                        if (tag.get(TagSchema.ITEM) != null) {
                             tag.insert();
                         }
                     }
 
                     @Override
                     protected void delete(Tag tag) {
-                        if (tag.get(TagSchema.ITEM) != 0) {
+                        if (tag.get(TagSchema.ITEM) != null) {
                             tag.delete();
                         }
                     }
 
                     protected void flush(Tag tag) {
-                        if (tag.getItem() == 0 && Item.this.getId() != 0) {
+                        if (tag.getItem() == null && Item.this.getId() != null) {
                             tag.set(TagSchema.ITEM, Item.this.getId());
                             insert(tag);
                         }
@@ -225,10 +215,14 @@ public class Domain extends AbstractDomain<Domain> {
         return 0;
     }
 
-    private static final Column<?>[] TAG_COLUMNS = new Column<?>[]{
-            TagSchema.ITEM,
-            TagSchema.TAG};
-
+    public enum SyncStatus {
+        /** Created locally, must be created in the server. */
+        TO_CREATE,
+        /** Deleted locally, to be deleted in the server. */
+        TO_DELETE,
+        /** No action needed. */
+        OK
+    }
     public static final TagSchema tagSchema = new TagSchema();
     public static class TagSchema extends Schema<Domain, Tag> {
         @Override
@@ -243,12 +237,12 @@ public class Domain extends AbstractDomain<Domain> {
 
         @Override
         public List<? extends Column<?>> columns() {
-            return list(ITEM, TAG, DIRTY);
+            return list(ITEM, TAG, SYNC);
         }
 
-        public static final Column<Long> ITEM = longColumn("ITEM");
-        public static final Column<String> TAG = string("TAG");
-        public static final Column<String> DIRTY = string("DIRTY");
+        public static final Column<Long> ITEM = longColumn("ITEM", 6);
+        public static final Column<String> TAG = string("TAG", 6);
+        public static final Column<SyncStatus> SYNC = enumerated(SyncStatus.class, SyncStatus.TO_CREATE, "SYNC", 7);
 
         @Override
         public List<? extends Column<?>> idColumns() {
@@ -257,20 +251,13 @@ public class Domain extends AbstractDomain<Domain> {
 
         @Override
         protected Tag newInstance(Domain domain, Cursor cursor) {
-            return domain.new Tag(cursor);
+            return load(domain.new Tag(), cursor);
         }
     }
     public class Tag extends Entity {
 
-        public Tag() {
-        }
-
-        private Tag(Cursor cursor) {
-            super(cursor);
-        }
-
         @Override
-        Schema getSchema() {
+        TagSchema getSchema() {
             return tagSchema;
         }
 
@@ -279,12 +266,12 @@ public class Domain extends AbstractDomain<Domain> {
         }
     }
 
-    public static FolderSchema folderSchema = new FolderSchema();
+    public static final FolderSchema folderSchema = new FolderSchema();
     public static class FolderSchema extends Schema<Domain, Folder> {
 
-        public static final Column<Long> ID = id();
-        public static final Column<String> NAME = string("name");
-        public static final Column<String> PATH = string("path");
+        public static final Column<Long> ID = id(2);
+        public static final Column<String> NAME = string("name", 2);
+        public static final Column<String> PATH = string("path", 2);
         @Override
         public int since() {
             return 2;
@@ -309,18 +296,11 @@ public class Domain extends AbstractDomain<Domain> {
 
         @Override
         protected Folder newInstance(Domain domain, Cursor cursor) {
-            return domain.new Folder(cursor);
+            return load(domain.new Folder(), cursor);
         }
     }
 
     public class Folder extends Entity {
-        public Folder() {
-        }
-
-        private Folder(Cursor cursor) {
-            super(cursor);
-        }
-
         @Override
         Schema<Domain, ?> getSchema() {
             return folderSchema;
@@ -350,11 +330,11 @@ public class Domain extends AbstractDomain<Domain> {
         }
     }
 
-    public static final ServerSchema serverSchema = new ServerSchema();
+    private static final ServerSchema serverSchema = new ServerSchema();
     public static class ServerSchema extends Schema<Domain, Server> {
-        public static final Column<Long> ID = id();
-        public static final Column<String> NAME = string("name");
-        public static final Column<String> URL = string("url");
+        public static final Column<Long> ID = id(3);
+        public static final Column<String> NAME = string("name", 3);
+        public static final Column<String> URL = string("url", 3);
         @Override
         public int since() {
             return 3;
@@ -377,19 +357,11 @@ public class Domain extends AbstractDomain<Domain> {
 
         @Override
         protected Server newInstance(Domain domain, Cursor cursor) {
-            return domain.new Server(cursor);
+            return load(domain.new Server(), cursor);
         }
     }
 
     public class Server extends Entity {
-
-        public Server() {
-        }
-
-        private Server(Cursor cursor) {
-            super(cursor);
-        }
-
         @Override
         Schema<Domain, ?> getSchema() {
             return serverSchema;
@@ -419,14 +391,11 @@ public class Domain extends AbstractDomain<Domain> {
         newTable(db, oldVersion, newVersion, itemSchema);
         newTable(db, oldVersion, newVersion, folderSchema);
         newTable(db, oldVersion, newVersion, serverSchema);
-        newColumn(db, oldVersion, newVersion, itemSchema, 4, ItemSchema.DATE);
-        newColumn(db, oldVersion, newVersion, itemSchema, 5, ItemSchema.TYPE);
+        newTable(db, oldVersion, newVersion, tagSchema);
 
         if (oldVersion < 5 && newVersion >= 5) {
             mustPopulateTypes = true;
         }
-
-        newTable(db, oldVersion, newVersion, new TagSchema());
     }
 
     protected void afterConnect() {
@@ -452,6 +421,10 @@ public class Domain extends AbstractDomain<Domain> {
 
     public Query<Item> selectItems() {
         return itemSchema.query(this);
+    }
+
+    public Query<Tag> selectTags() {
+        return tagSchema.query(this);
     }
 
     public List<Item> selectItemsByServerId(long serverId) {

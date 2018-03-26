@@ -15,6 +15,7 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
+import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.TextView;
 
@@ -22,10 +23,13 @@ import org.gamboni.cloudspill.R;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.FilterSpecification;
 import org.gamboni.cloudspill.domain.HasDomain;
+import org.gamboni.cloudspill.domain.Splitter;
 
 import java.text.ParseException;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * @author tendays
@@ -45,7 +49,7 @@ public class FilterFragment extends DialogFragment {
             }
 
              FilterSpecification updateFilter(FilterSpecification current, Date date) {
-                return new FilterSpecification(date, current.to, current.by, current.sort);
+                return new FilterSpecification(date, current.to, current.by, current.sort, current.tags);
             }
         },
         TO {
@@ -54,7 +58,7 @@ public class FilterFragment extends DialogFragment {
             }
 
             FilterSpecification updateFilter(FilterSpecification current, Date date) {
-                return new FilterSpecification(current.from, date, current.by, current.sort);
+                return new FilterSpecification(current.from, date, current.by, current.sort, current.tags);
             }
         };
 
@@ -159,6 +163,14 @@ public class FilterFragment extends DialogFragment {
         new DateFilterSetup(R.id.fromCheck, R.id.fromEdit, CurrentDatePicker.FROM);
         new DateFilterSetup(R.id.toCheck, R.id.toEdit, CurrentDatePicker.TO);
         layout.<CheckBox>findViewById(R.id.byCheck).setChecked(currentFilter.by != null);
+        StringBuilder formattedTags = new StringBuilder();
+        String comma = "";
+        for (String tag : currentFilter.tags) {
+            formattedTags.append(comma);
+            formattedTags.append(tag);
+            comma = ", ";
+        }
+        layout.<EditText>findViewById(R.id.editTags).setText(formattedTags.toString());
 
         return new AlertDialog.Builder(getActivity())
                 .setTitle(R.string.edit_filter_title)
@@ -172,7 +184,8 @@ public class FilterFragment extends DialogFragment {
                                 layout.<CheckBox>findViewById(R.id.byCheck).isChecked() ?
                                         (String)((Spinner)layout.findViewById(R.id.byEdit)).getSelectedItem() :
                                         null,
-                                select(FilterSpecification.Sort.values(), R.id.filter_sort)));
+                                select(FilterSpecification.Sort.values(), R.id.filter_sort),
+                                parseTags(layout.<EditText>findViewById(R.id.editTags).getText().toString())));
                     }
 
                     private <T> T select(T[] array, int resource) {
@@ -188,6 +201,10 @@ public class FilterFragment extends DialogFragment {
                     }
                 })
                 .create();
+    }
+
+    private Set<String> parseTags(String text) {
+        return new Splitter(text, ',').trimValues().allRemainingTo(new HashSet<String>());
     }
 
 }

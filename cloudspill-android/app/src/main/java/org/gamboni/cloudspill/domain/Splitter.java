@@ -7,14 +7,20 @@ import java.util.Collection;
  */
 
 public class Splitter {
-    int left;
-    int right = -1;
-    final String input;
-    final char separator;
+    private int left;
+    private int right = -1;
+    private final String input;
+    private final char separator;
+    private boolean autoTrim = false;
 
     public Splitter(String input, char separator) {
         this.input = input;
         this.separator = separator;
+    }
+
+    public Splitter trimValues() {
+        this.autoTrim = true;
+        return this;
     }
 
     public String getString() {
@@ -28,7 +34,8 @@ public class Splitter {
             right = input.length();
         }
 
-        return input.substring(left, right);
+        final String component = input.substring(left, right);
+        return (autoTrim) ? component.trim() : component;
     }
 
     public Long getLong() {
@@ -37,7 +44,7 @@ public class Splitter {
         return string.isEmpty() ? null : Long.valueOf(string);
     }
 
-    public Collection<String> allRemainingTo(Collection<String> target) {
+    public <T extends Collection<String>> T allRemainingTo(T target) {
         while (right < input.length()) {
             target.add(getString());
         }

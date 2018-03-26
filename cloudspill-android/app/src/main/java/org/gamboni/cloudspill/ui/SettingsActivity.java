@@ -7,13 +7,12 @@ import android.content.res.Configuration;
 import android.os.Bundle;
 import android.preference.Preference;
 import android.preference.PreferenceActivity;
-import android.support.v4.provider.DocumentFile;
 import android.support.v7.app.ActionBar;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
 import android.util.Log;
 
-import org.gamboni.cloudspill.CloudSpillIntentService;
+import org.gamboni.cloudspill.job.CloudSpillIntentService;
 import org.gamboni.cloudspill.R;
 import org.gamboni.cloudspill.domain.ServerInfo;
 import org.gamboni.cloudspill.file.FileBuilder;

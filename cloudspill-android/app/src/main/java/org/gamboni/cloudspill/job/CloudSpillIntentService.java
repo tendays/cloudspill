@@ -1,4 +1,4 @@
-package org.gamboni.cloudspill;
+package org.gamboni.cloudspill.job;
 
 import android.app.IntentService;
 import android.content.Context;
@@ -6,20 +6,19 @@ import android.content.Intent;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.support.annotation.Nullable;
-import android.support.v17.leanback.system.Settings;
 import android.util.Log;
 
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+
+import org.gamboni.cloudspill.domain.AbstractDomain;
 import org.gamboni.cloudspill.domain.Domain;
-import org.gamboni.cloudspill.job.DirectoryScanner;
-import org.gamboni.cloudspill.job.Downloader;
-import org.gamboni.cloudspill.job.FreeSpaceMaker;
-import org.gamboni.cloudspill.job.MediaDownloader;
 import org.gamboni.cloudspill.message.SettableStatusListener;
 import org.gamboni.cloudspill.message.StatusReport;
 import org.gamboni.cloudspill.server.CloudSpillServerProxy;
 import org.gamboni.cloudspill.ui.SettingsActivity;
 
-/** This class is reponsible for coordinating CloudSpill background jobs:
+/** This class is responsible for coordinating CloudSpill background jobs:
  * <ul>
  *     <li>{@link FreeSpaceMaker} to make free space,</li>
  *     <li>{@link DirectoryScanner} to upload local media to server</li>
@@ -33,7 +32,7 @@ import org.gamboni.cloudspill.ui.SettingsActivity;
 public class CloudSpillIntentService extends IntentService {
 
     private static final String PARAM_TRIGGER = "trigger";
-    /** What triggerred execution of this service. */
+    /** What triggered execution of this service. */
     public enum Trigger {
         /** A scheduled trigger running in the background. */
         BACKGROUND,
@@ -110,6 +109,32 @@ public class CloudSpillIntentService extends IntentService {
                 ds.waitForCompletion();
             } else {
                 Log.i(TAG, "DirectoryScanner disabled by mobile upload policy");
+            }
+        }
+
+        /* Synchronise tags */
+        try (final AbstractDomain.CloseableList<Domain.Tag> dirtyTags = domain.selectTags().ne(Domain.TagSchema.SYNC, Domain.SyncStatus.OK).list()) {
+            for (final Domain.Tag tag : dirtyTags) {
+                class TagResponseListener implements Response.Listener<Void>, Response.ErrorListener {
+                    @Override
+                    public void onResponse(Void response) {
+                        tag.set(Domain.TagSchema.SYNC, Domain.SyncStatus.OK);
+                    }
+
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        Log.w(TAG, "Failed syncing tags", error);
+                    }
+                };
+                TagResponseListener listener = new TagResponseListener();
+                switch (tag.get(Domain.TagSchema.SYNC)) {
+                    case TO_CREATE:
+                        server.tag(tag, true, listener, listener);
+                        break;
+                    case TO_DELETE:
+                        server.tag(tag, false, listener, listener);
+                        break;
+                }
             }
         }
 
