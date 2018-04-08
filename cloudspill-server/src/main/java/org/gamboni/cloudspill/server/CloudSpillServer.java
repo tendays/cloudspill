@@ -95,7 +95,7 @@ public class CloudSpillServer extends AbstractServer {
     	
     	/* Access logging */
     	before((req, res) -> {
-    		Log.info(req.ip() +" "+ req.uri());
+    		Log.info(req.ip() +" "+ req.requestMethod() +" "+ req.uri());
     	});
     	
 		SecuredBody createUser = (req, res, session, user) -> {
