@@ -16,7 +16,7 @@ public abstract class CursorList<T> extends AbstractList<T> implements AbstractD
     private static final String TAG = "CloudSpill.DB";
     protected final Cursor cursor;
 
-    public CursorList(Cursor cursor) {
+    protected CursorList(Cursor cursor) {
         this.cursor = cursor;
     }
 

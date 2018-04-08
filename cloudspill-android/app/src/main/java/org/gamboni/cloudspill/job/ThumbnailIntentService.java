@@ -62,7 +62,7 @@ public class ThumbnailIntentService extends IntentService {
     private class EvaluatedFilter {
         final FilterSpecification filter;
         final List<Domain.Item> itemList;
-        final Domain.Query<Domain.Item> itemQuery;
+        final Domain.ItemQuery itemQuery;
         EvaluatedFilter(FilterSpecification filter) {
             this.filter = filter;
             this.itemQuery = domain.selectItems();
@@ -74,6 +74,9 @@ public class ThumbnailIntentService extends IntentService {
             }
             if (currentFilter.by != null) {
                 itemQuery.eq(Domain.ItemSchema.USER, currentFilter.by);
+            }
+            if (!currentFilter.tags.isEmpty()) {
+                itemQuery.hasTags(currentFilter.tags);
             }
             this.itemList = apply(itemQuery, currentFilter.sort).list();
         }

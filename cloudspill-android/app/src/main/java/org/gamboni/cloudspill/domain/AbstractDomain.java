@@ -6,6 +6,7 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.provider.BaseColumns;
+import android.support.annotation.NonNull;
 
 import java.util.AbstractList;
 import java.util.ArrayList;
@@ -327,8 +328,8 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
 
         ColumnQuery(Query<?> base, Column<U> column) {
             super(base.schema);
-            this.restriction = base.restriction;
-            this.ordering = base.ordering;
+            this.restrictions.addAll(base.restrictions);
+            this.ordering.addAll(base.ordering);
             this.args.addAll(base.args);
 
             this.selection = column;
@@ -345,11 +346,34 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
         }
     }
 
+    public interface ColumnRenderer {
+        void render(Column<?> column, StringBuilder target);
+    }
+
+    public interface Restriction {
+        void append(ColumnRenderer renderer, StringBuilder queryString);
+    }
+
+    public class PostfixRestriction implements Restriction {
+        private final Column<?> column;
+        private final String postfix;
+        public PostfixRestriction(Column<?> column, String postfix) {
+            this.column = column;
+            this.postfix = postfix;
+        }
+
+        public void append(ColumnRenderer renderer, StringBuilder queryString) {
+            renderer.render(column, queryString);
+            queryString.append(postfix);
+        }
+    }
+
     public abstract class Query<T> {
         final Schema<SELF, ?> schema;
-        String restriction = null;
-        String ordering = null;
+        final List<Restriction> restrictions = new ArrayList<>();
+        final List<Restriction> ordering = new ArrayList<>();
         Cursor cursor = null;
+
         protected final List<String> args = new ArrayList<>();
 
         Query(Schema<SELF, ?> schema) {
@@ -360,7 +384,7 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
          * is generated.
          */
         public <V> Query<T> eq(Column<V> column, V value) {
-            return (value == null) ? restriction(column.name +" is null") : restriction(column.name +" = ?",
+            return (value == null) ? restriction(column, " is null") : restriction(column, " = ?",
                     column.getSql(value));
         }
 
@@ -368,37 +392,33 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
          * is generated.
          */
         public <V> Query<T> ne(Column<V> column, V value) {
-            return (value == null) ? restriction(column.name +" is not null") : restriction(column.name +" != ?",
+            return (value == null) ? restriction(column, " is not null") : restriction(column, " != ?",
                     column.getSql(value));
         }
 
         /** Add a "greater-than-or-equal" restriction. */
         public <V extends Comparable<V>> Query<T> ge(Column<V> column, V value) {
-            return restriction(column.name +" >= ?", column.getSql(value));
+            return restriction(column, " >= ?", column.getSql(value));
         }
 
         /** Add a "less-than-or-equl" restriction. */
         public <V extends Comparable<V>> Query<T> le(Column<V> column, V value) {
-            return restriction(column.name +" <= ?", column.getSql(value));
+            return restriction(column, " <= ?", column.getSql(value));
         }
 
         public Query<T> like(Column<String> column, String pattern) {
-            return restriction(column.name +" like ?", pattern);
+            return restriction(column, " like ?", pattern);
         }
 
-        protected Query<T> restriction(String sql, Object arg) {
-            restriction(sql);
+        protected Query<T> restriction(Column<?> column, String postfix, Object arg) {
+            restriction(column, postfix);
             args.add(String.valueOf(arg));
 
             return this;
         }
 
-        protected Query<T> restriction(String sql) {
-            if (restriction == null) {
-                restriction = sql;
-            } else {
-                restriction += " and "+ sql;
-            }
+        protected Query<T> restriction(Column<?> column, String postfix) {
+            restrictions.add(new PostfixRestriction(column, postfix));
             return this;
         }
 
@@ -407,24 +427,52 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
         }
 
         public Query<T> orderAsc(Column<?> column) {
-            ordering = (ordering == null) ? "" : (ordering +", ");
-            ordering += column.name;
+            ordering.add(new PostfixRestriction(column, ""));
             return this;
         }
 
         public Query<T> orderDesc(Column<?> column) {
-            ordering = (ordering == null) ? "" : (ordering +", ");
-            ordering += column.name +" DESC";
+            ordering.add(new PostfixRestriction(column, " DESC"));
             return this;
         }
 
+        protected StringBuilder renderQueryFragment(String keyword, String separator, ColumnRenderer renderer, StringBuilder queryString,
+                                                    List<Restriction> list) {
+            String nextSeparator = keyword;
+            for (Restriction restriction : list) {
+                queryString.append(separator);
+                restriction.append(renderer, queryString);
+                separator = separator;
+            }
+            return queryString;
+        }
+
+        protected StringBuilder renderRestrictions(String keyword, ColumnRenderer renderer, StringBuilder queryString) {
+            return renderQueryFragment(keyword, " and ", renderer, queryString, restrictions);
+        }
+
+        protected StringBuilder renderOrdering(String keyword, ColumnRenderer renderer, StringBuilder queryString) {
+            return renderQueryFragment(keyword, ", ", renderer, queryString, ordering);
+        }
+
         protected Cursor list(String... columns) {
+            final ColumnRenderer renderer = getColumnRenderer();
             cursor = connect().query(
-                    schema.tableName(), columns, restriction,
-                    restrictionArgs(), null, null, ordering);
+                    schema.tableName(), columns, renderRestrictions("", renderer, new StringBuilder()).toString(),
+                    restrictionArgs(), null, null, renderOrdering("", renderer, new StringBuilder()).toString());
 
             cursors.add(cursor);
             return cursor;
+        }
+
+        @NonNull
+        private ColumnRenderer getColumnRenderer() {
+            return new ColumnRenderer() {
+                @Override
+                public void render(Column<?> column, StringBuilder target) {
+                    target.append(column.name);
+                }
+            };
         }
 
         protected Cursor listAllColumns() {
@@ -452,7 +500,8 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
         }
 
         public int update(ContentValues values) {
-            return connect().update(schema.tableName(), values, restriction, restrictionArgs());
+            return connect().update(schema.tableName(), values,
+                    renderRestrictions("", getColumnRenderer(), new StringBuilder()).toString(), restrictionArgs());
         }
 
         /** Delete all rows corresponding to this query.
@@ -460,10 +509,12 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
          * @return the number of affected rows.
          */
         public int delete() {
-            return connect().delete(schema.tableName(), restriction, restrictionArgs());
+            return connect().delete(schema.tableName(),
+                    renderRestrictions("", getColumnRenderer(), new StringBuilder()).toString(),
+                    restrictionArgs());
         }
 
-        private String[] restrictionArgs() {
+        protected String[] restrictionArgs() {
             return args.toArray(new String[args.size()]);
         }
 

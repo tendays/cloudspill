@@ -13,6 +13,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 
 /** CloudSpill Android database.
  *
@@ -68,6 +69,81 @@ public class Domain extends AbstractDomain<Domain> {
         @Override
         protected Item newInstance(Domain domain, Cursor cursor) {
             return load(domain.new Item(), cursor);
+        }
+
+        public ItemQuery query(Domain domain) {
+            return domain.new ItemQuery();
+        }
+    }
+
+    public class ItemQuery extends EntityQuery<Item> {
+        Set<String> tags = null;
+
+        ItemQuery() {
+            super(itemSchema);
+        }
+
+        public ItemQuery hasTags(Set<String> tags) {
+            if (!tags.isEmpty()) {
+                this.tags = tags;
+            }
+            return this;
+        }
+
+        @Override
+        public CloseableList<Item> list() {
+            if (tags == null) {
+                return super.list();
+            } else {
+                // TODO don't use listAllColumns - create sql query joining item and item_tags
+                StringBuilder queryString = new StringBuilder();
+                queryString.append("select ");
+                String[] columnNames = new String[schema.columns().size()];
+                String comma = "";
+                int index=0;
+                int groupingColumnIndex = -1;
+                for (Column<?> column : itemSchema.columns()) {
+                    columnNames[index] = column.name;
+                    queryString.append(comma).append("item.").append(column.name);
+                    comma = ", ";
+                    if (column == ItemSchema.ID) {
+                        groupingColumnIndex = index;
+                    }
+                    index++;
+                }
+                final ColumnRenderer itemColumnRenderer = new ColumnRenderer() {
+                    @Override
+                    public void render(Column<?> column, StringBuilder target) {
+                        target.append("item.").append(column.name);
+                    }
+                };
+                queryString.append(" from ").append(itemSchema.tableName()).append(" item, ");
+                queryString.append(tagSchema.tableName()).append("tag where item.").append(ItemSchema.ID.name)
+                .append(" = tag.").append(TagSchema.ITEM.name);
+                // TODO actually use this.tags
+
+                renderRestrictions(" and ", itemColumnRenderer, queryString);
+                renderOrdering(" order by ", itemColumnRenderer, queryString);
+
+                return new GroupingCursorList<Item>(
+                        connect().rawQuery(queryString.toString(), restrictionArgs()),
+                        ItemSchema.ID,
+                        groupingColumnIndex) {
+                    @Override
+                    protected Item newEntity() {
+                        return schema.newInstance(domain(), cursor);
+                    }
+                };
+            }
+        }
+
+        @Override
+        protected Cursor list(String... columns) {
+            if (tags == null) {
+                return super.list(columns);
+            } else {
+                throw new UnsupportedOperationException();
+            }
         }
     }
 
@@ -419,7 +495,7 @@ public class Domain extends AbstractDomain<Domain> {
         }
     }
 
-    public Query<Item> selectItems() {
+    public ItemQuery selectItems() {
         return itemSchema.query(this);
     }
 
