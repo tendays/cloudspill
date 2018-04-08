@@ -436,13 +436,13 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
             return this;
         }
 
-        protected StringBuilder renderQueryFragment(String keyword, String separator, ColumnRenderer renderer, StringBuilder queryString,
+        protected StringBuilder renderQueryFragment(final String keyword, final String separator, ColumnRenderer renderer, StringBuilder queryString,
                                                     List<Restriction> list) {
             String nextSeparator = keyword;
             for (Restriction restriction : list) {
-                queryString.append(separator);
+                queryString.append(nextSeparator);
                 restriction.append(renderer, queryString);
-                separator = separator;
+                nextSeparator = separator;
             }
             return queryString;
         }
@@ -519,7 +519,9 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
         }
 
         public void close() {
-            cursor.close();
+            if (cursor != null) {
+                cursor.close();
+            }
         }
     }
 

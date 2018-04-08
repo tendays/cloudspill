@@ -113,8 +113,9 @@ public class CloudSpillIntentService extends IntentService {
         }
 
         /* Synchronise tags */
-        try (final AbstractDomain.CloseableList<Domain.Tag> dirtyTags = domain.selectTags().ne(Domain.TagSchema.SYNC, Domain.SyncStatus.OK).list()) {
+        try (final AbstractDomain.CloseableList<Domain.Tag> dirtyTags = domain.selectTags()/*.ne(Domain.TagSchema.SYNC, Domain.SyncStatus.OK)*/.list()) {
             for (final Domain.Tag tag : dirtyTags) {
+                Log.d(TAG, "Syncing "+ tag.get(Domain.TagSchema.SYNC) +" tag "+ tag.get(Domain.TagSchema.TAG) +" on item "+ tag.getItem());
                 class TagResponseListener implements Response.Listener<Void>, Response.ErrorListener {
                     @Override
                     public void onResponse(Void response) {

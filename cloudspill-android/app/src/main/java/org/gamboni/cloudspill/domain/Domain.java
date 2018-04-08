@@ -91,7 +91,7 @@ public class Domain extends AbstractDomain<Domain> {
                 restrictions.add(new Restriction() {
                     @Override
                     public void append(ColumnRenderer renderer, StringBuilder queryString) {
-                        queryString.append("tag.").append(TagSchema.TAG).append(" in (");
+                        queryString.append("tag.").append(TagSchema.TAG.name).append(" in (");
                         String comma = "";
                         for (String tag : tags) {
                             queryString.append(comma).append("?");
@@ -132,7 +132,7 @@ public class Domain extends AbstractDomain<Domain> {
                     }
                 };
                 queryString.append(" from ").append(itemSchema.tableName()).append(" item, ");
-                queryString.append(tagSchema.tableName()).append("tag where item.").append(ItemSchema.ID.name)
+                queryString.append(tagSchema.tableName()).append(" tag where item.").append(ItemSchema.ID.name)
                 .append(" = tag.").append(TagSchema.ITEM.name);
 
                 renderRestrictions(" and ", itemColumnRenderer, queryString);

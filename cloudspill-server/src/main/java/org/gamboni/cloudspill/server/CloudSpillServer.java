@@ -139,6 +139,7 @@ public class CloudSpillServer extends AbstractServer {
         
         /* Add the tags specified in body to the given item. */
         put("/item/:id/tags", secured((req, res, session, user) -> {
+        	Log.debug("Tag query for item "+ req.params("id") +": '"+ req.body() +"'");
         	putTags(session, Long.parseLong(req.params("id")), req.body());
         	return true;
         }));
@@ -235,7 +236,7 @@ public class CloudSpillServer extends AbstractServer {
     }
 
     /** Add the given comma-separated tags to the specified object. If a tag starts with '-' then it is removed instead.
-     * 
+     * <p>
      * NOTE: anybody can change tags of anybody's item.
      */
 	private void putTags(Domain session, long id, String tags) {
