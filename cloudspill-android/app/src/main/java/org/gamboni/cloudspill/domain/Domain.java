@@ -152,7 +152,7 @@ public class Domain extends AbstractDomain<Domain> {
 
         @Override
         protected Cursor list(String... columns) {
-            if (tags == null) {
+            if (!needJoin) {
                 return super.list(columns);
             } else {
                 throw new UnsupportedOperationException();
