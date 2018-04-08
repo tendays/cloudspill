@@ -77,33 +77,47 @@ public class Domain extends AbstractDomain<Domain> {
     }
 
     public class ItemQuery extends EntityQuery<Item> {
-        Set<String> tags = null;
+        boolean needJoin = false;
 
         ItemQuery() {
             super(itemSchema);
         }
 
-        public ItemQuery hasTags(Set<String> tags) {
+        /** Only select items having a tag in the given set. Special case:
+         * if the set is empty, this call has no effect. If this method is called more than once
+         */
+        public ItemQuery hasTags(final Set<String> tags) {
             if (!tags.isEmpty()) {
-                this.tags = tags;
+                restrictions.add(new Restriction() {
+                    @Override
+                    public void append(ColumnRenderer renderer, StringBuilder queryString) {
+                        queryString.append("tag.").append(TagSchema.TAG).append(" in (");
+                        String comma = "";
+                        for (String tag : tags) {
+                            queryString.append(comma).append("?");
+                            comma = ", ";
+                            args.add(tag);
+                        }
+                        queryString.append(")");
+                    }
+                });
+                needJoin = true;
             }
             return this;
         }
 
         @Override
         public CloseableList<Item> list() {
-            if (tags == null) {
+            if (!needJoin) {
                 return super.list();
             } else {
                 // TODO don't use listAllColumns - create sql query joining item and item_tags
                 StringBuilder queryString = new StringBuilder();
                 queryString.append("select ");
-                String[] columnNames = new String[schema.columns().size()];
                 String comma = "";
                 int index=0;
                 int groupingColumnIndex = -1;
                 for (Column<?> column : itemSchema.columns()) {
-                    columnNames[index] = column.name;
                     queryString.append(comma).append("item.").append(column.name);
                     comma = ", ";
                     if (column == ItemSchema.ID) {
@@ -120,7 +134,6 @@ public class Domain extends AbstractDomain<Domain> {
                 queryString.append(" from ").append(itemSchema.tableName()).append(" item, ");
                 queryString.append(tagSchema.tableName()).append("tag where item.").append(ItemSchema.ID.name)
                 .append(" = tag.").append(TagSchema.ITEM.name);
-                // TODO actually use this.tags
 
                 renderRestrictions(" and ", itemColumnRenderer, queryString);
                 renderOrdering(" order by ", itemColumnRenderer, queryString);
