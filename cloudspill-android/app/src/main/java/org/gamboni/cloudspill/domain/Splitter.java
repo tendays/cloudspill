@@ -46,7 +46,10 @@ public class Splitter {
 
     public <T extends Collection<String>> T allRemainingTo(T target) {
         while (right < input.length()) {
-            target.add(getString());
+            final String item = getString();
+            if (item.length() > 0) {
+                target.add(item);
+            }
         }
         return target;
     }

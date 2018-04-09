@@ -229,7 +229,7 @@ public class CloudSpillServerProxy {
     }
 
     public void tag(Domain.Tag tag, boolean create, Response.Listener<Void> listener, Response.ErrorListener errorListener) {
-        queue.add(new TagRequest(context, url, tag.getItem(), tag.get(Domain.TagSchema.TAG),
+        queue.add(new TagRequest(context, url, tag.getItem().getServerId(), tag.get(Domain.TagSchema.TAG),
                 create,
                 listener, errorListener));
     }

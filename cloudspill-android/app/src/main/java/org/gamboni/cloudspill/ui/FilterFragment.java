@@ -37,7 +37,7 @@ import java.util.Set;
 
 public class FilterFragment extends DialogFragment {
 
-    private static final String TAG = "Cloudspill.Filter";
+    private static final String TAG = "CloudSpill.Filter";
     private FilterSpecification currentFilter;
     private FilterListener listener;
     private Domain domain;

@@ -34,7 +34,7 @@ import java.util.Iterator;
 
 public class ItemFragment extends DialogFragment {
 
-    private static final String TAG = "Cloudspill.UI";
+    private static final String TAG = "CloudSpill.UI";
 
     private Domain domain;
     private Domain.Item item;
@@ -100,7 +100,7 @@ public class ItemFragment extends DialogFragment {
                 .setPositiveButton(R.string.save, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialogInterface, int i) {
-                        final Collection<String> newTags = new Splitter(tagBox.getText().toString(), ',').allRemainingTo(new ArrayList<String>());
+                        final Collection<String> newTags = new Splitter(tagBox.getText().toString(), ',').trimValues().allRemainingTo(new ArrayList<String>());
                         Iterator<String> oldTags = item.getTags().iterator();
                         while (oldTags.hasNext()) {
                             String tag = oldTags.next();
