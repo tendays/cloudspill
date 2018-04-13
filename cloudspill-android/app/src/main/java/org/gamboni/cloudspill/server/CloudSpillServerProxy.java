@@ -193,7 +193,11 @@ public class CloudSpillServerProxy {
                 onError));
     }
 
-    public void stream(long serverId, final Response.Listener<InputStream> listener, Response.ErrorListener onError) {
+    public interface StreamResponseListener {
+        void onResponse(int length, InputStream stream);
+    }
+
+    public void stream(long serverId, final StreamResponseListener listener, Response.ErrorListener onError) {
         Log.d(TAG, "Streaming item#"+ serverId);
         try {
             new AuthenticatingConnection(context, AuthenticatingConnection.RequestMethod.GET,
@@ -201,7 +205,7 @@ public class CloudSpillServerProxy {
                     .connect(new AuthenticatingConnection.Session() {
                         @Override
                         public void run(AuthenticatingConnection.Connected connected) throws IOException {
-                            listener.onResponse(connected.getInput());
+                            listener.onResponse(connected.size(), connected.getInput());
                         }
                     });
         } catch (IOException e) {

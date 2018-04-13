@@ -301,18 +301,6 @@ public class Domain extends AbstractDomain<Domain> {
 
     /** I don't know how to access the database on my android device so I put my commands here instead. */
     public int hotfix() {
-        int deleted = 0;
-        for (Tag tag : selectTags().detachedList()) {
-            final String trimmed = tag.get(TagSchema.TAG).trim();
-            if (trimmed.isEmpty()) {
-                tag.delete();
-                deleted++;
-            } else {
-                tag.set(TagSchema.TAG, trimmed);
-                tag.update();
-            }
-        }
-        Log.i(TAG, "Deleted "+ deleted +" empty tags");
         return 0;
     }
 

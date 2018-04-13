@@ -1,5 +1,6 @@
 package org.gamboni.cloudspill.ui;
 
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.DialogFragment;
@@ -76,7 +77,10 @@ public class ItemFragment extends DialogFragment {
 
             @Override
             public void setThumbnail(final Bitmap bitmap) {
-                getActivity().runOnUiThread(new Runnable() {
+                final Activity activity = getActivity();
+                if (activity == null) { return; }
+
+                activity.runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         layout.<ImageView>findViewById(R.id.itemImage).setImageBitmap(bitmap);
@@ -134,6 +138,10 @@ public class ItemFragment extends DialogFragment {
                                 startActivity(Intent.createChooser(shareIntent, "Share via"));
                             }
 
+                            @Override
+                            public void updateCompletion(int percent) {
+
+                            }
                         });
                     }
                 })

@@ -28,6 +28,7 @@ public class AuthenticatingConnection {
     public interface Connected {
         InputStream getInput() throws IOException;
         OutputStream getOutput() throws IOException;
+        int size();
     }
 
     public interface Session {
@@ -96,6 +97,11 @@ public class AuthenticatingConnection {
                 @Override
                 public OutputStream getOutput() throws IOException {
                     return finalConnection.getOutputStream();
+                }
+
+                @Override
+                public int size() {
+                    return finalConnection.getContentLength();
                 }
             });
         } finally {

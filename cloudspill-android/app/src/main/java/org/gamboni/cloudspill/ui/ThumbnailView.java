@@ -2,9 +2,17 @@ package org.gamboni.cloudspill.ui;
 
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.ColorFilter;
+import android.graphics.Paint;
+import android.graphics.PixelFormat;
+import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
+import android.support.annotation.IntRange;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.Log;
 import android.view.View;
@@ -77,7 +85,8 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
             @Override
             public void onClick(View view) {
                 if (item == null) { return; } // TODO Not threadsafe
-
+                getOverlay().add(progressOverlay);
+                progressOverlay.setBounds(0, 0, getWidth(), getHeight()/*left, top, right, bottom*/);
                 MediaDownloader.open(activity, item, new MediaDownloader.OpenListener() {
 
                     public void openItem(Uri uri, String mime) {
@@ -91,10 +100,52 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
                         }
 
                         activity.startActivity(viewIntent);
+                        getOverlay().remove(progressOverlay);
                     }
 
+                    public void updateCompletion(final int percent) {
+                        activity.runOnUiThread(new Runnable() {
+                            public void run() {
+                                percentage = percent;
+                                ThumbnailView.this.invalidate();
+                            }
+                        });
+                    }
                 });
             }
+
+            volatile int percentage = 0;
+            private final Drawable progressOverlay = new Drawable() {
+
+                @Override
+                public void draw(@NonNull Canvas canvas) {
+                    final Rect bounds = getBounds();
+                    // This works fine (bounds: Rect(0, 0 - 360, 360)) but nothing is visible on screen!
+                    // Log.d(TAG, "Rendering progress at "+ percentage +". Bounds: "+ bounds);
+                    final Paint paint = new Paint();
+                    paint.setStyle(Paint.Style.FILL);
+                    paint.setARGB(255, 0, 128, 255);
+                    canvas.drawRect(bounds.left,
+                            bounds.bottom - (bounds.height() / 20),
+                            bounds.left + bounds.width() * percentage / 100,
+                            bounds.bottom, paint);
+                }
+
+                @Override
+                public void setAlpha(@IntRange(from = 0, to = 255) int alpha) {
+
+                }
+
+                @Override
+                public void setColorFilter(@Nullable ColorFilter colorFilter) {
+
+                }
+
+                @Override
+                public int getOpacity() {
+                    return PixelFormat.TRANSLUCENT;
+                }
+            };
 
     @Override
     public void setItem(Domain.Item item) {

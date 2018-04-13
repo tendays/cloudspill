@@ -43,12 +43,14 @@ public class MediaDownloader extends IntentService {
     private static final Map<Long, Set<MediaListener>> callbacks = new HashMap<>();
 
     public interface MediaListener {
+        void updateCompletion(int percent);
         void mediaReady(Uri location);
         void notifyStatus(DownloadStatus status);
     }
 
     public interface OpenListener {
         void openItem(Uri uri, String mime);
+        void updateCompletion(int percent);
     }
 
     Domain domain = new Domain(this);
@@ -69,6 +71,10 @@ public class MediaDownloader extends IntentService {
                 public void mediaReady(Uri location) {
                     openExistingFile(callback, item, file);
                     // (location is using SAF which is unreliable) openItem(location, item.type.asMime());
+                }
+
+                public void updateCompletion(int percent) {
+                    callback.updateCompletion(percent);
                 }
 
                 @Override
@@ -180,17 +186,33 @@ public class MediaDownloader extends IntentService {
         }
 
         server.stream(serverId,
-                new Response.Listener<InputStream>() {
+                new CloudSpillServerProxy.StreamResponseListener() {
                     @Override
-                    public void onResponse(InputStream response) {
-                        Log.d(TAG, "Received item "+ serverId);
+                    public void onResponse(int length, InputStream response) {
+                        Set<MediaListener> listeners;
+                        synchronized (callbacks) {
+                            listeners = callbacks.get(serverId);
+                        }
+                        Log.d(TAG, "Receiving item "+ serverId);
                         OutputStream o = null;
                         try {
                             o = target.write(MediaDownloader.this, "image/jpeg");
                             byte[] buf = new byte[4096];
+                            int reportedPercentage = -1;
+                            int loadedTotal = 0;
                             int len;
                             while ((len = response.read(buf)) > 0) {
                                 o.write(buf, 0, len);
+                                loadedTotal += len;
+                                final int newPercentage = loadedTotal * 100 / length;
+                                if (newPercentage != reportedPercentage) {
+                                    synchronized(callbacks) {
+                                        for (MediaListener listener : listeners) {
+                                            listener.updateCompletion(newPercentage);
+                                        }
+                                    }
+                                    reportedPercentage = newPercentage;
+                                }
                             }
                         } catch (StorageFailedException|IOException e) {
                             Log.e(TAG, "Writing "+ serverId +" to "+ target +" failed");
