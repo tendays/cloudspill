@@ -100,7 +100,12 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
                         }
 
                         activity.startActivity(viewIntent);
-                        getOverlay().remove(progressOverlay);
+
+                        activity.runOnUiThread(new Runnable() {
+                            public void run() {
+                                getOverlay().remove(progressOverlay);
+                            }
+                        });
                     }
 
                     public void updateCompletion(final int percent) {
@@ -124,7 +129,7 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
                     // Log.d(TAG, "Rendering progress at "+ percentage +". Bounds: "+ bounds);
                     final Paint paint = new Paint();
                     paint.setStyle(Paint.Style.FILL);
-                    paint.setARGB(255, 0, 128, 255);
+                    paint.setARGB(255, 255, 64, 129);
                     canvas.drawRect(bounds.left,
                             bounds.bottom - (bounds.height() / 20),
                             bounds.left + bounds.width() * percentage / 100,
