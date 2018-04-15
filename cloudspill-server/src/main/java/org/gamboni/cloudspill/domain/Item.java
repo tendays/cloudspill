@@ -6,6 +6,7 @@ package org.gamboni.cloudspill.domain;
 import static org.gamboni.cloudspill.util.Files.append;
 
 import java.io.File;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Set;
@@ -19,6 +20,7 @@ import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.Version;
 
 import com.google.common.base.Joiner;
 
@@ -32,6 +34,8 @@ import com.google.common.base.Joiner;
 public class Item {
 	
 	long id;
+	Instant updated;
+	
 	String user;
 	String folder;
 	String path;
@@ -47,6 +51,15 @@ public class Item {
 	}
 	public void setId(long id) {
 		this.id = id;
+	}
+	
+	@Version
+	@Column
+	public Instant getUpdated() {
+		return updated;
+	}
+	public void setUpdated(Instant updated) {
+		this.updated = updated;
 	}
 	
 	@Column

@@ -6,6 +6,7 @@ package org.gamboni.cloudspill.domain;
 import java.util.List;
 
 import org.hibernate.Criteria;
+import org.hibernate.LockMode;
 import org.hibernate.Session;
 import org.hibernate.criterion.Criterion;
 import org.hibernate.criterion.Order;
@@ -42,6 +43,11 @@ public class Domain {
 
 		public Query<T> addOrder(Order order) {
 			criteria.addOrder(order);
+			return this;
+		}
+		
+		public Query<T> forUpdate() {
+			criteria.setLockMode(LockMode.PESSIMISTIC_FORCE_INCREMENT);
 			return this;
 		}
 		

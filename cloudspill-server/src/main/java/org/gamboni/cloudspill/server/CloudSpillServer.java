@@ -137,6 +137,10 @@ public class CloudSpillServer extends AbstractServer {
         /* Get list of items whose id is larger than the given one. */
         get("item/since/:id", secured((req, res, domain, user) -> itemsSince(domain, Long.parseLong(req.params("id")))));
         
+        /* Get list of items updated at or later than the given timestamp. */
+        get("item/sinceDate/:date", secured((req, res, domain, user) -> itemsSince(domain,
+        		Instant.ofEpochMilli(Long.parseLong(req.params("date"))))));
+        
         /* Add the tags specified in body to the given item. */
         put("/item/:id/tags", secured((req, res, session, user) -> {
         	Log.debug("Tag query for item "+ req.params("id") +": '"+ req.body() +"'");
@@ -240,7 +244,7 @@ public class CloudSpillServer extends AbstractServer {
      * NOTE: anybody can change tags of anybody's item.
      */
 	private void putTags(Domain session, long id, String tags) {
-		final Item item = Iterables.getOnlyElement(session.selectItem().add(Restrictions.eq("id", id)).list());
+		final Item item = itemForUpdate(session, id);
 
 		final Set<String> existingTags = item.getTags();
 		Splitter.on(',').split(tags).forEach(t -> {
@@ -250,6 +254,10 @@ public class CloudSpillServer extends AbstractServer {
 				existingTags.add(t.trim());
 			}
 		});
+	}
+
+	private Item itemForUpdate(Domain session, long id) {
+		return Iterables.getOnlyElement(session.selectItem().add(Restrictions.eq("id", id)).forUpdate().list());
 	}
 
 	private void download(File rootFolder, Response res, Domain session, final long id)
@@ -294,6 +302,17 @@ public class CloudSpillServer extends AbstractServer {
 		for (Item item : domain.selectItem()
 				.add(Restrictions.gt("id", id))
 				.addOrder(Order.asc("id"))
+				.list()) {
+			result.append(item.serialise()).append("\n");
+		}
+		return result;
+	}
+
+	private StringBuilder itemsSince(Domain domain, final Instant instant) {
+		StringBuilder result = new StringBuilder();
+		for (Item item : domain.selectItem()
+				.add(Restrictions.ge("updated", instant))
+				.addOrder(Order.asc("updated"))
 				.list()) {
 			result.append(item.serialise()).append("\n");
 		}
