@@ -6,10 +6,12 @@ import android.util.Log;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 
+import org.gamboni.cloudspill.domain.AbstractDomain;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.ServerInfo;
 import org.gamboni.cloudspill.message.StatusReport;
 import org.gamboni.cloudspill.server.CloudSpillServerProxy;
+import org.gamboni.cloudspill.server.ItemsSinceRequest;
 import org.gamboni.cloudspill.ui.SettingsActivity;
 
 import java.util.BitSet;
@@ -37,7 +39,7 @@ public class Downloader {
     }
 
     private boolean responded = false;
-    private Iterable<Domain.Item> items = null;
+    private ItemsSinceRequest.Result result = null;
 
     public void rebuildDb() {
         run(true);
@@ -51,23 +53,26 @@ public class Downloader {
         ServerInfo lastServer = SettingsActivity.getLastServerVersion(context);
         ServerInfo currentServer = server.getServerInfo();
 
-        final long firstId;
+        final long timestamp;
 
         BitSet falseMeansDelete;
         if (full) {
-            falseMeansDelete = new BitSet((int)SettingsActivity.getHighestId(context)+1);
-            firstId = 0;
+            // database query to get the highest id
+            try (AbstractDomain.CloseableList<Domain.Item> highestIdQuery = domain.selectItems().orderDesc(Domain.ItemSchema.SERVER_ID).list()) {
+                falseMeansDelete = new BitSet(highestIdQuery.get(0).getServerId().intValue() + 1);
+            }
+            timestamp = 0;
         } else {
             falseMeansDelete = new BitSet(0);
-            firstId = currentServer.moreRecentThan(lastServer) ?
-                    0 : SettingsActivity.getHighestId(context);
+            timestamp = currentServer.moreRecentThan(lastServer) ?
+                    0 : SettingsActivity.getLatestUpdate(context);
         }
 
-        listener.updateMessage(StatusReport.Severity.INFO, "Downloading new items @"+ firstId);
-        server.itemsSince(firstId, new Response.Listener<Iterable<Domain.Item>>() {
+        listener.updateMessage(StatusReport.Severity.INFO, "Downloading new items @"+ timestamp);
+        server.itemsSince(timestamp, new Response.Listener<ItemsSinceRequest.Result>() {
             @Override
-            public void onResponse(Iterable<Domain.Item> items) {
-                publish(items);
+            public void onResponse(ItemsSinceRequest.Result result) {
+                publish(result);
             }
         },
                 // TODO create standard error listener instead of re-implementing ErrorListener everywhere
@@ -85,9 +90,8 @@ public class Downloader {
         int loaded = 0;
         int created = 0;
         int slowDown = 10;
-        long highestId = firstId;
 
-        for (Domain.Item item : items) {
+        for (Domain.Item item : result) {
             loaded++;
             if (falseMeansDelete.size() > item.getServerId()) {
                 falseMeansDelete.set(item.getServerId().intValue());
@@ -101,10 +105,9 @@ public class Downloader {
                 existing.copyFrom(item);
                 existing.update();
             }
-            highestId = item.getServerId();
 
             if (slowDown-- == 0) { // TODO move this into StatusReport implementation (with new Severity.PROGRESS)
-                listener.updateMessage(StatusReport.Severity.INFO, "Downloading new items @" + firstId + ". Created " + created + "/" + loaded);
+                listener.updateMessage(StatusReport.Severity.INFO, "Downloading new items @" + timestamp + ". Created " + created + "/" + loaded);
                 slowDown = 10;
             }
         }
@@ -121,14 +124,14 @@ public class Downloader {
                 slowDown = 10;
             }
         }
-        SettingsActivity.setHighestId(context, highestId);
+        SettingsActivity.setLatestUpdate(context, result.getLatestUpdate());
         SettingsActivity.setLastServerVersion(context, currentServer);
         listener.updateMessage(StatusReport.Severity.INFO, "Download complete. Created " + created + "/" + loaded +
                 (deleteCount>0 ? ". Deleted "+ deleteCount : ""));
     }
 
-    private synchronized void publish(Iterable<Domain.Item> items) {
-        this.items = items;
+    private synchronized void publish(ItemsSinceRequest.Result result) {
+        this.result = result;
         this.responded = true;
         notify();
     }
@@ -142,6 +145,6 @@ public class Downloader {
             }
         }
 
-        return items != null;
+        return result != null;
     }
 }

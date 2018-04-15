@@ -102,13 +102,14 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
         return context.getSharedPreferences("values", Context.MODE_PRIVATE);
     }
 
-    private static final String HIGHEST_ID_KEY = "highest_id";
-    public static long getHighestId(Context context) {
-        return getSharedPreferences(context).getLong(HIGHEST_ID_KEY, -1L);
+    private static final String LATEST_UPDATE_KEY = "latest_update";
+    public static long getLatestUpdate(Context context) {
+        return getSharedPreferences(context).getLong(LATEST_UPDATE_KEY, 0L);
     }
-    public static void setHighestId(Context context, long highestId) {
+    public static void setLatestUpdate(Context context, long latestUpdate) {
         getSharedPreferences(context).edit()
-                .putLong(HIGHEST_ID_KEY, highestId)
+                .remove("highest_id") // deprecated key
+                .putLong(LATEST_UPDATE_KEY, latestUpdate)
                 .apply();
     }
 

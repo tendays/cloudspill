@@ -310,12 +310,15 @@ public class CloudSpillServer extends AbstractServer {
 
 	private StringBuilder itemsSince(Domain domain, final Instant instant) {
 		StringBuilder result = new StringBuilder();
+		Instant timestamp = Instant.ofEpochMilli(0);
 		for (Item item : domain.selectItem()
 				.add(Restrictions.ge("updated", instant))
 				.addOrder(Order.asc("updated"))
 				.list()) {
 			result.append(item.serialise()).append("\n");
+			timestamp = item.getUpdated();
 		}
+		result.append("Timestamp:").append(timestamp.toEpochMilli()).append('\n');
 		return result;
 	}
     

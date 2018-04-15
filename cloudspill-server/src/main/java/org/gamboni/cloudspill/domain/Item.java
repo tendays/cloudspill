@@ -22,6 +22,8 @@ import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Version;
 
+import org.hibernate.annotations.BatchSize;
+
 import com.google.common.base.Joiner;
 
 /**
@@ -105,6 +107,7 @@ public class Item {
 	}
 
 	@ElementCollection(fetch = FetchType.LAZY)
+	@BatchSize(size=50)
 	public Set<String> getTags() {
 		return tags;
 	}

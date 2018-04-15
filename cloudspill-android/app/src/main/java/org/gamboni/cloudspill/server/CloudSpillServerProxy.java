@@ -228,8 +228,8 @@ public class CloudSpillServerProxy {
         return this.serverInfo;
     }
 
-    public void itemsSince(long id, Response.Listener<Iterable<Domain.Item>> listener, Response.ErrorListener errorListener) {
-        queue.add(new ItemsSinceRequest(context, url, domain, id, listener, errorListener));
+    public void itemsSince(long millis, Response.Listener<ItemsSinceRequest.Result> listener, Response.ErrorListener errorListener) {
+        queue.add(new ItemsSinceRequest(context, url, domain, millis, listener, errorListener));
     }
 
     public void tag(Domain.Tag tag, boolean create, Response.Listener<Void> listener, Response.ErrorListener errorListener) {

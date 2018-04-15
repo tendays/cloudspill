@@ -23,22 +23,26 @@ import java.util.Iterator;
  *
  * @author tendays
  */
-public class ItemsSinceRequest extends AuthenticatingRequest<Iterable<Domain.Item>> {
+public class ItemsSinceRequest extends AuthenticatingRequest<ItemsSinceRequest.Result> {
 
     private static final String TAG = "CloudSpill.itemsSince";
 
     private final Domain domain;
 
-    public ItemsSinceRequest(Context context, String url, Domain domain, long id, Response.Listener<Iterable<Domain.Item>> listener, Response.ErrorListener errorListener) {
-        super(context, Method.GET, url +  "/item/since/"+ id, listener, errorListener);
+    public interface Result extends Iterable<Domain.Item> {
+        Long getLatestUpdate();
+    }
+
+    public ItemsSinceRequest(Context context, String url, Domain domain, long millis, Response.Listener<Result> listener, Response.ErrorListener errorListener) {
+        super(context, Method.GET, url +"/item/sinceDate/"+ millis, listener, errorListener);
         this.domain = domain;
     }
 
     @Override
-    protected Response<Iterable<Domain.Item>> parseNetworkResponse(final NetworkResponse response) {
+    protected Response<Result> parseNetworkResponse(final NetworkResponse response) {
         Log.d(TAG, "Received "+ response.data.length +" bytes from server");
         try {
-            return Response.<Iterable<Domain.Item>>success(new ResponseStream(domain, new BufferedReader(new InputStreamReader(new ByteArrayInputStream(response.data),
+            return Response.<Result>success(new ResponseStream(domain, new BufferedReader(new InputStreamReader(new ByteArrayInputStream(response.data),
                         HttpHeaderParser.parseCharset(response.headers)))),
                 HttpHeaderParser.parseCacheHeaders(response));
 
@@ -47,10 +51,11 @@ public class ItemsSinceRequest extends AuthenticatingRequest<Iterable<Domain.Ite
         }
     }
 
-    private static class ResponseStream implements Iterable<Domain.Item>, Iterator<Domain.Item> {
+    private static class ResponseStream implements Result, Iterator<Domain.Item> {
         Domain domain;
         BufferedReader in;
         String nextLine = null;
+        Long latestUpdate = null;
 
         ResponseStream(Domain domain, BufferedReader in) {
             this.domain = domain;
@@ -73,18 +78,26 @@ public class ItemsSinceRequest extends AuthenticatingRequest<Iterable<Domain.Ite
 
         @Override
         public boolean hasNext() {
-            return (nextLine != null);
+            return (nextLine != null) && nextLine.contains(";");
         }
 
         @Override
         public Domain.Item next() {
             Domain.Item result = domain.new Item(nextLine);
             readLine();
+            if (!hasNext() && nextLine.startsWith("Timestamp:")) {
+                latestUpdate = Long.parseLong(nextLine.substring("Timestamp:".length()));
+            }
             return result;
+        }
+
+        @Override
+        public Long getLatestUpdate() {
+            return latestUpdate;
         }
     }
 
-    protected void deliverResponse(Iterable<Domain.Item> response) {
+    protected void deliverResponse(Result response) {
         Log.d(TAG, "Received response "+ response +" from server");
 
         super.deliverResponse(response);
