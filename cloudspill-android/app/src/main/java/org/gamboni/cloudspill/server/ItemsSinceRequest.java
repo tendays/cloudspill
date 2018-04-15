@@ -3,6 +3,7 @@ package org.gamboni.cloudspill.server;
 import android.content.Context;
 import android.util.Log;
 
+import com.android.volley.DefaultRetryPolicy;
 import com.android.volley.NetworkResponse;
 import com.android.volley.Request;
 import com.android.volley.Response;
@@ -36,6 +37,7 @@ public class ItemsSinceRequest extends AuthenticatingRequest<ItemsSinceRequest.R
     public ItemsSinceRequest(Context context, String url, Domain domain, long millis, Response.Listener<Result> listener, Response.ErrorListener errorListener) {
         super(context, Method.GET, url +"/item/sinceDate/"+ millis, listener, errorListener);
         this.domain = domain;
+        setRetryPolicy(new DefaultRetryPolicy(/*timeout*/30_000, /*retries*/3, /*backoff multiplier*/2));
     }
 
     @Override
