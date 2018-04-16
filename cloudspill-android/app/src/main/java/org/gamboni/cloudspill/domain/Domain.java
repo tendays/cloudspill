@@ -12,6 +12,7 @@ import org.gamboni.cloudspill.ui.SettingsActivity;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
@@ -245,6 +246,15 @@ public class Domain extends AbstractDomain<Domain> {
 
         public void copyFrom(Item that) {
             this.values.putAll(that.values);
+            // 1. remove deleted tags
+            // TODO dirty tags should be kept as is
+            this.getTags().retainAll(that.getTags());
+            // 2. add missing tags
+            for (String tag : that.getTags()) {
+                if (!this.getTags().contains(tag)) {
+                    this.getTags().add(tag);
+                }
+            }
         }
 
         public List<String> getTags() {
@@ -296,6 +306,14 @@ public class Domain extends AbstractDomain<Domain> {
                 this.tags.flush();
             }
             return get(ItemSchema.ID);
+        }
+
+        @Override
+        public void update() {
+            super.update();
+            if (this.tags != null) {
+                this.tags.flush();
+            }
         }
     }
 
