@@ -92,6 +92,38 @@ public class CloudSpillServer extends AbstractServer {
     	
     	File rootFolder = configuration.getRepositoryPath();
     	
+    	/* Upgrade database before serving */
+    	Log.info("Upgrading database, please wait");
+    	try {
+    	transacted(session -> {
+    		for (Item item : session.selectItem().add(Restrictions.isNull("checksum")).list()) {
+    			File file = item.getFile(rootFolder);
+    			final MessageDigest md5 = MessageDigest.getInstance("MD5");
+				try (InputStream in = new FileInputStream(file)) {
+					
+				    byte[] buf = new byte[8192];
+				    while (true) {
+				      int len = in.read(buf);
+				      if (len == -1) {
+				        break;
+				      }
+				      md5.update(buf, 0, len);
+				    }
+				} catch (IOException e) {
+					Log.warn("Error reading "+ file +" for item "+ item.getId(), e);
+					continue;
+				}
+				item.setChecksum(
+						new String(Base64.getEncoder().encode(md5.digest()), StandardCharsets.ISO_8859_1));
+    		}
+    		return true;
+    	});
+    	} catch (Exception e) {
+    		e.printStackTrace();
+    		return;
+    	}
+    	Log.info("Database upgrade complete.");
+    	
     	/* Thumbnail construction is memory intensive... */
     	// TODO make this configurable
     	//threadPool(6);
@@ -114,7 +146,7 @@ public class CloudSpillServer extends AbstractServer {
 
 			return true;
 		};
-
+		
 		post("/user/:name",
 				configuration.allowAnonymousUserCreation() ?
 						(req, res) -> transacted(session -> createUser.handle(req, res, session, /* user */null))
