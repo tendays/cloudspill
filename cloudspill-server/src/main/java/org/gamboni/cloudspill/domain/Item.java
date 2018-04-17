@@ -41,6 +41,7 @@ public class Item {
 	String user;
 	String folder;
 	String path;
+	String checksum;
 	LocalDateTime date;
 	ItemType type;
 	Set<String> tags;
@@ -98,6 +99,13 @@ public class Item {
 	}
 	
 	@Column
+	public String getChecksum() {
+		return checksum;
+	}
+	public void setChecksum(String checksum) {
+		this.checksum = checksum;
+	}
+	@Column
 	@Enumerated(EnumType.STRING)
 	public ItemType getType() {
 		return type;
@@ -135,7 +143,9 @@ public class Item {
 		+ ";"
 		+ getType()
 		+ ";"
-		+ Joiner.on(",").join(tags);
+		+ Joiner.on(",").join(tags)
+		+ ";"
+		+ getChecksum();
 	}
 	
 	private static String serialise(LocalDateTime time) {

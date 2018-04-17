@@ -20,8 +20,11 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Base64;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
@@ -124,10 +127,15 @@ public class CloudSpillServer extends AbstractServer {
     		+ "Data-Version: "+ DATA_VERSION));
     	
         /* Download a file */
-        get("/item/:id", secured((req, res, session, user) -> {
-        	download(rootFolder, res, session, Long.parseLong(req.params("id")));
-        	return true;
-        }));
+        get("/item/:id", (req, res) -> transacted(session -> {
+        	final String key = req.queryParams("key");
+        	if (key == null && authenticate(req, res, session) == null) {
+        		return String.valueOf(res.status());
+        	} // else: either we have a key, or user is authenticated.
+        	
+        	download(rootFolder, res, session, Long.parseLong(req.params("id")), key);
+        	return String.valueOf(res.status());
+		}));
         
         /* Download a thumbnail */
         get("/thumbs/:size/:id", secured((req, res, session, user) -> 
@@ -210,21 +218,40 @@ public class CloudSpillServer extends AbstractServer {
 						// Then just leave it blank
 					}
 				}
-				session.persist(item);
-				session.flush(); // flush before writing to disk
-
+				//session.persist(item);
+				// TODO checksum update below fails if we do this: session.flush(); // flush before writing to disk
+				
+				
 				requestedTarget.getParentFile().mkdirs();
 				// TODO return 40x error in case content-length is missing or invalid
 				/*long contentLength = Long.parseLong(req.headers("Content-Length")); */
+				final MessageDigest md5 = MessageDigest.getInstance("MD5");
 				Log.debug("Writing bytes to " + requestedTarget);
 				try (InputStream in = req.raw().getInputStream();
 						FileOutputStream out = new FileOutputStream(requestedTarget)) {
-					long copied = ByteStreams.copy(in, out);
+					
+				    byte[] buf = new byte[8192];
+				    long copied = 0;
+				    while (true) {
+				      int len = in.read(buf);
+				      if (len == -1) {
+				        break;
+				      }
+				      md5.update(buf, 0, len);
+				      out.write(buf, 0, len);
+				      copied += len;
+				    }
+
 					Log.debug("Wrote "+ copied +" bytes to "+ requestedTarget);
 /*					if (copied != contentLength) {
 						throw new IllegalArgumentException("Expected "+ contentLength +" bytes, got "+ copied);
 					}*/
 				}
+				item.setChecksum(
+						new String(Base64.getEncoder().encode(md5.digest()), StandardCharsets.ISO_8859_1));
+				
+				session.persist(item);
+				
 				Log.debug("Returning id "+ item.getId());
 				return item.getId();
 
@@ -260,9 +287,32 @@ public class CloudSpillServer extends AbstractServer {
 		return Iterables.getOnlyElement(session.selectItem().add(Restrictions.eq("id", id)).forUpdate().list());
 	}
 
-	private void download(File rootFolder, Response res, Domain session, final long id)
+	/**
+	 * Download the file corresponding to the item with the given id, optionally
+	 * after having checked an access key.
+	 * 
+	 * @param rootFolder
+	 *            root repository
+	 * @param res
+	 *            HTTP Response used to set Forbidden status if needed
+	 * @param session
+	 *            Database connection
+	 * @param id
+	 *            Id of the item to retrieve
+	 * @param key
+	 *            Access key. If this matches the value in the database, access
+	 *            is granted. If null, no access control is performed (under the
+	 *            assumption that the user has been authenticated already)
+	 * @throws IOException
+	 * @throws FileNotFoundException
+	 */
+	private void download(File rootFolder, Response res, Domain session, final long id, String key)
 			throws IOException, FileNotFoundException {
 		Item item = session.get(Item.class, id);
+		if (key != null && !key.equals(item.getChecksum())) {
+			forbidden(res, false);
+			return;
+		}
 		File file = item.getFile(rootFolder);
 		res.header("Content-Type", "image/jpeg");
 		res.header("Content-Length", String.valueOf(file.length()));

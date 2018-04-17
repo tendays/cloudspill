@@ -45,42 +45,55 @@ public class AbstractServer {
 
 	protected Route secured(SecuredBody task) {
 		return (req, res) -> transacted(session -> {
-			final String authHeader = req.headers("Authorization");
-			final User user;
-			if (authHeader == null) {
-				Log.error("Missing Authorization header");
-				return unauthorized(res);
-				// Other option: user = null; // anonymous
-			} else if (authHeader.startsWith("Basic ")) {
-				final String token = authHeader.substring("Basic ".length()).trim();
-				final String credentials = new String(Base64.getDecoder().decode(token));
-				int colon = credentials.indexOf(':');
-				if (colon == -1) {
-					Log.error("Invalid Authorization header");
-					return badRequest(res);
-				}
-				String username = credentials.substring(0, colon);
-				String password = credentials.substring(colon+1);
-				final List<User> users = session.selectUser().add(Restrictions.eq("name", username)).list();
-				if (users.isEmpty()) {
-					Log.error("Unknown user "+ username);
-					return forbidden(res, true);
-				}
-				user = Iterables.getOnlyElement(users);
-				final String queryHash = BCrypt.hashpw(password, user.getSalt());
-				if (!queryHash.equals(user.getPass())) {
-					Log.error("Invalid credentials for user "+ username);
-					return forbidden(res, true);
-				} else {
-					Log.info("User "+ username +" authenticated");
-				}
+			final User user = authenticate(req, res, session);
+			if (user == null) {
+				return String.valueOf(res.status());
 			} else {
-				Log.error("Unsupported Authorization scheme");
-				return badRequest(res);
+				return task.handle(req, res, session, user);
 			}
-			
-			return task.handle(req, res, session, user);
 		});
+	}
+
+	protected User authenticate(Request req, Response res, Domain session) {
+		final String authHeader = req.headers("Authorization");
+		final User user;
+		if (authHeader == null) {
+			Log.error("Missing Authorization header");
+			unauthorized(res);
+			return null;
+			// Other option: user = null; // anonymous
+		} else if (authHeader.startsWith("Basic ")) {
+			final String token = authHeader.substring("Basic ".length()).trim();
+			final String credentials = new String(Base64.getDecoder().decode(token));
+			int colon = credentials.indexOf(':');
+			if (colon == -1) {
+				Log.error("Invalid Authorization header");
+				badRequest(res);
+				return null;
+			}
+			String username = credentials.substring(0, colon);
+			String password = credentials.substring(colon+1);
+			final List<User> users = session.selectUser().add(Restrictions.eq("name", username)).list();
+			if (users.isEmpty()) {
+				Log.error("Unknown user "+ username);
+				forbidden(res, true);
+				return null;
+			}
+			user = Iterables.getOnlyElement(users);
+			final String queryHash = BCrypt.hashpw(password, user.getSalt());
+			if (!queryHash.equals(user.getPass())) {
+				Log.error("Invalid credentials for user "+ username);
+				forbidden(res, true);
+				return null;
+			} else {
+				Log.info("User "+ username +" authenticated");
+			}
+		} else {
+			Log.error("Unsupported Authorization scheme");
+			badRequest(res);
+			return null;
+		}
+		return user;
 	}
 
 	protected Object notFound(Response res, long item) {
