@@ -3,6 +3,8 @@
  */
 package org.gamboni.cloudspill.server;
 
+import java.time.format.DateTimeFormatter;
+
 import org.gamboni.cloudspill.domain.Item;
 
 import com.google.common.base.Joiner;
@@ -86,15 +88,19 @@ public class ImagePage {
 	}
 
 	public String getPageUrl() {
-		return configuration.getPublicUrl() + "/item/"+ item.getId() +".html?key="+ item.getChecksum();
+		return configuration.getPublicUrl() + "/item/"+ item.getId() +".html"+ accessKeyQueryString();
 	}
 
 	public String getThumbnailUrl() {
-		return configuration.getPublicUrl() + "/thumbs/300/"+ item.getId() +"?key="+ item.getChecksum().replace("+", "%2B");
+		return configuration.getPublicUrl() + "/thumbs/300/"+ item.getId() + accessKeyQueryString();
 	}
 
 	public String getImageUrl() {
-		return configuration.getPublicUrl() +"/item/"+ item.getId() +"?key="+ item.getChecksum();
+		return configuration.getPublicUrl() +"/item/"+ item.getId() + accessKeyQueryString();
+	}
+
+	private String accessKeyQueryString() {
+		return "?key="+ item.getChecksum().replace("+", "%2B");
 	}
 	
 	public String getHtml() {
@@ -111,7 +117,8 @@ public class ImagePage {
 				tag("body",
 						tag("h1", "", getTitle()) +
 						unclosedTag("img class='image' src="+ quote(getImageUrl())) +
-						tag("div", "class='metadata'", "By: "+ item.getUser() +"<br>Date: "+ item.getDate() +"<br>"+ "Tags: "+
+						tag("div", "class='metadata'", "By: "+ item.getUser() +"<br>Date: "+ item.getDate()
+						.format(DateTimeFormatter.ofPattern("YYYY-mm-dd hh:MM:ss")) +"<br>"+ "Tags: "+
 						Joiner.on(", ").join(item.getTags())))
 				);
 	}
