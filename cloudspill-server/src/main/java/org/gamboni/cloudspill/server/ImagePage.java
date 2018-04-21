@@ -118,7 +118,7 @@ public class ImagePage {
 						tag("h1", "", getTitle()) +
 						unclosedTag("img class='image' src="+ quote(getImageUrl())) +
 						tag("div", "class='metadata'", "By: "+ item.getUser() +"<br>Date: "+ item.getDate()
-						.format(DateTimeFormatter.ofPattern("YYYY-mm-dd hh:MM:ss")) +"<br>"+ "Tags: "+
+						.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm:ss")) +"<br>"+ "Tags: "+
 						Joiner.on(", ").join(item.getTags())))
 				);
 	}
