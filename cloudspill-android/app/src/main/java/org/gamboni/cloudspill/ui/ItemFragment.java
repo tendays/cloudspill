@@ -122,12 +122,14 @@ public class ItemFragment extends DialogFragment {
                 .setNeutralButton(R.string.share, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        Uri uri = Uri.parse(SettingsActivity.getLastServerVersion(getActivity()).getPublicUrl() +"/item/http/"+ item.getServerId() +"?key="+ item.get(
-                                Domain.ItemSchema.CHECKSUM));
+                        String uri = SettingsActivity.getLastServerVersion(getActivity()).getPublicUrl() +"/item/html/"+ item.getServerId() +"?key="+ item.get(
+                                Domain.ItemSchema.CHECKSUM).replace("+", "%2B");
                         Log.d(TAG, "Uri: "+ uri);
                         Intent shareIntent = new Intent();
                         shareIntent.setAction(Intent.ACTION_SEND);
-                        shareIntent.setData(uri);
+                        shareIntent.setType("text/plain");
+                        shareIntent.putExtra(Intent.EXTRA_SUBJECT, "Sharing URL");
+                        shareIntent.putExtra(Intent.EXTRA_TEXT, uri);
                         startActivity(Intent.createChooser(shareIntent, "Share via"));
                     }
                 })

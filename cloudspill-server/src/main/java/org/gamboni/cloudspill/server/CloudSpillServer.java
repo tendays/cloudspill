@@ -498,7 +498,11 @@ public class CloudSpillServer extends AbstractServer {
 	
 	private Route securedItem(File rootFolder, SecuredItemBody task) {
 		return (req, res) -> transacted(session -> {
-			final String key = req.queryParams("key");
+			// Work around what looks like Whatsapp bug: even though url encodes correctly + as %2B,
+			// It is sent as raw + in the test query to construct thumbnail and reaches us as a space,
+			// so we tolerate that and map spaces back to pluses, as spaces are anyway not allowed in
+			// b64
+			final String key = req.queryParams("key").replace(' ', '+');
 			User user;
 			if (key == null) {
 				user = authenticate(req, res, session);

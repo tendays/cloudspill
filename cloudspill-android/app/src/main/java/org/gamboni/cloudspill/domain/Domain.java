@@ -188,6 +188,7 @@ public class Domain extends AbstractDomain<Domain> {
             set(ItemSchema.DATE, toDate(splitter.getLong())); // TODO this is supposed to be UTC - check!
             set(ItemSchema.TYPE, ItemType.valueOfOptional(splitter.getString()));
             new Splitter(splitter.getString(), ',').allRemainingTo(getTags());
+            set(ItemSchema.CHECKSUM, splitter.getString());
         }
 
         private Boolean local = null;

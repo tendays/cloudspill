@@ -74,6 +74,7 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
     }
 
     public boolean onLongClick(View view) {
+        if (item == null) { return false; }
         ItemFragment fragment = new ItemFragment();
         Bundle arguments = new Bundle();
         arguments.putLong(ItemFragment.ITEM_ID_KEY, item.getId());
