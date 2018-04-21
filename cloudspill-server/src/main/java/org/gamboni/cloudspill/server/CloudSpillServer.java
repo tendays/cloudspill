@@ -518,6 +518,7 @@ public class CloudSpillServer extends AbstractServer {
 			
 			// NOTE: even if user is authenticated, refuse incorrect keys
 			if (key != null && !key.equals(item.getChecksum())) {
+				Log.warn("Bad key value. Expected "+ item.getChecksum() +", got "+ key);
 				return forbidden(res, false);
 			}
 			return task.handle(req, res, session, user, item);
