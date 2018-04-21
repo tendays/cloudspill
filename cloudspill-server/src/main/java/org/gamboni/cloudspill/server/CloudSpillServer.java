@@ -497,7 +497,7 @@ public class CloudSpillServer extends AbstractServer {
 	
 	private Route securedItem(File rootFolder, SecuredItemBody task) {
 		return (req, res) -> transacted(session -> {
-			final String key = req.queryParams("key");
+			final String key = req.queryParams("key").replace(" ", "+");
 			User user;
 			if (key == null) {
 				user = authenticate(req, res, session);
