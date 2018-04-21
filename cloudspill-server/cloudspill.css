@@ -1,0 +1,9 @@
+.image {
+    max-width: 90vw;
+    max-height: 90vh;
+}
+.metadata {
+    float: right;
+    width: 10vw;
+    text-align: left;
+}

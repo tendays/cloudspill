@@ -31,6 +31,14 @@ public class ServerConfiguration {
 	public File getRepositoryPath() {
 		return new File(prop.getProperty("repositoryPath"));
 	}
+
+	public String getPublicUrl() {
+		return prop.getProperty("publicUrl");
+	}
+	
+	public String getCss() {
+		return prop.getProperty("css");
+	}
 	
 	public boolean allowAnonymousUserCreation() {
 		// TODO this should actually be a command line option so it has less chance to stick

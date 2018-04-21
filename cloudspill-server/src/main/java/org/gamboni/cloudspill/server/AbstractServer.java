@@ -55,11 +55,21 @@ public class AbstractServer {
 	}
 
 	protected User authenticate(Request req, Response res, Domain session) {
+		return authenticate(req, res, session, true);
+	}
+	
+	protected User optionalAuthenticate(Request req, Response res, Domain session) {
+		return authenticate(req, res, session, false);
+	}
+
+	private User authenticate(Request req, Response res, Domain session, boolean required) {
 		final String authHeader = req.headers("Authorization");
 		final User user;
 		if (authHeader == null) {
-			Log.error("Missing Authorization header");
-			unauthorized(res);
+			if (required) {
+				Log.error("Missing Authorization header");
+				unauthorized(res);
+			}
 			return null;
 			// Other option: user = null; // anonymous
 		} else if (authHeader.startsWith("Basic ")) {
@@ -113,7 +123,7 @@ public class AbstractServer {
 		return "Bad Request";
 	}
 
-	private Object unauthorized(Response res) {
+	private String unauthorized(Response res) {
 		res.status(HttpServletResponse.SC_UNAUTHORIZED);
 		loginPrompt(res);
 		return "Unauthorized";
@@ -123,7 +133,7 @@ public class AbstractServer {
 		res.header("WWW-Authenticate", "Basic realm=\"CloudSpill\"");
 	}
 
-	protected Object forbidden(Response res, boolean loginPrompt) {
+	protected String forbidden(Response res, boolean loginPrompt) {
 		if (loginPrompt) {
 			return unauthorized(res);
 			// I was hoping that a 403 with a www-authenticate would prompt the browser to show a login dialog, but it does not (Firefox)

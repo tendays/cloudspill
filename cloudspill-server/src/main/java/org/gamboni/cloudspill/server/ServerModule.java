@@ -26,6 +26,7 @@ public class ServerModule extends AbstractModule {
 	@Override
 	protected void configure() {
 		bind(CloudSpillServer.class).asEagerSingleton();
+		bind(ImagePage.Factory.class).asEagerSingleton();
 	}
 
 	@Provides

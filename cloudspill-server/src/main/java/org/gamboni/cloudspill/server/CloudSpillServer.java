@@ -55,7 +55,9 @@ import com.google.common.io.ByteStreams;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 
+import spark.Request;
 import spark.Response;
+import spark.Route;
 
 /**
  * @author tendays
@@ -64,6 +66,7 @@ import spark.Response;
 public class CloudSpillServer extends AbstractServer {
 	
 	@Inject ServerConfiguration configuration;
+	@Inject ImagePage.Factory imagePages;
 	
 	/** This constants holds the version of the data stored in the database.
 	 * Each time new information is added to all items the number should be incremented.
@@ -158,20 +161,19 @@ public class CloudSpillServer extends AbstractServer {
     		"CloudSpill server.\n"
     		+ "Data-Version: "+ DATA_VERSION));
     	
+        /* Html version of a file */
+        get("/item/html/:id", securedItem(rootFolder, (req, res, session, user, item) -> {
+        	return imagePages.create(item).getHtml();
+		}));
         /* Download a file */
-        get("/item/:id", (req, res) -> transacted(session -> {
-        	final String key = req.queryParams("key");
-        	if (key == null && authenticate(req, res, session) == null) {
-        		return String.valueOf(res.status());
-        	} // else: either we have a key, or user is authenticated.
-        	
-        	download(rootFolder, res, session, Long.parseLong(req.params("id")), key);
+        get("/item/:id", securedItem(rootFolder, (req, res, session, user, item) -> {
+        	download(rootFolder, res, session, item);
         	return String.valueOf(res.status());
 		}));
         
         /* Download a thumbnail */
-        get("/thumbs/:size/:id", secured((req, res, session, user) -> 
-        	thumbnail(rootFolder, res, session, Long.parseLong(req.params("id")), Integer.parseInt(req.params("size")))
+        get("/thumbs/:size/:id", securedItem(rootFolder, (req, res, session, user, item) -> 
+        	thumbnail(rootFolder, res, session, item, Integer.parseInt(req.params("size")))
         ));
         
         /* Get list of items whose id is larger than the given one. */
@@ -338,13 +340,8 @@ public class CloudSpillServer extends AbstractServer {
 	 * @throws IOException
 	 * @throws FileNotFoundException
 	 */
-	private void download(File rootFolder, Response res, Domain session, final long id, String key)
+	private void download(File rootFolder, Response res, Domain session, final Item item)
 			throws IOException, FileNotFoundException {
-		Item item = session.get(Item.class, id);
-		if (key != null && !key.equals(item.getChecksum())) {
-			forbidden(res, false);
-			return;
-		}
 		File file = item.getFile(rootFolder);
 		res.header("Content-Type", "image/jpeg");
 		res.header("Content-Length", String.valueOf(file.length()));
@@ -353,12 +350,8 @@ public class CloudSpillServer extends AbstractServer {
 		}
 	}
 
-	private Object thumbnail(File rootFolder, Response res, Domain session, final long id, int size)
+	private Object thumbnail(File rootFolder, Response res, Domain session, final Item item, int size)
 			throws InterruptedException, IOException {
-		Item item = session.get(Item.class, id);
-		if (item == null) {
-			return notFound(res, id);
-		}
 		File file = item.getFile(rootFolder);
 		
 		if (!file.exists()) {
@@ -496,5 +489,38 @@ public class CloudSpillServer extends AbstractServer {
 			}
 		}
 		return renderedImage;
+	}
+	
+	protected interface SecuredItemBody {
+    	Object handle(Request request, Response response, Domain session, User user, Item item) throws Exception;
+    }
+	
+	private Route securedItem(File rootFolder, SecuredItemBody task) {
+		return (req, res) -> transacted(session -> {
+			final String key = req.queryParams("key");
+			User user;
+			if (key == null) {
+				user = authenticate(req, res, session);
+				if (user == null) {
+					return String.valueOf(res.status());
+				}
+			} else {
+				user = optionalAuthenticate(req, res, session);
+			}
+
+			/* Either we have a key, or user is authenticated. */
+			final long id = Long.parseLong(req.params("id"));
+			Item item = session.get(Item.class, id);
+			
+			if (item == null) {
+				return notFound(res, id);
+			}
+			
+			// NOTE: even if user is authenticated, refuse incorrect keys
+			if (key != null && !key.equals(item.getChecksum())) {
+				return forbidden(res, false);
+			}
+			return task.handle(req, res, session, user, item);
+		});
 	}
 }
