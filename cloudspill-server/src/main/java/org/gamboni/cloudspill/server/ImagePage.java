@@ -90,7 +90,7 @@ public class ImagePage {
 	}
 
 	public String getThumbnailUrl() {
-		return configuration.getPublicUrl() + "/thumbs/300/"+ item.getId() +"?key="+ item.getChecksum();
+		return configuration.getPublicUrl() + "/thumbs/300/"+ item.getId() +"?key="+ item.getChecksum().replace("+", "%2B");
 	}
 
 	public String getImageUrl() {
