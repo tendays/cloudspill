@@ -114,13 +114,16 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
     }
 
     private static final String LAST_SERVER_VERSION_KEY = "last_server_version";
+    private static final String LAST_SERVER_URL_KEY = "last_server_url";
     public static ServerInfo getLastServerVersion(Context context) {
         return ServerInfo.online(
-                getSharedPreferences(context).getInt(LAST_SERVER_VERSION_KEY, -1));
+                getSharedPreferences(context).getInt(LAST_SERVER_VERSION_KEY, -1),
+                getSharedPreferences(context).getString(LAST_SERVER_URL_KEY, null));
     }
     public static void setLastServerVersion(Context context, ServerInfo serverInfo) {
         getSharedPreferences(context).edit()
                 .putInt(LAST_SERVER_VERSION_KEY, serverInfo.getVersion())
+                .putString(LAST_SERVER_URL_KEY, serverInfo.getPublicUrl())
                 .apply();
     }
 
@@ -176,15 +179,6 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
         private void invalidateDatabase() {
             // TODO invalidate database (but keep access times)
         }
-    }
-
-    /**
-     * Helper method to determine if the device has an extra-large screen. For
-     * example, 10" tablets are extra-large.
-     */
-    private static boolean isXLargeTablet(Context context) {
-        return (context.getResources().getConfiguration().screenLayout
-                & Configuration.SCREENLAYOUT_SIZE_MASK) >= Configuration.SCREENLAYOUT_SIZE_XLARGE;
     }
 
     @Override

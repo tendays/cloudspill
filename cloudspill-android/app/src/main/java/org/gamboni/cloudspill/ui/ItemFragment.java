@@ -122,27 +122,13 @@ public class ItemFragment extends DialogFragment {
                 .setNeutralButton(R.string.share, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-
-                        MediaDownloader.open(getActivity(), item, new MediaDownloader.OpenListener() {
-
-                            public void openItem(Uri uri, String mime) {
-                                Log.d(TAG, "Uri: "+ uri);
-                                Intent shareIntent = new Intent();
-                                shareIntent.setAction(Intent.ACTION_SEND);
-                                if (mime == null) {
-                                    shareIntent.setData(uri);
-                                } else {
-                                    shareIntent.setDataAndType(uri, mime);
-                                }
-                                shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                                startActivity(Intent.createChooser(shareIntent, "Share via"));
-                            }
-
-                            @Override
-                            public void updateCompletion(int percent) {
-
-                            }
-                        });
+                        Uri uri = Uri.parse(SettingsActivity.getLastServerVersion(getActivity()).getPublicUrl() +"/item/http/"+ item.getServerId() +"?key="+ item.get(
+                                Domain.ItemSchema.CHECKSUM));
+                        Log.d(TAG, "Uri: "+ uri);
+                        Intent shareIntent = new Intent();
+                        shareIntent.setAction(Intent.ACTION_SEND);
+                        shareIntent.setData(uri);
+                        startActivity(Intent.createChooser(shareIntent, "Share via"));
                     }
                 })
                 .setNegativeButton(R.string.close, new DialogInterface.OnClickListener() {

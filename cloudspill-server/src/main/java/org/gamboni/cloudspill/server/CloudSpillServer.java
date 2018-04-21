@@ -159,7 +159,8 @@ public class CloudSpillServer extends AbstractServer {
     	get("/ping", secured((req, res, session, user) ->
     		// WARN: currently the frontend requires precisely this syntax, spaces included
     		"CloudSpill server.\n"
-    		+ "Data-Version: "+ DATA_VERSION));
+    		+ "Data-Version: "+ DATA_VERSION +"\n"
+    		+ "Url: "+ configuration.getPublicUrl()));
     	
         /* Html version of a file */
         get("/item/html/:id", securedItem(rootFolder, (req, res, session, user, item) -> {

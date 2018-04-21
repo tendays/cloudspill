@@ -7,18 +7,20 @@ package org.gamboni.cloudspill.domain;
 public class ServerInfo {
     private final boolean online;
     private final int version;
+    private final String publicUrl;
 
-    private ServerInfo(boolean online, int version) {
+    private ServerInfo(boolean online, int version, String publicUrl) {
         this.online = online;
         this.version = version;
+        this.publicUrl = publicUrl;
     }
 
-    public static ServerInfo online(int version) {
-        return new ServerInfo(true, version);
+    public static ServerInfo online(int version, String publicUrl) {
+        return new ServerInfo(true, version, publicUrl);
     }
 
     public static ServerInfo offline() {
-        return new ServerInfo(false, 0);
+        return new ServerInfo(false, 0, null);
     }
 
     public boolean isOnline() {
@@ -30,6 +32,10 @@ public class ServerInfo {
             throw new IllegalStateException("Can't obtain version of offline server");
         }
         return this.version;
+    }
+
+    public String getPublicUrl() {
+        return publicUrl;
     }
 
     /** Whether this version is strictly more recent than the given one. */

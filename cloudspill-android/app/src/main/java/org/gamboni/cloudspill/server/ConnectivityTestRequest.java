@@ -2,6 +2,7 @@ package org.gamboni.cloudspill.server;
 
 import android.content.Context;
 import android.util.Base64;
+import android.util.Log;
 
 import com.android.volley.AuthFailureError;
 import com.android.volley.NetworkResponse;
@@ -11,10 +12,12 @@ import com.android.volley.toolbox.HttpHeaderParser;
 import com.android.volley.toolbox.StringRequest;
 
 import org.gamboni.cloudspill.domain.ServerInfo;
+import org.gamboni.cloudspill.domain.Splitter;
 import org.gamboni.cloudspill.ui.SettingsActivity;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -25,7 +28,7 @@ import java.util.Map;
 public class ConnectivityTestRequest extends StringBasedAuthenticatingRequest<String> {
 
     private final Listener listener;
-    private static final String PREAMBLE = "CloudSpill server.\nData-Version: ";
+    private static final String PREAMBLE = "CloudSpill server.";
 
     private static class Listener implements Response.Listener<String>, Response.ErrorListener {
         private ServerInfo response = null;
@@ -37,10 +40,30 @@ public class ConnectivityTestRequest extends StringBasedAuthenticatingRequest<St
 
         @Override
         public synchronized void onResponse(String serverResponse) {
-            if (!serverResponse.startsWith(PREAMBLE)) {
+            final Splitter splitter = new Splitter(serverResponse, '\n');
+            String preamble = splitter.getString();
+            if (!preamble.equals(PREAMBLE)) {
+                Log.w(TAG, "Not connecting to server with unexpected preamble "+ preamble);
                 response = ServerInfo.offline(); // TODO LOG
             }
-            response = ServerInfo.online(Integer.parseInt(serverResponse.substring(PREAMBLE.length())));
+            Integer version = null;
+            String url = null;
+            for (String line : splitter.allRemainingTo(new ArrayList<String>())) {
+                int colon = line.indexOf(":");
+                String key = line.substring(0, colon).trim();
+                String value = line.substring(colon + 1).trim();
+                if (key.equals("Data-Version")) {
+                    version = Integer.parseInt(value);
+                } else if (key.equals("Url")) {
+                    url = value;
+                } // else: assume key provided by later version of the server - ignore
+            }
+            if (version == null || url == null) {
+                Log.w(TAG, "Not connecting to server not specifying version or url: " + version +", "+ url);
+                response = ServerInfo.offline();
+            } else {
+                response = ServerInfo.online(version, url);
+            }
             this.notify();
         }
 

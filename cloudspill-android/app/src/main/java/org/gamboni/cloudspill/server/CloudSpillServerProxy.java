@@ -125,6 +125,10 @@ public class CloudSpillServerProxy {
         ConnectivityTestRequest request = new ConnectivityTestRequest(context, url);
         queue.add(request);
         this.serverInfo = request.getResponse();
+        if (serverInfo.isOnline()) {
+            // Cache latest public url of current server
+            SettingsActivity.setLastServerVersion(context, serverInfo);
+        }
         return serverInfo.isOnline();
     }
 

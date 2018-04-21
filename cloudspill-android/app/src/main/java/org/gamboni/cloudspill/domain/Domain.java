@@ -23,7 +23,7 @@ import java.util.Set;
 public class Domain extends AbstractDomain<Domain> {
 
     // If you change the database schema, you must increment the database version.
-    private static final int DATABASE_VERSION = 7;
+    private static final int DATABASE_VERSION = 8;
     private static final String DATABASE_NAME = "CloudSpill.db";
 
     private static final ItemSchema itemSchema = new ItemSchema();
@@ -47,6 +47,8 @@ public class Domain extends AbstractDomain<Domain> {
         /** The type of media in this item, as an {@link ItemType}. */
         public static final Column<ItemType> TYPE = enumerated(ItemType.class, ItemType.UNKNOWN, "TYPE", 5);
 
+        public static final Column<String> CHECKSUM = string("CHECKSUM", 8);
+
         @Override
         public int since() {
             return 1;
@@ -59,7 +61,7 @@ public class Domain extends AbstractDomain<Domain> {
 
         @Override
         public List<? extends Column<?>> columns() {
-            return list(ID, SERVER_ID, USER, FOLDER, PATH, LATEST_ACCESS, DATE, TYPE);
+            return list(ID, SERVER_ID, USER, FOLDER, PATH, LATEST_ACCESS, DATE, TYPE, CHECKSUM);
         }
 
         @Override
