@@ -88,7 +88,7 @@ public class ImagePage {
 	}
 
 	public String getPageUrl() {
-		return configuration.getPublicUrl() + "/item/"+ item.getId() +".html"+ accessKeyQueryString();
+		return configuration.getPublicUrl() + "/item/html/"+ item.getId() + accessKeyQueryString();
 	}
 
 	public String getThumbnailUrl() {
