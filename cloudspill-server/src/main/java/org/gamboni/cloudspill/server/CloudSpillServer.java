@@ -502,7 +502,8 @@ public class CloudSpillServer extends AbstractServer {
 			// It is sent as raw + in the test query to construct thumbnail and reaches us as a space,
 			// so we tolerate that and map spaces back to pluses, as spaces are anyway not allowed in
 			// b64
-			final String key = req.queryParams("key").replace(' ', '+');
+			String key = req.queryParams("key");
+			if (key != null) { key = key.replace(' ', '+'); }
 			User user;
 			if (key == null) {
 				user = authenticate(req, res, session);
