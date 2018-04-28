@@ -32,6 +32,7 @@
         android:layout_height="wrap_content"
         android:text="@string/item_tags"
         app:layout_constraintTop_toBottomOf="@+id/itemAuthor"
+        app:layout_constraintLeft_toLeftOf="parent"
         tools:layout_editor_absoluteX="0dp" />
 
     <!-- TODO MultiAutoCompleteTextView -->
