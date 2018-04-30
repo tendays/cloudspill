@@ -24,6 +24,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".ui.ItemActivity"
+            android:parentActivityName=".ui.MainActivity" />
         <activity
             android:name=".ui.FoldersActivity"
             android:label="@string/title_activity_folders"

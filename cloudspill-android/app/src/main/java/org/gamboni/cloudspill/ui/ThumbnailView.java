@@ -86,6 +86,10 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
             @Override
             public void onClick(View view) {
                 if (item == null) { return; } // TODO Not threadsafe
+                if (item.getType() == ItemType.IMAGE) {
+                    getContext().startActivity(ItemActivity.intent(getContext(), item.getId()));
+                    return;
+                }
                 getOverlay().add(progressOverlay);
                 progressOverlay.setBounds(0, 0, getWidth(), getHeight()/*left, top, right, bottom*/);
                 MediaDownloader.open(activity, item, new MediaDownloader.OpenListener() {
