@@ -18,6 +18,7 @@ import com.android.volley.VolleyError;
 
 import org.gamboni.cloudspill.domain.AbstractDomain;
 import org.gamboni.cloudspill.domain.Domain;
+import org.gamboni.cloudspill.domain.EvaluatedFilter;
 import org.gamboni.cloudspill.domain.FilterSpecification;
 import org.gamboni.cloudspill.domain.ItemType;
 import org.gamboni.cloudspill.file.DiskLruCache;
@@ -58,44 +59,6 @@ public class ThumbnailIntentService extends IntentService {
     private static final int DISK_CACHE_DATA_KEY = 1;
 
     private Domain domain;
-
-    private class EvaluatedFilter {
-        final FilterSpecification filter;
-        final List<Domain.Item> itemList;
-        final Domain.ItemQuery itemQuery;
-        EvaluatedFilter(FilterSpecification filter) {
-            this.filter = filter;
-            this.itemQuery = domain.selectItems();
-            if (currentFilter.from != null) {
-                itemQuery.ge(Domain.ItemSchema.DATE, currentFilter.from);
-            }
-            if (currentFilter.to != null) {
-                itemQuery.le(Domain.ItemSchema.DATE, currentFilter.to);
-            }
-            if (currentFilter.by != null) {
-                itemQuery.eq(Domain.ItemSchema.USER, currentFilter.by);
-            }
-            if (!currentFilter.tags.isEmpty()) {
-                itemQuery.hasTags(currentFilter.tags);
-            }
-            this.itemList = apply(itemQuery, currentFilter.sort).list();
-        }
-        int size() {
-            return itemList.size();
-        }
-        Domain.Item getByPosition(int position) {
-            return itemList.get(position);
-        }
-        Domain.Item getById(long id) {
-            return domain.selectItems().eq(Domain.ItemSchema.ID, id).detachedList().get(0);
-        }
-        boolean isStale() {
-            return this.filter != ThumbnailIntentService.currentFilter;
-        }
-        void close() {
-            itemQuery.close();
-        }
-    }
 
     private EvaluatedFilter evaluatedFilter = null;
 
@@ -204,17 +167,7 @@ public class ThumbnailIntentService extends IntentService {
     }
 
     private void runQuery() {
-        this.evaluatedFilter = new EvaluatedFilter(currentFilter);
-    }
-
-    private Domain.Query<Domain.Item> apply(Domain.Query<Domain.Item> query, FilterSpecification.Sort sort) {
-        switch (sort) {
-            case DATE_ASC:
-                return query.orderAsc(Domain.ItemSchema.DATE);
-            case DATE_DESC:
-                return query.orderDesc(Domain.ItemSchema.DATE);
-        }
-        throw new UnsupportedOperationException(sort.toString());
+        this.evaluatedFilter = new EvaluatedFilter(domain, currentFilter);
     }
 
     @Override
@@ -363,7 +316,7 @@ public class ThumbnailIntentService extends IntentService {
     @Override
     protected void onHandleIntent(@Nullable Intent intent) {
         if (intent == null) { return; } // Intent should not be null, but well there's nothing to do if it is
-        if (this.evaluatedFilter.isStale()) {
+        if (this.evaluatedFilter.isStale(currentFilter)) {
             runQuery();
         }
         EvaluatedFilter myFilter = this.evaluatedFilter;
