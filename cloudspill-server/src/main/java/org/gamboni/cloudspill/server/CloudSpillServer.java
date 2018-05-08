@@ -65,6 +65,8 @@ import spark.Route;
  */
 public class CloudSpillServer extends AbstractServer {
 	
+	/** Suffix added to the id parameter to trigger downloading an html page instead of the raw image. */
+	private static final String ID_HTML_SUFFIX = ".cloudspill";
 	@Inject ServerConfiguration configuration;
 	@Inject ImagePage.Factory imagePages;
 	
@@ -161,15 +163,20 @@ public class CloudSpillServer extends AbstractServer {
     		"CloudSpill server.\n"
     		+ "Data-Version: "+ DATA_VERSION +"\n"
     		+ "Url: "+ configuration.getPublicUrl()));
-    	
+
         /* Html version of a file */
         get("/item/html/:id", securedItem(rootFolder, (req, res, session, user, item) -> {
         	return imagePages.create(item).getHtml();
 		}));
+        
         /* Download a file */
         get("/item/:id", securedItem(rootFolder, (req, res, session, user, item) -> {
-        	download(rootFolder, res, session, item);
-        	return String.valueOf(res.status());
+        	if (req.params("id").endsWith(ID_HTML_SUFFIX)) {
+        		return imagePages.create(item).getHtml();
+        	} else {
+        		download(rootFolder, res, session, item);
+        		return String.valueOf(res.status());
+        	}
 		}));
         
         /* Download a thumbnail */
@@ -504,6 +511,7 @@ public class CloudSpillServer extends AbstractServer {
 			// b64
 			String key = req.queryParams("key");
 			if (key != null) { key = key.replace(' ', '+'); }
+			
 			User user;
 			if (key == null) {
 				user = authenticate(req, res, session);
@@ -514,8 +522,13 @@ public class CloudSpillServer extends AbstractServer {
 				user = optionalAuthenticate(req, res, session);
 			}
 
+			String idParam = req.params("id");
+			if (idParam != null && idParam.endsWith(ID_HTML_SUFFIX)) {
+				idParam = idParam.substring(0, idParam.length() - ID_HTML_SUFFIX.length());
+			}
+			
 			/* Either we have a key, or user is authenticated. */
-			final long id = Long.parseLong(req.params("id"));
+			final long id = Long.parseLong(idParam);
 			Item item = session.get(Item.class, id);
 			
 			if (item == null) {

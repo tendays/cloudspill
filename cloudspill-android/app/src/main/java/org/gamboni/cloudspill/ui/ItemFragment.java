@@ -122,7 +122,7 @@ public class ItemFragment extends DialogFragment {
                 .setNeutralButton(R.string.share, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        String uri = SettingsActivity.getLastServerVersion(getActivity()).getPublicUrl() +"/item/html/"+ item.getServerId() +"?key="+ item.get(
+                        String uri = SettingsActivity.getLastServerVersion(getActivity()).getPublicUrl() +"/item/"+ item.getServerId() +".cloudspill?key="+ item.get(
                                 Domain.ItemSchema.CHECKSUM).replace("+", "%2B");
                         Log.d(TAG, "Uri: "+ uri);
                         Intent shareIntent = new Intent();

@@ -117,9 +117,18 @@ public class ImagePage {
 				tag("body",
 						tag("h1", "", getTitle()) +
 						unclosedTag("img class='image' src="+ quote(getImageUrl())) +
-						tag("div", "class='metadata'", "By: "+ item.getUser() +"<br>Date: "+ item.getDate()
-						.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm:ss")) +"<br>"+ "Tags: "+
-						Joiner.on(", ").join(item.getTags())))
+						tag("div", "class='metadata'", "By: "+ item.getUser() +
+								dateLine() +
+								"<br>Tags: "+ Joiner.on(", ").join(item.getTags())))
 				);
 	}
+
+	private String dateLine() {
+		if (item.getDate() == null) { return ""; }
+		
+		return "<br>Date: "+ item.getDate()
+		.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm:ss"));
+	}
+	
+	
 }

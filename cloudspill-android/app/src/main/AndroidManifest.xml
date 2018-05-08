@@ -25,7 +25,9 @@
             </intent-filter>
         </activity>
         <activity android:name=".ui.ItemActivity"
-            android:parentActivityName=".ui.MainActivity" />
+            android:parentActivityName=".ui.MainActivity" >
+            <intent-filter></intent-filter>
+        </activity>
         <activity
             android:name=".ui.FoldersActivity"
             android:label="@string/title_activity_folders"
