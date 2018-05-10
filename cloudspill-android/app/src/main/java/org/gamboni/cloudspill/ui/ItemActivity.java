@@ -7,6 +7,7 @@ import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.view.PagerAdapter;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
@@ -23,14 +24,19 @@ import org.gamboni.cloudspill.domain.FilterSpecification;
 import org.gamboni.cloudspill.domain.ItemType;
 import org.gamboni.cloudspill.job.MediaDownloader;
 
+import java.util.List;
+
 /** Activity displaying a single image in full screen.
  *
  * @author tendays
  */
 public class ItemActivity extends AppCompatActivity {
 
+    private static final String TAG = "CloudSpill.Item";
+
     private static final String POSITION_PARAM = "org.gamboni.cloudspill.param.position";
     private static final String FILTER_PARAM = "org.gamboni.cloudspill.param.filter";
+    public static final String URL_SUFFIX = ".cloudspill";
 
     private Domain domain;
     private EvaluatedFilter evaluatedFilter;
@@ -50,13 +56,51 @@ public class ItemActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        this.evaluatedFilter = new EvaluatedFilter(domain, getIntent().<FilterSpecification>getParcelableExtra(FILTER_PARAM));
+        FilterSpecification searchFilter = getIntent().<FilterSpecification>getParcelableExtra(FILTER_PARAM);
+        if (searchFilter == null) { searchFilter = FilterSpecification.defaultFilter(); }
+        this.evaluatedFilter = new EvaluatedFilter(domain, searchFilter);
 
         setContentView(R.layout.activity_item);
 
         final ExtendedViewPager pager = (ExtendedViewPager) findViewById(R.id.activity_item_pager);
         pager.setAdapter(new Adapter());
-        pager.setCurrentItem(getIntent().getIntExtra(POSITION_PARAM, 0));
+
+        final Uri uri = getIntent().getData();
+        if (uri != null) {
+            Log.d(TAG, "Displaying "+ uri);
+            int slash = uri.getPath().lastIndexOf('/');
+            String file = uri.getPath().substring(slash + 1);
+            if (file.endsWith(URL_SUFFIX)) {
+                file = file.substring(0, file.length() - URL_SUFFIX.length());
+            }
+            final int serverId = Integer.parseInt(file);
+
+            new Thread() {
+                public void run() {
+                    // Load the corresponding item
+                    List<Domain.Item> items = domain.selectItemsByServerId(serverId);
+                    if (items.size() != 1) {
+                        // TODO toast
+                        Log.e(TAG, "Server id " + serverId + " not found");
+                        return;
+                    }
+                    Domain.Item item = items.get(0);
+                    final int position = evaluatedFilter.indexOf(item);
+                    if (position == -1) {
+                        Log.e(TAG, "Server id "+ serverId +" is excluded by filter");
+                        return;
+                    }
+                    Log.d(TAG, "Found item "+ serverId +" at position "+ position);
+                    runOnUiThread(new Runnable() {
+                        public void run() {
+                            pager.setCurrentItem(position);
+                        }
+                    });
+                }
+            }.start();
+        } else {
+            pager.setCurrentItem(getIntent().getIntExtra(POSITION_PARAM, 0));
+        }
     }
 
     @Override

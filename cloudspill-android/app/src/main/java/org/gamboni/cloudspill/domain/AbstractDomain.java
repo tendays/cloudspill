@@ -7,9 +7,13 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.provider.BaseColumns;
 import android.support.annotation.NonNull;
+import android.util.Log;
+
+import org.gamboni.cloudspill.collect.ConcatList;
 
 import java.util.AbstractList;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -34,6 +38,18 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
         public AbstractDomain<D>.Query<E> query(AbstractDomain<D> domain) {
             return domain.new EntityQuery<E>(this);
         }
+
+        private String[] columnNames = null;
+        public synchronized String[] columnNames() {
+            if (columnNames == null) {
+                columnNames = new String[columns().size()];
+                int index = 0;
+                for (Column<?> column : columns()) {
+                    columnNames[index++] = column.name;
+                }
+            }
+            return columnNames;
+        }
     }
 
     protected SELF domain() {
@@ -53,8 +69,77 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
                 protected T newEntity() {
                     return schema.newInstance(domain(), cursor);
                 }
+
+                @Override
+                public int indexOf(Object object) {
+                    T element = (T) object;
+                    // TODO add restrictions: select count(*) from ... where ... AND orderColumn < :element.orderColumn
+                    StringBuilder sqlQuery = new StringBuilder("select count(*) from "+ schema.tableName() +" where (");
+                    List<String> countArgs = new ArrayList<>();
+                    String outerKeyword = "";
+                    for (int i = 0; i < orderingPlusId.size(); i++) {
+                        sqlQuery.append(outerKeyword).append('(');
+                        String innerKeyword = "";
+                        for (int j = 0; j<i; j++) {
+                            Order r = orderingPlusId.get(j);
+
+                            final Column<?> column = r.getColumn();
+                            sqlQuery.append(innerKeyword).append(copyValue(countArgs, column, element, " = ?"));
+                            innerKeyword = " and ";
+                        }
+                        final Order orderI = orderingPlusId.get(i);
+                        sqlQuery.append(innerKeyword).append(
+                                copyValue(countArgs, orderI.getColumn(), element,
+                                (orderI.isAsc() ? " < ? " : " > ? ")
+                        ));
+
+                        sqlQuery.append(')');
+                        outerKeyword = " or ";
+                    }
+                    sqlQuery.append(')');
+
+                    countArgs.addAll(EntityQuery.this.args);
+
+                    final ColumnRenderer renderer = getColumnRenderer();
+                    final String sql = renderQueryFragment(" and ", " and ", renderer, sqlQuery, restrictions).toString();
+                    Log.d(TAG, "indexOf query: "+ sql);
+                    try (Cursor cursor = connect().rawQuery(sql,
+                            countArgs.toArray(new String[countArgs.size()]))) {
+                        /* If the item is in the list, it would be at this position. */
+                        int candidateIndex = cursor.getInt(0);
+
+                        /* Now check if we've actually found it. */
+
+                        // candidateIndex can't be negative (it's a count), but it could be equal to the size
+                        // if the passed element comes after all other elements, so we exclude that case first.
+                        if (candidateIndex == size()) {
+                            Log.d(TAG, "indexOf: candidateIndex "+ candidateIndex +" is equal to size");
+                            return -1;
+                        }
+                        T candidate = get(candidateIndex);
+
+                        for (Column<?> idColumn : schema.idColumns()) {
+                            Object candidateId = candidate.get(idColumn);
+                            Object providedId = element.get(idColumn);
+                            if (!candidateId.equals(providedId)) {
+                                Log.d(TAG, "indexOf: candidate element at "+ candidateIndex +" has "+ idColumn.name +" = "+
+                                candidateId +" ≠ supplied "+ providedId);
+                                return -1;
+                            }
+                        }
+
+                        // all id columns match
+                        return candidateIndex;
+                    }
+                }
             };
         }
+    }
+
+    /** Copy the String sql value of the given column in the given entity, into the given target list. */
+    private <T> String copyValue(List<String> target, Column<T> column, Entity entity, String operator) {
+        target.add(String.valueOf(column.getSql((entity).get(column))));
+        return column.name + operator;
     }
 
     protected static <T extends AbstractDomain<?>.Entity> T load(T entity, Cursor c) {
@@ -355,7 +440,7 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
     }
 
     public class PostfixRestriction implements Restriction {
-        private final Column<?> column;
+        protected final Column<?> column;
         private final String postfix;
         public PostfixRestriction(Column<?> column, String postfix) {
             this.column = column;
@@ -368,16 +453,41 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
         }
     }
 
+    public class Order extends PostfixRestriction {
+        private final boolean asc;
+        public Order(Column<?> column, boolean asc) {
+            super(column, (asc ? "" : " DESC"));
+            this.asc = asc;
+        }
+
+        public Column<?> getColumn() {
+            return column;
+        }
+
+        public boolean isAsc() {
+            return asc;
+        }
+    }
+
     public abstract class Query<T> {
         final Schema<SELF, ?> schema;
         final List<Restriction> restrictions = new ArrayList<>();
-        final List<Restriction> ordering = new ArrayList<>();
+        final List<Order> ordering = new ArrayList<>();
+        /** Actual ordering criterion to use. It is equal to ordering, followed by
+         * id columns, to ensure deterministic ordering.
+         */
+        final List<Order> orderingPlusId;
         Cursor cursor = null;
 
         protected final List<String> args = new ArrayList<>();
 
         Query(Schema<SELF, ?> schema) {
             this.schema = schema;
+            List<Order> defaultOrder = new ArrayList<>();
+            for (Column<?> idColumn : schema.idColumns()) {
+                defaultOrder.add(new Order(idColumn, true));
+            }
+            orderingPlusId = new ConcatList<>(ordering, defaultOrder);
         }
 
         /** Add an equality condition. {@code value} may be null, in which case an "is null" restriction
@@ -427,17 +537,17 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
         }
 
         public Query<T> orderAsc(Column<?> column) {
-            ordering.add(new PostfixRestriction(column, ""));
+            ordering.add(new Order(column, true));
             return this;
         }
 
         public Query<T> orderDesc(Column<?> column) {
-            ordering.add(new PostfixRestriction(column, " DESC"));
+            ordering.add(new Order(column, false));
             return this;
         }
 
-        protected StringBuilder renderQueryFragment(final String keyword, final String separator, ColumnRenderer renderer, StringBuilder queryString,
-                                                    List<Restriction> list) {
+        protected StringBuilder renderQueryFragment(final String keyword, final String separator, ColumnRenderer renderer,
+                                                    StringBuilder queryString, List<? extends Restriction> list) {
             String nextSeparator = keyword;
             for (Restriction restriction : list) {
                 queryString.append(nextSeparator);
@@ -452,7 +562,7 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
         }
 
         protected StringBuilder renderOrdering(String keyword, ColumnRenderer renderer, StringBuilder queryString) {
-            return renderQueryFragment(keyword, ", ", renderer, queryString, ordering);
+            return renderQueryFragment(keyword, ", ", renderer, queryString, orderingPlusId);
         }
 
         protected Cursor list(String... columns) {
@@ -466,7 +576,7 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
         }
 
         @NonNull
-        private ColumnRenderer getColumnRenderer() {
+        protected ColumnRenderer getColumnRenderer() {
             return new ColumnRenderer() {
                 @Override
                 public void render(Column<?> column, StringBuilder target) {
@@ -476,13 +586,7 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
         }
 
         protected Cursor listAllColumns() {
-            // TODO store into schema
-            String[] columnNames = new String[schema.columns().size()];
-            int index=0;
-            for (Column<?> column : schema.columns()) {
-                columnNames[index++] = column.name;
-            }
-            return list(columnNames);
+            return list(schema.columnNames());
         }
 
         /** Return a List of results that dynamically read through the Cursor.

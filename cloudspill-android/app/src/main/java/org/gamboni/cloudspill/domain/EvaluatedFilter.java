@@ -38,6 +38,9 @@ public class EvaluatedFilter {
     public Domain.Item getByPosition(int position) {
         return itemList.get(position);
     }
+    public int indexOf(Domain.Item item) {
+        return itemList.indexOf(item);
+    }
     public Domain.Item getById(long id) {
         return domain.selectItems().eq(Domain.ItemSchema.ID, id).detachedList().get(0);
     }

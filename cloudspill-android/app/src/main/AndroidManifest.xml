@@ -26,7 +26,12 @@
         </activity>
         <activity android:name=".ui.ItemActivity"
             android:parentActivityName=".ui.MainActivity" >
-            <intent-filter></intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" android:host="*" android:pathPattern=".*\\.cloudspill" />
+            </intent-filter>
         </activity>
         <activity
             android:name=".ui.FoldersActivity"
