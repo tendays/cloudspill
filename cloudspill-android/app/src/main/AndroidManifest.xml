@@ -17,6 +17,7 @@
         <service android:name=".job.CloudSpillIntentService" />
         <service android:name=".job.ThumbnailIntentService" />
         <service android:name=".job.MediaDownloader" />
+
         <activity android:name=".ui.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -24,13 +25,40 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".ui.ItemActivity"
-            android:parentActivityName=".ui.MainActivity" >
-            <intent-filter>
+        <activity
+            android:name=".ui.ItemActivity"
+            android:parentActivityName=".ui.MainActivity">
+            <!-- intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="http" android:host="*" android:pathPattern=".*\\.cloudspill" />
+
+                <!- -
+                 The only important component is pathPattern (PATTERN_SIMPLE_GLOB). Unclear: does it match the query string as well?
+
+                 "[pathPattern is] meaningful only if the scheme and host attributes are also specified for the filter."
+
+                 host (host part of a URI authority)
+
+                 scheme (scheme part of a URI, without the trailing colon)
+
+                 <data android:mimeType="*/*" android:scheme="http" android:host="*" android:pathPattern=".*\\.cloudspill.*" />
+
+                - ->
+
+                <data android:mimeType="*/*" android:scheme="http" android:host="jeera.gamboni.org" android:pathPattern=".*\\.cloudspill.*" />
+            </intent-filter -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:scheme="http"
+                    android:host="*"
+                    android:port="4567"
+                    android:pathPattern=".*cloudspill" />
             </intent-filter>
         </activity>
         <activity

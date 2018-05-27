@@ -105,6 +105,7 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
                     Log.d(TAG, "indexOf query: "+ sql);
                     try (Cursor cursor = connect().rawQuery(sql,
                             countArgs.toArray(new String[countArgs.size()]))) {
+                        cursor.moveToFirst();
                         /* If the item is in the list, it would be at this position. */
                         int candidateIndex = cursor.getInt(0);
 
