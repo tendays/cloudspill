@@ -10,8 +10,11 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.TextView;
 
 import com.ortiz.touch.ExtendedViewPager;
 import com.ortiz.touch.TouchImageView;
@@ -22,6 +25,7 @@ import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.EvaluatedFilter;
 import org.gamboni.cloudspill.domain.FilterSpecification;
 import org.gamboni.cloudspill.domain.ItemType;
+import org.gamboni.cloudspill.job.DownloadStatus;
 import org.gamboni.cloudspill.job.MediaDownloader;
 
 import java.util.List;
@@ -112,6 +116,8 @@ public class ItemActivity extends AppCompatActivity {
         super.onDestroy();
     }
 
+    private interface MediaCallbackWithErrors extends MediaDownloader.MediaListener, MediaDownloader.OpenListener {}
+
     private class Adapter extends PagerAdapter {
         @Override
         public int getCount() {
@@ -120,14 +126,26 @@ public class ItemActivity extends AppCompatActivity {
 
         @Override
         public View instantiateItem(ViewGroup container, int position) {
-            final TouchImageView imageView = new TouchImageView(container.getContext());
+            Log.d(TAG, "instantiateItem("+ position +")");
+            final FrameLayout frame = new FrameLayout(getBaseContext());
+            final View loadingItem = getLayoutInflater().inflate(R.layout.loading_item, null);
+            final TextView itemStatus = (TextView)loadingItem.findViewById(R.id.itemStatus);
+            final ProgressBar progress = (ProgressBar)loadingItem.findViewById(R.id.itemProgressBar);
+
+            frame.addView(loadingItem, LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT);
+            container.addView(frame, LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT);
+
             final Domain.Item item = evaluatedFilter.getByPosition(position);
             if (item.getType() == ItemType.IMAGE) {
-                MediaDownloader.open(ItemActivity.this, item, new MediaDownloader.OpenListener() {
+                itemStatus.setText("Loading...");
+                MediaDownloader.open(ItemActivity.this, item, new MediaCallbackWithErrors() {
                     @Override
                     public void openItem(final Uri uri, String mime) {
                         runOnUiThread(new Runnable() {
                             public void run() {
+                                frame.removeAllViews();
+                                final TouchImageView imageView = new TouchImageView(frame.getContext());
+                                frame.addView(imageView, LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT);
                                 imageView.setImageURI(uri);
                             }
                         });
@@ -135,12 +153,31 @@ public class ItemActivity extends AppCompatActivity {
 
                     @Override
                     public void updateCompletion(int percent) {
-                        // TODO progress bar
+                        progress.setProgress(percent);
+                    }
+
+                    @Override
+                    public void mediaReady(Uri location) {
+                        // Not called - the MediaDownloader will call openItem instead.
+                    }
+
+                    @Override
+                    public void notifyStatus(final DownloadStatus status) {
+                        runOnUiThread(new Runnable() {
+                            public void run() {
+                                if (status == DownloadStatus.ERROR) {
+                                    itemStatus.setText("Error downloading item");
+                                } else if (status == DownloadStatus.OFFLINE) {
+                                    itemStatus.setText("No connection to server");
+                                }
+                            }
+                        });
                     }
                 });
+            } else {
+                itemStatus.setText("Displaying items of type "+ item.getType() +" is not yet supported");
             }
-            container.addView(imageView, LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT);
-            return imageView;
+            return frame;
         }
 
         @Override
@@ -151,6 +188,7 @@ public class ItemActivity extends AppCompatActivity {
 
         @Override
         public void destroyItem(ViewGroup container, int position, Object object) {
+            Log.d(TAG, "destroyItem("+ position +")");
             container.removeView((View) object);
         }
 

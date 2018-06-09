@@ -79,6 +79,12 @@ public class MediaDownloader extends IntentService {
 
                 @Override
                 public void notifyStatus(final DownloadStatus status) {
+                    if (activity instanceof MediaDownloader.MediaListener) {
+                        ((MediaListener) activity).notifyStatus(status);
+                    }
+                    if (callback instanceof MediaDownloader.MediaListener) {
+                        ((MediaListener) callback).notifyStatus(status);
+                    }
                     activity.runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
