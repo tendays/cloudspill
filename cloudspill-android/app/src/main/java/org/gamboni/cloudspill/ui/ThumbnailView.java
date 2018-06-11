@@ -79,11 +79,7 @@ public class ThumbnailView extends AppCompatImageView implements ThumbnailIntent
         if (item == null) {
             return false;
         }
-        ItemFragment fragment = new ItemFragment();
-        Bundle arguments = new Bundle();
-        arguments.putLong(ItemFragment.ITEM_ID_KEY, item.getId());
-        fragment.setArguments(arguments);
-        fragment.show(activity.getFragmentManager(), ItemFragment.class.getSimpleName());
+        ItemFragment.openItem(activity, item);
         return true;
     }
 

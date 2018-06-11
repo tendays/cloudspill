@@ -8,9 +8,11 @@ import android.support.annotation.Nullable;
 import android.support.v4.view.PagerAdapter;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -24,17 +26,19 @@ import org.gamboni.cloudspill.domain.AbstractDomain;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.EvaluatedFilter;
 import org.gamboni.cloudspill.domain.FilterSpecification;
+import org.gamboni.cloudspill.domain.HasDomain;
 import org.gamboni.cloudspill.domain.ItemType;
 import org.gamboni.cloudspill.job.DownloadStatus;
 import org.gamboni.cloudspill.job.MediaDownloader;
 
 import java.util.List;
+import java.util.StringJoiner;
 
 /** Activity displaying a single image in full screen.
  *
  * @author tendays
  */
-public class ItemActivity extends AppCompatActivity {
+public class ItemActivity extends AppCompatActivity implements HasDomain {
 
     private static final String TAG = "CloudSpill.Item";
 
@@ -108,6 +112,11 @@ public class ItemActivity extends AppCompatActivity {
     }
 
     @Override
+    public Domain getDomain() {
+        return this.domain;
+    }
+
+    @Override
     protected void onDestroy() {
         if (this.evaluatedFilter != null) {
             this.evaluatedFilter.close();
@@ -116,7 +125,8 @@ public class ItemActivity extends AppCompatActivity {
         super.onDestroy();
     }
 
-    private interface MediaCallbackWithErrors extends MediaDownloader.MediaListener, MediaDownloader.OpenListener {}
+    private interface MediaCallbackWithErrors extends MediaDownloader.MediaListener, MediaDownloader.OpenListener,
+            View.OnClickListener {}
 
     private class Adapter extends PagerAdapter {
         @Override
@@ -139,6 +149,9 @@ public class ItemActivity extends AppCompatActivity {
             if (item.getType() == ItemType.IMAGE) {
                 itemStatus.setText("Loading...");
                 MediaDownloader.open(ItemActivity.this, item, new MediaCallbackWithErrors() {
+
+                    private final MediaCallbackWithErrors callback = this;
+
                     @Override
                     public void openItem(final Uri uri, String mime) {
                         runOnUiThread(new Runnable() {
@@ -147,6 +160,7 @@ public class ItemActivity extends AppCompatActivity {
                                 final TouchImageView imageView = new TouchImageView(frame.getContext());
                                 frame.addView(imageView, LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT);
                                 imageView.setImageURI(uri);
+                                imageView.setOnClickListener(callback);
                             }
                         });
                     }
@@ -172,6 +186,57 @@ public class ItemActivity extends AppCompatActivity {
                                 }
                             }
                         });
+                    }
+
+                    View overlay;
+
+                    @Override
+                    public void onClick(View v) {
+                        if (overlay == null) {
+                            overlay = getLayoutInflater().inflate(R.layout.item_overlay, null);
+
+                            TextView name = (TextView)overlay.findViewById(R.id.itemOverlayName);
+                            name.setText(item.getUser() +"/"+ item.getFolder() +"/"+ item.getPath());
+
+                            TextView tags = (TextView)overlay.findViewById(R.id.itemOverlayTags);
+                            StringBuilder tagString = new StringBuilder();
+                            String comma = "";
+                            for (String tag : item.getTags()) {
+                                tagString.append(comma + tag);
+                                comma = ", ";
+                            }
+                            tags.setText(tagString.toString());
+
+                            ImageButton shareButton = (ImageButton)overlay.findViewById(R.id.shareButton);
+                            shareButton.setOnClickListener(new View.OnClickListener() {
+                                @Override
+                                public void onClick(View v) {
+                                    // TODO copy-pasted from share button in ItemFragment
+                                    String uri = SettingsActivity.getLastServerVersion(getBaseContext()).getPublicUrl() +"/item/"+ item.getServerId() +".cloudspill?key="+ item.get(
+                                            Domain.ItemSchema.CHECKSUM).replace("+", "%2B");
+                                    Log.d(TAG, "Uri: "+ uri);
+                                    Intent shareIntent = new Intent();
+                                    shareIntent.setAction(Intent.ACTION_SEND);
+                                    shareIntent.setType("text/plain");
+                                    shareIntent.putExtra(Intent.EXTRA_SUBJECT, "Sharing URL");
+                                    shareIntent.putExtra(Intent.EXTRA_TEXT, uri);
+                                    startActivity(Intent.createChooser(shareIntent, "Share via"));
+                                }
+                            });
+
+                            ImageButton editButton = (ImageButton)overlay.findViewById(R.id.editButton);
+                            editButton.setOnClickListener(new View.OnClickListener() {
+                                @Override
+                                public void onClick(View v) {
+                                    ItemFragment.openItem(ItemActivity.this, item);
+                                }
+                            });
+
+                            frame.addView(overlay, LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT);
+                        } else {
+                            frame.removeView(overlay);
+                            overlay = null;
+                        }
                     }
                 });
             } else {

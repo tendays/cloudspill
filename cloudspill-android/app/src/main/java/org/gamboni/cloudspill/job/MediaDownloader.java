@@ -173,7 +173,14 @@ public class MediaDownloader extends IntentService {
         } else {
             target = new FileBuilder.Found(this, DocumentFile.fromSingleUri(this, uri));
             if (target.exists()) {
-                throw new IllegalStateException(uri +" already exists");
+                //throw new IllegalStateException(uri +" already exists");
+                final Set<MediaListener> set;
+                synchronized (callbacks) {
+                    set = callbacks.remove(serverId);
+                }
+                for (MediaListener callback : set) {
+                    callback.mediaReady(target.getUri());
+                }
             }
         }
         Log.d(TAG, "Downloading item "+ serverId +" to "+ target);

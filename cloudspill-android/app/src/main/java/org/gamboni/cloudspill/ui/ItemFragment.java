@@ -41,6 +41,14 @@ public class ItemFragment extends DialogFragment {
     private Domain.Item item;
     private long itemId;
 
+    public static void openItem(Activity activity, Domain.Item item) {
+        ItemFragment fragment = new ItemFragment();
+        Bundle arguments = new Bundle();
+        arguments.putLong(ItemFragment.ITEM_ID_KEY, item.getId());
+        fragment.setArguments(arguments);
+        fragment.show(activity.getFragmentManager(), ItemFragment.class.getSimpleName());
+    }
+
     public static final String ITEM_ID_KEY = "itemId";
 
     public void setArguments(Bundle arguments) {

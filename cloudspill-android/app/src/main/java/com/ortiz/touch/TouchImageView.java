@@ -28,6 +28,7 @@ import android.os.Build;
 import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.Parcelable;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
@@ -1347,12 +1348,16 @@ public class TouchImageView extends AppCompatImageView {
             new Thread() {
                 public void run() {
                     try {
+
                         final Bitmap bitmap = decodeSampledBitmapFromUri(uri, imageViewWidth, imageViewHeight);
-                        TouchImageView.this.getHandler().post(new Runnable() {
-                            public void run() {
-                                setImageBitmap(bitmap);
-                            }
-                        });
+                        Handler handler = TouchImageView.this.getHandler();
+                        if (handler != null) {
+                            handler.post(new Runnable() {
+                                public void run() {
+                                    setImageBitmap(bitmap);
+                                }
+                            });
+                        } // else: view destroyed before image could be loaded
                     } catch (IOException e) {
                         Log.e("TouchImageView", "Failed loading image data", e);
                     }
@@ -1361,23 +1366,34 @@ public class TouchImageView extends AppCompatImageView {
         }
     }
 
+    private volatile boolean lowMem;
+
     private Bitmap decodeSampledBitmapFromUri(Uri uri, int reqWidth, int reqHeight) throws IOException {
+        try {
+            // First decode with inJustDecodeBounds = true to check dimensions
+            final BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inJustDecodeBounds = true;
+            BitmapFactory.decodeStream(context.getContentResolver().openInputStream(uri), null, options);
 
-        // First decode with inJustDecodeBounds = true to check dimensions
-        final BitmapFactory.Options options = new BitmapFactory.Options();
-        options.inJustDecodeBounds = true;
-        BitmapFactory.decodeStream(context.getContentResolver().openInputStream(uri), null, options);
+            // Calculate inSampleSize
+            options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight, lowMem);
 
-        // Calculate inSampleSize
-        options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight);
-
-        // Decode bitmap with inSampleSize set
-        options.inJustDecodeBounds = false;
-        return BitmapFactory.decodeStream(context.getContentResolver().openInputStream(uri), null, options);
+            // Decode bitmap with inSampleSize set
+            options.inJustDecodeBounds = false;
+            return BitmapFactory.decodeStream(context.getContentResolver().openInputStream(uri), null, options);
+        } catch (OutOfMemoryError oom) {
+            if (lowMem) {
+                throw oom;
+            } else {
+                Log.w("TouchImageView", "Caught OOM; switching to Low Memory Mode");
+                lowMem = true;
+                return decodeSampledBitmapFromUri(uri, reqWidth, reqHeight);
+            }
+        }
     }
 
     private static int calculateInSampleSize(
-            BitmapFactory.Options options, int reqWidth, int reqHeight) {
+            BitmapFactory.Options options, int reqWidth, int reqHeight, boolean lowMem) {
 
         // Raw height and width of image
         final int height = options.outHeight;
@@ -1397,7 +1413,11 @@ public class TouchImageView extends AppCompatImageView {
             }
         }
 
-        Log.i("TouchImageView", "Required size: "+ reqWidth +"×"+ reqHeight +". Image size: "+ width +"×"+ height +
+        if (lowMem) {
+            inSampleSize *= 2;
+        }
+
+        Log.i("TouchImageView", "Required size: "+ reqWidth +"×"+ reqHeight +". LowMem="+ lowMem +", Image size: "+ width +"×"+ height +
                 ". Calculated sample size: "+ inSampleSize);
 
         return inSampleSize;

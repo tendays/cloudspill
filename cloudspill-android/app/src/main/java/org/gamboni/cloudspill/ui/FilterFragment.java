@@ -117,7 +117,7 @@ public class FilterFragment extends DialogFragment {
                 Date value = getCurrentDate();
                 button.setText(
                         (value == null) ? getResources().getText(R.string.filter_date_btn) :
-                                dateFormat.format(currentFilter.from));
+                                dateFormat.format(value));
 
                 checkbox.setChecked(value != null);
             }
