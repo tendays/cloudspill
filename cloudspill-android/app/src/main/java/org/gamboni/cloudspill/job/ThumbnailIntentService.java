@@ -378,6 +378,7 @@ public class ThumbnailIntentService extends IntentService {
                     // Thumbnails are 90dp wide. Convert that to the pixel equivalent:
                     final float smallPx = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, THUMB_SIZE, getResources().getDisplayMetrics());
 
+                    // TODO set sample size to avoid OOM
                     Bitmap bitmap = BitmapFactory.decodeStream(file.read());
 
                     if (bitmap == null) {

@@ -47,6 +47,8 @@ public class Domain {
 		}
 		
 		public Query<T> forUpdate() {
+			// 1. pessimistic locking to make concurrent clients queue instead of failing
+			// 2. force-increment to ensure the entity is sent to client when they synchronise
 			criteria.setLockMode(LockMode.PESSIMISTIC_FORCE_INCREMENT);
 			return this;
 		}
