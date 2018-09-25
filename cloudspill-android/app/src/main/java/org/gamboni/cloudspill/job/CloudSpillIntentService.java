@@ -113,7 +113,7 @@ public class CloudSpillIntentService extends IntentService {
         }
 
         /* Synchronise tags */
-        try (final AbstractDomain.CloseableList<Domain.Tag> dirtyTags = domain.selectTags()/*.ne(Domain.TagSchema.SYNC, Domain.SyncStatus.OK)*/.list()) {
+        try (final AbstractDomain.CloseableList<Domain.Tag> dirtyTags = domain.selectTags().eq(Domain.TagSchema.SYNC, Domain.SyncStatus.TO_CREATE).list(true)) {
             for (final Domain.Tag tag : dirtyTags) {
                 Log.d(TAG, "Syncing "+ tag.get(Domain.TagSchema.SYNC) +" tag "+ tag.get(Domain.TagSchema.TAG) +" on item "+ tag.getItem());
                 class TagResponseListener implements Response.Listener<Void>, Response.ErrorListener {
@@ -141,6 +141,7 @@ public class CloudSpillIntentService extends IntentService {
                         break;
                 }
             }
+            Log.d(TAG, "Reported dirty tag size:"+ dirtyTags.size());
         }
 
         /* Finally: download pictures from other users. */

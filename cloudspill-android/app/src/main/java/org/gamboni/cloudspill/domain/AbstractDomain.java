@@ -63,8 +63,8 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
             this.schema = schema;
         }
 
-        public CloseableList<T> list() {
-            return new CursorList<T>(listAllColumns()) {
+        public CloseableList<T> list(boolean debug) {
+            return new CursorList<T>(schema.tableName() +" cursor", listAllColumns(debug)) {
                 @Override
                 protected T newEntity() {
                     return schema.newInstance(domain(), cursor);
@@ -316,10 +316,12 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
         public T getFrom(Cursor cursor, int index) {
             String name = cursor.getString(index);
             if (name == null) {
+                Log.w(TAG, "Replacing null value by placeholder "+ unknownValue.getClass().getSimpleName() +"."+ unknownValue);
                 return unknownValue;
             } else try {
                 return Enum.valueOf(type, name);
             } catch (IllegalArgumentException e) {
+                Log.w(TAG, "Replacing unknown value "+ name +" by placeholder "+ unknownValue.getClass().getSimpleName() +"."+ unknownValue);
                 return unknownValue;
             }
         }
@@ -422,8 +424,8 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
         }
 
         @Override
-        public CloseableList<U> list() {
-            return new CursorList<U>(list(selection.name)) {
+        public CloseableList<U> list(boolean debug) {
+            return new CursorList<U>(list(debug, selection.name)) {
                 @Override
                 protected U newEntity() {
                     return selection.getFrom(cursor, 0);
@@ -566,10 +568,19 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
             return renderQueryFragment(keyword, ", ", renderer, queryString, orderingPlusId);
         }
 
-        protected Cursor list(String... columns) {
+
+
+        protected Cursor list(boolean debug, String... columns) {
             final ColumnRenderer renderer = getColumnRenderer();
+            final String whereClause = renderRestrictions("", renderer, new StringBuilder()).toString();
+
+            if (debug) {
+                Log.d(TAG, "Running "+ schema.tableName() +" query where "+ whereClause);
+                Log.d(TAG, "Parameters: "+ Arrays.toString(restrictionArgs()));
+            }
+
             cursor = connect().query(
-                    schema.tableName(), columns, renderRestrictions("", renderer, new StringBuilder()).toString(),
+                    schema.tableName(), columns, whereClause,
                     restrictionArgs(), null, null, renderOrdering("", renderer, new StringBuilder()).toString());
 
             cursors.add(cursor);
@@ -586,14 +597,16 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
             };
         }
 
-        protected Cursor listAllColumns() {
-            return list(schema.columnNames());
+        protected Cursor listAllColumns(boolean debug) {
+            return list(debug, schema.columnNames());
         }
 
         /** Return a List of results that dynamically read through the Cursor.
          * You must close() this object when you are done accessing the list.
          */
-        public abstract CloseableList<T> list();
+        public final CloseableList<T> list() { return list(false); }
+
+        public abstract CloseableList<T> list(boolean debug);
 
         /** Return a List of result that is entirely copied in memory. You
          * must not close() this object when you are done.

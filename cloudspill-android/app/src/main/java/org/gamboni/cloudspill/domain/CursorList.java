@@ -15,8 +15,15 @@ public abstract class CursorList<T> extends AbstractList<T> implements AbstractD
 
     private static final String TAG = "CloudSpill.DB";
     protected final Cursor cursor;
+    private final String description;
 
     protected CursorList(Cursor cursor) {
+        this.description = "<unnamed>";
+        this.cursor = cursor;
+    }
+
+    protected CursorList(String description, Cursor cursor) {
+        this.description = description;
         this.cursor = cursor;
     }
 
@@ -33,12 +40,14 @@ public abstract class CursorList<T> extends AbstractList<T> implements AbstractD
     public int size() {
         if (cachedSize == -1) {
             cachedSize = cursor.getCount();
+            Log.d(TAG, "Computed "+ description +" count to "+ cachedSize);
         }
         return cachedSize;
     }
 
     @Override
     public Iterator<T> iterator() {
+        Log.d(TAG, description +" creating iterator from position "+ cursor.getPosition());
         return new Iterator<T>() {
             boolean ready = false;
             T next;
@@ -65,6 +74,8 @@ public abstract class CursorList<T> extends AbstractList<T> implements AbstractD
                 if (!ready) {
                     if (cursor.moveToNext()) {
                         next = newEntity();
+                    } else {
+                        Log.d(TAG, description +" reached end at position "+ cursor.getPosition());
                     }
                     ready = true;
                 }

@@ -110,9 +110,9 @@ public class Domain extends AbstractDomain<Domain> {
         }
 
         @Override
-        public CloseableList<Item> list() {
+        public CloseableList<Item> list(boolean debug) {
             if (!needJoin) {
-                return super.list();
+                return super.list(debug);
             } else {
                 // TODO don't use listAllColumns - create sql query joining item and item_tags
                 StringBuilder queryString = new StringBuilder();
@@ -154,9 +154,9 @@ public class Domain extends AbstractDomain<Domain> {
         }
 
         @Override
-        protected Cursor list(String... columns) {
+        protected Cursor list(boolean debug, String... columns) {
             if (!needJoin) {
-                return super.list(columns);
+                return super.list(debug, columns);
             } else {
                 throw new UnsupportedOperationException();
             }
@@ -263,7 +263,7 @@ public class Domain extends AbstractDomain<Domain> {
         public List<String> getTags() {
             if (tags == null) {
                 tags = new TrackingList<String, Tag>(
-                        new EntityQuery<>(tagSchema)
+                        new EntityQuery<Tag>(tagSchema)
                 .eq(TagSchema.ITEM, this.getId()).detachedList()) {
                     @Override
                     protected String extract(Tag entity) {
@@ -275,6 +275,7 @@ public class Domain extends AbstractDomain<Domain> {
                         Tag entity = new Tag();
                         entity.set(TagSchema.ITEM, Item.this.getId());
                         entity.set(TagSchema.TAG, tag);
+                        entity.set(TagSchema.SYNC, SyncStatus.TO_CREATE);
                         return entity;
                     }
 
