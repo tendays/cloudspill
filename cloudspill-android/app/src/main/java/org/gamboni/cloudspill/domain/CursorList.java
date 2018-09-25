@@ -30,7 +30,6 @@ public abstract class CursorList<T> extends AbstractList<T> implements AbstractD
     protected abstract T newEntity();
 
     public T get(int index) {
-    //                Log.d(TAG, "Getting item "+ index);
         cursor.moveToPosition(index);
         return newEntity();
     }
@@ -40,7 +39,6 @@ public abstract class CursorList<T> extends AbstractList<T> implements AbstractD
     public int size() {
         if (cachedSize == -1) {
             cachedSize = cursor.getCount();
-            Log.d(TAG, "Computed "+ description +" count to "+ cachedSize);
         }
         return cachedSize;
     }
@@ -60,7 +58,6 @@ public abstract class CursorList<T> extends AbstractList<T> implements AbstractD
 
             @Override
             public T next() {
-                // Log.d(TAG, "Getting next item");
                 if (!hasNext()) {
                     throw new NoSuchElementException();
                 }
@@ -74,8 +71,6 @@ public abstract class CursorList<T> extends AbstractList<T> implements AbstractD
                 if (!ready) {
                     if (cursor.moveToNext()) {
                         next = newEntity();
-                    } else {
-                        Log.d(TAG, description +" reached end at position "+ cursor.getPosition());
                     }
                     ready = true;
                 }
