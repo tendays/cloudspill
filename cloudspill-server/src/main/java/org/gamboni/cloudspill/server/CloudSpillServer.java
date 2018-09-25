@@ -327,10 +327,9 @@ public class CloudSpillServer extends AbstractServer {
 
 	private Item itemForUpdate(Domain session, long id) {
 		final Item item = Iterables.getOnlyElement(session.selectItem().add(Restrictions.eq("id", id)).forUpdate().list());
-		Log.debug("Loaded item "+ id +" for update, at timestamp "+ item.getUpdated().toEpochMilli());
-		session.flush();
-		Log.debug("After flush, item "+ id +" has timestamp "+ item.getUpdated().toEpochMilli());
-		
+		Log.debug("Loaded item "+ id +" for update, at timestamp "+ item.getUpdated().toString());
+		session.reload(item);
+		Log.debug("After reload, item "+ id +" has timestamp "+ item.getUpdated().toString());
 		return item;
 	}
 

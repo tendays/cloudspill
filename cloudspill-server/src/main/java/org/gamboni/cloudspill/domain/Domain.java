@@ -67,6 +67,10 @@ public class Domain {
 		session.persist(entity);
 	}
 	
+	public void reload(Object entity) {
+		session.refresh(entity);
+	}
+	
 	public void flush() {
 		session.flush();
 	}
