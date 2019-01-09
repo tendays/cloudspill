@@ -1,7 +1,7 @@
 /**
  * 
  */
-package org.gamboni.cloudspill.util;
+package org.gamboni.cloudspill.shared.util;
 
 import java.util.Date;
 

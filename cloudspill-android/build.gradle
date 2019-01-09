@@ -1,4 +1,57 @@
-// Top-level build file where you can add configuration options common to all sub-projects/modules.
+apply plugin: 'com.android.application'
+
+android {
+    compileSdkVersion 26
+    buildToolsVersion '27.0.3'
+    defaultConfig {
+        applicationId "org.gamboni.cloudspill"
+        minSdkVersion 22
+        targetSdkVersion 23
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+    }
+    buildTypes {
+/*        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        } */
+        debug {
+            debuggable true
+        }
+
+    }
+    productFlavors {
+    }
+}
+
+repositories {
+    jcenter()
+    mavenCentral() // for Glide
+}
+
+dependencies {
+    implementation project(':cloudspill-shared')
+
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    /*implementation 'com.android.support:recyclerview-v7:21.0.+'
+                 or maybe */
+    implementation 'com.android.support:appcompat-v7:26.+'
+    implementation 'com.android.support:gridlayout-v7:26.0.0-alpha1'
+    implementation 'com.android.support:leanback-v17:23.1.0'
+    implementation 'com.android.support.constraint:constraint-layout:1.0.2'
+    implementation 'com.android.volley:volley:1.1.1'
+    implementation 'com.github.bumptech.glide:glide:4.0.0-RC1'
+    implementation 'com.android.support:support-v4:26.+'
+    implementation 'com.android.support:design:26.+'
+    annotationProcessor 'com.github.bumptech.glide:compiler:4.0.0-RC1'
+
+    implementation 'com.jakewharton:butterknife:8.8.1'
+    annotationProcessor 'com.jakewharton:butterknife-compiler:8.8.1'
+}
+
+// Above: original app build.gradle
+// Below: original cloudspill-android build.gradle
 
 buildscript {
     repositories {
@@ -13,12 +66,6 @@ buildscript {
     }
 }
 
-allprojects {
-    repositories {
-        jcenter()
-    }
-}
-
-task clean(type: Delete) {
+/*task clean(type: Delete) {
     delete rootProject.buildDir
-}
+}*/

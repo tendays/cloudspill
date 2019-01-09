@@ -3,7 +3,7 @@
  */
 package org.gamboni.cloudspill.server;
 
-import static org.gamboni.cloudspill.util.Files.append;
+import static org.gamboni.cloudspill.shared.util.Files.append;
 import static spark.Spark.before;
 import static spark.Spark.get;
 import static spark.Spark.post;
@@ -38,9 +38,9 @@ import org.bytedeco.javacv.FrameGrabber;
 import org.bytedeco.javacv.Java2DFrameConverter;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.Item;
-import org.gamboni.cloudspill.domain.ItemType;
 import org.gamboni.cloudspill.domain.User;
-import org.gamboni.cloudspill.util.Log;
+import org.gamboni.cloudspill.shared.domain.ItemType;
+import org.gamboni.cloudspill.shared.util.Log;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.mindrot.jbcrypt.BCrypt;

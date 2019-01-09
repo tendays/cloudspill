@@ -1,7 +1,7 @@
 /**
  * 
  */
-package org.gamboni.cloudspill.domain;
+package org.gamboni.cloudspill.client.domain;
 
 import static org.gamboni.cloudspill.shared.util.Files.append;
 
@@ -59,27 +59,4 @@ public class Item extends BaseItem {
 		this.updated = updated;
 	}
 
-	/** Construct a Serialised form understandable by the android frontend. */
-	public String serialise() {
-		// TODO quote or escape
-		return getId()
-				+ ";"
-				+ getUser()
-				+ ";"
-				+ getFolder()
-				+ ";"
-				+ getPath()
-				+ ";"
-				+ serialise(getDate())
-				+ ";"
-				+ getType()
-				+ ";"
-				+ Joiner.on(",").join(getTags())
-				+ ";"
-				+ getChecksum();
-	}
-
-	private static String serialise(LocalDateTime time) {
-		return (time == null) ? "" : Long.toString(time.atOffset(ZoneOffset.UTC).toInstant().toEpochMilli());
-	}
 }

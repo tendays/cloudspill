@@ -9,7 +9,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.User;
-import org.gamboni.cloudspill.util.Log;
+import org.gamboni.cloudspill.shared.util.Log;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;

@@ -1,6 +1,10 @@
-package org.gamboni.cloudspill.domain;
-
 /**
+ * 
+ */
+package org.gamboni.cloudspill.shared.domain;
+
+/** Media type.
+ *
  * @author tendays
  */
 public enum ItemType {
