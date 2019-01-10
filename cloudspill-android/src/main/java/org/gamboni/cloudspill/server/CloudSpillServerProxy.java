@@ -10,10 +10,10 @@ import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.Volley;
 
-import org.gamboni.cloudspill.domain.ItemType;
 import org.gamboni.cloudspill.domain.ServerInfo;
 import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.message.StatusReport;
+import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.ui.SettingsActivity;
 import org.gamboni.cloudspill.domain.Domain;
 

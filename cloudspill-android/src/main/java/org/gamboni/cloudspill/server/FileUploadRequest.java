@@ -10,7 +10,7 @@ import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.HttpHeaderParser;
 
-import org.gamboni.cloudspill.domain.ItemType;
+import org.gamboni.cloudspill.shared.domain.ItemType;
 
 import java.io.UnsupportedEncodingException;
 import java.util.Date;

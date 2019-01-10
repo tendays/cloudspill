@@ -1,6 +1,6 @@
 package org.gamboni.cloudspill.file;
 
-import org.gamboni.cloudspill.domain.ItemType;
+import org.gamboni.cloudspill.shared.domain.ItemType;
 
 /**
  * Created by tendays on 25.06.17.

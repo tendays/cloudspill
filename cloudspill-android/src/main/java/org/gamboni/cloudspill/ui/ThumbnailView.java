@@ -21,7 +21,7 @@ import android.widget.Toast;
 
 import org.gamboni.cloudspill.R;
 import org.gamboni.cloudspill.domain.Domain;
-import org.gamboni.cloudspill.domain.ItemType;
+import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.job.DownloadStatus;
 import org.gamboni.cloudspill.job.MediaDownloader;

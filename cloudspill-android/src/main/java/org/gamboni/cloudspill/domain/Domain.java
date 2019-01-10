@@ -7,6 +7,7 @@ import android.net.Uri;
 import android.util.Log;
 
 import org.gamboni.cloudspill.file.FileBuilder;
+import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.ui.SettingsActivity;
 
 import java.util.Arrays;

@@ -27,7 +27,7 @@ import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.EvaluatedFilter;
 import org.gamboni.cloudspill.domain.FilterSpecification;
 import org.gamboni.cloudspill.domain.HasDomain;
-import org.gamboni.cloudspill.domain.ItemType;
+import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.job.DownloadStatus;
 import org.gamboni.cloudspill.job.MediaDownloader;
 

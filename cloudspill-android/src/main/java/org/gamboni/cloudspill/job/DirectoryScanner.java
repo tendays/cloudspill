@@ -10,11 +10,11 @@ import com.android.volley.VolleyError;
 
 import org.gamboni.cloudspill.domain.AbstractDomain;
 import org.gamboni.cloudspill.domain.Domain;
-import org.gamboni.cloudspill.domain.ItemType;
 import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.file.FileTypeChecker;
 import org.gamboni.cloudspill.message.StatusReport;
 import org.gamboni.cloudspill.server.CloudSpillServerProxy;
+import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.ui.SettingsActivity;
 
 import java.io.File;

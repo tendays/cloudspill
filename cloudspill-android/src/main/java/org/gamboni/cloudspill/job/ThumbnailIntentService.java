@@ -20,7 +20,7 @@ import org.gamboni.cloudspill.domain.AbstractDomain;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.EvaluatedFilter;
 import org.gamboni.cloudspill.domain.FilterSpecification;
-import org.gamboni.cloudspill.domain.ItemType;
+import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.file.DiskLruCache;
 import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.message.SettableStatusListener;
