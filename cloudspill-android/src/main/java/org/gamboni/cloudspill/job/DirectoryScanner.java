@@ -29,6 +29,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import javax.xml.datatype.DatatypeFactory;
+
 /**
  * Created by tendays on 24.06.17.
  */
@@ -139,7 +141,7 @@ public class DirectoryScanner {
                             streamFile(root, file, path, type);
                             break;
                         case UNKNOWN:
-                            Log.d(TAG, "Not any recognised format");
+                            Log.d(TAG, "Not any recognised format: "+ bytesToHex(preamble));
                             break;
                     }
                 }
@@ -154,6 +156,18 @@ public class DirectoryScanner {
         }
 
         Log.d(TAG, "Added "+ addedCount +" items in total");
+    }
+
+    // Source: https://stackoverflow.com/a/9855338
+    private final static char[] hexArray = "0123456789ABCDEF".toCharArray();
+    public static String bytesToHex(byte[] bytes) {
+        char[] hexChars = new char[bytes.length * 2];
+        for ( int j = 0; j < bytes.length; j++ ) {
+            int v = bytes[j] & 0xFF;
+            hexChars[j * 2] = hexArray[v >>> 4];
+            hexChars[j * 2 + 1] = hexArray[v & 0x0F];
+        }
+        return new String(hexChars);
     }
 
     private byte[] loadFile(FileBuilder f, int length) {

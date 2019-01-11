@@ -102,7 +102,13 @@ public class FreeSpaceMaker {
             Domain.Item item = items.get(index);
             FileBuilder fb = item.getFile(); // TODO fb may be null?
             // Log.d(TAG, fb.toString());
+            if (fb.getName().contains("IMG_20181229_123935")) {
+                Log.d(TAG, "Processing "+ fb);
+            }
             if (getMissingSpace(fb) > 0) { // only delete file if its filesystem needs space
+                if (fb.getName().contains("IMG_20181229_123935")) {
+                    Log.d(TAG, "FS needs space: "+ fb);
+                }
                 if (fb.exists()) {
                     needLog = true;
                     Log.d(TAG, "Attempting to delete "+ fb);
@@ -114,17 +120,25 @@ public class FreeSpaceMaker {
                         Log.e(TAG, "Failed deleting " + fb +". canWrite:"+ fb.canWrite() +". canRead:"+ fb.canRead());
                         status.updateMessage(StatusReport.Severity.ERROR, "Failed deleting some files");
                     }
+                } else {
+                    if (fb.getName().contains("IMG_20181229_123935")) {
+                        Log.d(TAG, "File does not exist: "+ fb);
+                    }
                 }
             }
             index++;
         }
         logSpace();
         Log.i(TAG, "Batch complete at index "+ index +" of "+ items.size());
+        if (getMissingSpace() > 0) {
+            status.updateMessage(StatusReport.Severity.ERROR, "Could not free enough space: "+ getMissingSpace() +" bytes over");
+        }
     }
 
     private void addFileSystem(FileBuilder folder) {
         File f = folder.getFileEquivalent();
-        while (f != null && f.getUsableSpace() == 0) { f = f.getParentFile(); }
+        // temporay hack for FS that's completely full!
+        while (f != null && f.getUsableSpace() == 0 && !f.toString().equals("/storage/emulated")) { f = f.getParentFile(); }
         if (f != null) {
             this.filesystems.add(f);
         }
@@ -151,9 +165,9 @@ public class FreeSpaceMaker {
     }
 
     private void logSpace() {
-        StringBuilder logMessage = new StringBuilder("Missing space: ");
+        StringBuilder logMessage = new StringBuilder("Missing space report: ");
         for (File fs : filesystems) {
-            logMessage.append(fs).append(": ").append(getMissingSpace(fs)).append(" bytes. ");
+            logMessage.append(fs).append(": ").append("have ").append(fs.getUsableSpace()).append(", need ").append(getMissingSpace(fs)).append(" more. ");
         }
         Log.i(TAG, logMessage.toString());
     }

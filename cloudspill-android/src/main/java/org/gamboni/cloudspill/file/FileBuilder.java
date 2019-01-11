@@ -461,7 +461,9 @@ public abstract class FileBuilder {
     public long getMissingSpace(long required) {
         File file = getFileEquivalent();
         //Log.d(TAG, "File equivalent of "+ this +" is "+ file + (file == null ? "" : (" with "+ file.getUsableSpace() +" bytes usable.")));
-        while (file != null && file.getUsableSpace() == 0) {
+
+        // temporay hack for FS that's completely full!
+        while (file != null && file.getUsableSpace() == 0 && !file.toString().equals("/storage/emulated")) {
             file = file.getParentFile();
             //Log.d(TAG, "Using parent file "+ file);
         }
