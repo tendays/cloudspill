@@ -19,6 +19,8 @@ targetCompatibility = 1.8
 dependencies {
     api 'org.hibernate.javax.persistence:hibernate-jpa-2.1-api:1.0.0.Final'
 
+    compile 'com.drewnoakes:metadata-extractor:2.11.0' // for exif data
+
     // Use JUnit test framework
     testImplementation 'junit:junit:4.12'
 }

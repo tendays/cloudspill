@@ -40,6 +40,7 @@ import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.shared.domain.ItemType;
+import org.gamboni.cloudspill.shared.util.ImageOrientationUtil;
 import org.gamboni.cloudspill.shared.util.Log;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
@@ -343,12 +344,8 @@ public class CloudSpillServer extends AbstractServer {
 	 *            HTTP Response used to set Forbidden status if needed
 	 * @param session
 	 *            Database connection
-	 * @param id
-	 *            Id of the item to retrieve
-	 * @param key
-	 *            Access key. If this matches the value in the database, access
-	 *            is granted. If null, no access control is performed (under the
-	 *            assumption that the user has been authenticated already)
+	 * @param item
+	 *            The item to retrieve
 	 * @throws IOException
 	 * @throws FileNotFoundException
 	 */
@@ -429,16 +426,8 @@ public class CloudSpillServer extends AbstractServer {
 		
 		final ImageObserver imageObserver = (Image img, int infoflags, int x, int y, int newWidth, int height) ->
 			((infoflags | ImageObserver.ALLBITS) == ImageObserver.ALLBITS);
-			int orientation;
-			try {
-				final ExifIFD0Directory directory = ImageMetadataReader.readMetadata(file).getFirstDirectoryOfType(ExifIFD0Directory.class);
-				orientation = (directory == null) ? 1 : directory.getInt(ExifIFD0Directory.TAG_ORIENTATION);
-			} catch (ImageProcessingException | MetadataException e) {
-				Log.error(e.getMessage());
-				orientation = 1;
-			}
-		
-		return resize(image.getWidth(imageObserver), image.getHeight(imageObserver), size, orientation, (scaledWidth, scaledHeight) -> 
+
+		return resize(image.getWidth(imageObserver), image.getHeight(imageObserver), size, ImageOrientationUtil.getExifRotation(file), (scaledWidth, scaledHeight) ->
 			 image.getScaledInstance(scaledWidth, scaledHeight, Image.SCALE_SMOOTH));
 	}
 	

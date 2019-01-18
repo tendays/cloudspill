@@ -42,7 +42,6 @@ dependencies {
     compile 'org.mindrot:jbcrypt:0.3m' // Password hashing
     compile 'org.bytedeco:javacv:1.0' // For video thumbnails
     compile 'org.bytedeco:javacv-platform:1.3.3'
-    compile 'com.drewnoakes:metadata-extractor:2.11.0' // for exif data
     
     // Deep learning
     // compile 'org.nd4j:deeplearning4j-core:1.0.0-beta'

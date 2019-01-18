@@ -43,10 +43,13 @@ import android.widget.ImageView;
 import android.widget.OverScroller;
 import android.widget.Scroller;
 
+import org.gamboni.cloudspill.shared.util.ImageOrientationUtil;
+
 import java.io.IOException;
 import java.io.InputStream;
 
 public class TouchImageView extends AppCompatImageView {
+    private static final String TAG = "TIV";
 	
 	private static final String DEBUG = "DEBUG";
 	
@@ -78,6 +81,7 @@ public class TouchImageView extends AppCompatImageView {
     private float maxScale;
     private float superMinScale;
     private float superMaxScale;
+    /** Temporary variable */
     private float[] m;
     
     private Context context;
@@ -89,6 +93,8 @@ public class TouchImageView extends AppCompatImageView {
     private boolean onDrawReady;
     
     private ZoomVariables delayedZoomVariables;
+
+    private int orientation = 1;
 
     private Uri uri = null;
 
@@ -453,7 +459,6 @@ public class TouchImageView extends AppCompatImageView {
     	m[Matrix.MTRANS_X] = -((focusX * getImageWidth()) - (viewWidth * 0.5f));
     	m[Matrix.MTRANS_Y] = -((focusY * getImageHeight()) - (viewHeight * 0.5f));
     	matrix.setValues(m);
-    	fixTrans();
     	setImageMatrix(matrix);
     }
     
@@ -497,70 +502,7 @@ public class TouchImageView extends AppCompatImageView {
     public void setScrollPosition(float focusX, float focusY) {
     	setZoom(normalizedScale, focusX, focusY);
     }
-    
-    /**
-     * Performs boundary checking and fixes the image matrix if it 
-     * is out of bounds.
-     */
-    private void fixTrans() {
-        matrix.getValues(m);
-        float transX = m[Matrix.MTRANS_X];
-        float transY = m[Matrix.MTRANS_Y];
-        
-        float fixTransX = getFixTrans(transX, viewWidth, getImageWidth());
-        float fixTransY = getFixTrans(transY, viewHeight, getImageHeight());
-        
-        if (fixTransX != 0 || fixTransY != 0) {
-            matrix.postTranslate(fixTransX, fixTransY);
-        }
-    }
-    
-    /**
-     * When transitioning from zooming from focus to zoom from center (or vice versa)
-     * the image can become unaligned within the view. This is apparent when zooming
-     * quickly. When the content size is less than the view size, the content will often
-     * be centered incorrectly within the view. fixScaleTrans first calls fixTrans() and 
-     * then makes sure the image is centered correctly within the view.
-     */
-    private void fixScaleTrans() {
-    	fixTrans();
-    	matrix.getValues(m);
-    	if (getImageWidth() < viewWidth) {
-    		m[Matrix.MTRANS_X] = (viewWidth - getImageWidth()) / 2;
-    	}
-    	
-    	if (getImageHeight() < viewHeight) {
-    		m[Matrix.MTRANS_Y] = (viewHeight - getImageHeight()) / 2;
-    	}
-    	matrix.setValues(m);
-    }
 
-    private float getFixTrans(float trans, float viewSize, float contentSize) {
-        float minTrans, maxTrans;
-
-        if (contentSize <= viewSize) {
-            minTrans = 0;
-            maxTrans = viewSize - contentSize;
-            
-        } else {
-            minTrans = viewSize - contentSize;
-            maxTrans = 0;
-        }
-
-        if (trans < minTrans)
-            return -trans + minTrans;
-        if (trans > maxTrans)
-            return -trans + maxTrans;
-        return 0;
-    }
-    
-    private float getFixDragTrans(float delta, float viewSize, float contentSize) {
-        if (contentSize <= viewSize) {
-            return 0;
-        }
-        return delta;
-    }
-    
     private float getImageWidth() {
     	return matchViewWidth * normalizedScale;
     }
@@ -599,6 +541,22 @@ public class TouchImageView extends AppCompatImageView {
         //
         fitImageToView();
     }
+
+    private boolean widthHeightFlipped() {
+        return (orientation == 6 || orientation == 8);
+    }
+
+    private float getOrientation() {
+        if (orientation == 6) {
+            return 90;
+        } else if (orientation == 3) {
+            return 180;
+        } else if (orientation == 8) {
+            return 270;
+        } else {
+            return 0;
+        }
+    }
     
     /**
      * If the normalizedScale is equal to 1, then the image is made to fit the screen. Otherwise,
@@ -606,7 +564,8 @@ public class TouchImageView extends AppCompatImageView {
      * allows the image to maintain its zoom after rotation.
      */
     private void fitImageToView() {
-    	Drawable drawable = getDrawable();
+
+        Drawable drawable = getDrawable();
         if (drawable == null || drawable.getIntrinsicWidth() == 0 || drawable.getIntrinsicHeight() == 0) {
         	return;
         }
@@ -643,9 +602,6 @@ public class TouchImageView extends AppCompatImageView {
         	break;
         	
     	default:
-    		//
-    		// FIT_START and FIT_END not supported
-    		//
     		throw new UnsupportedOperationException("TouchImageView does not support FIT_START or FIT_END");
         	
         }
@@ -657,6 +613,7 @@ public class TouchImageView extends AppCompatImageView {
         float redundantYSpace = viewHeight - (scaleY * drawableHeight);
         matchViewWidth = viewWidth - redundantXSpace;
         matchViewHeight = viewHeight - redundantYSpace;
+
         if (!isZoomed() && !imageRenderedAtLeastOnce) {
         	//
         	// Stretch and center image to fit view
@@ -708,8 +665,19 @@ public class TouchImageView extends AppCompatImageView {
             //
             matrix.setValues(m);
         }
-        fixTrans();
+        //fixTrans();
+        Log.d(TAG, "orientation "+ (float)getOrientation() +", drawable "+ drawableWidth +"×"+ drawableHeight +", view "+ viewWidth +"×"+ viewHeight);
+        debug(matrix);
+        matrix.preRotate(getOrientation(), viewWidth/2, viewHeight/2);
+        debug(matrix);
         setImageMatrix(matrix);
+    }
+
+    private void debug(Matrix matrix) {
+        float[] values = new float[9];
+        matrix.getValues(values);
+
+        Log.d(TAG, "[("+ values[0] +" "+ values[1] +" "+ values[2] +") ("+ values[3] +" "+ values[4] +" "+ values[5] +") ("+ values[6] +" "+ values[7] +" "+ values[8] +")]");
     }
     
     /**
@@ -721,25 +689,19 @@ public class TouchImageView extends AppCompatImageView {
      * @return
      */
     private int setViewSize(int mode, int size, int drawableSize) {
-    	int viewSize;
     	switch (mode) {
 		case MeasureSpec.EXACTLY:
-			viewSize = size;
-			break;
-			
+			return size;
+
 		case MeasureSpec.AT_MOST:
-			viewSize = Math.min(drawableSize, size);
-			break;
-			
+			return Math.min(drawableSize, size);
+
 		case MeasureSpec.UNSPECIFIED:
-			viewSize = drawableSize;
-			break;
-			
+			return drawableSize;
+
 		default:
-			viewSize = size;
-		 	break;
+			return size;
 		}
-    	return viewSize;
     }
     
     /**
@@ -902,10 +864,10 @@ public class TouchImageView extends AppCompatImageView {
 	                    if (state == State.DRAG) {
 	                        float deltaX = curr.x - last.x;
 	                        float deltaY = curr.y - last.y;
-	                        float fixTransX = getFixDragTrans(deltaX, viewWidth, getImageWidth());
+	                        /*float fixTransX = getFixDragTrans(deltaX, viewWidth, getImageWidth());
 	                        float fixTransY = getFixDragTrans(deltaY, viewHeight, getImageHeight());
 	                        matrix.postTranslate(fixTransX, fixTransY);
-	                        fixTrans();
+	                        fixTrans();*/
 	                        last.set(curr.x, curr.y);
 	                    }
 	                    break;
@@ -1010,7 +972,7 @@ public class TouchImageView extends AppCompatImageView {
         }
         
         matrix.postScale((float) deltaScale, (float) deltaScale, focusX, focusY);
-        fixScaleTrans();
+        //fixScaleTrans();
     }
     
     /**
@@ -1053,7 +1015,7 @@ public class TouchImageView extends AppCompatImageView {
 			double deltaScale = calculateDeltaScale(t);
 			scaleImage(deltaScale, bitmapX, bitmapY, stretchImageToSuper);
 			translateImageToCenterTouchPosition(t);
-			fixScaleTrans();
+			//fixScaleTrans();
 			setImageMatrix(matrix);
 			
 			//
@@ -1167,12 +1129,12 @@ public class TouchImageView extends AppCompatImageView {
      */
     private class Fling implements Runnable {
     	
-        CompatScroller scroller;
+        OverScroller scroller;
     	int currX, currY;
     	
     	Fling(int velocityX, int velocityY) {
     		setState(State.FLING);
-    		scroller = new CompatScroller(context);
+    		scroller = new OverScroller(context);
     		matrix.getValues(m);
     		
     		int startX = (int) m[Matrix.MTRANS_X];
@@ -1232,88 +1194,16 @@ public class TouchImageView extends AppCompatImageView {
 	            currX = newX;
 	            currY = newY;
 	            matrix.postTranslate(transX, transY);
-	            fixTrans();
+	            //fixTrans();
 	            setImageMatrix(matrix);
 	            compatPostOnAnimation(this);
         	}
 		}
     }
     
-    @TargetApi(Build.VERSION_CODES.GINGERBREAD)
-	private class CompatScroller {
-    	Scroller scroller;
-    	OverScroller overScroller;
-    	boolean isPreGingerbread;
-    	
-    	public CompatScroller(Context context) {
-    		if (VERSION.SDK_INT < VERSION_CODES.GINGERBREAD) {
-    			isPreGingerbread = true;
-    			scroller = new Scroller(context);
-    			
-    		} else {
-    			isPreGingerbread = false;
-    			overScroller = new OverScroller(context);
-    		}
-    	}
-    	
-    	public void fling(int startX, int startY, int velocityX, int velocityY, int minX, int maxX, int minY, int maxY) {
-    		if (isPreGingerbread) {
-    			scroller.fling(startX, startY, velocityX, velocityY, minX, maxX, minY, maxY);
-    		} else {
-    			overScroller.fling(startX, startY, velocityX, velocityY, minX, maxX, minY, maxY);
-    		}
-    	}
-    	
-    	public void forceFinished(boolean finished) {
-    		if (isPreGingerbread) {
-    			scroller.forceFinished(finished);
-    		} else {
-    			overScroller.forceFinished(finished);
-    		}
-    	}
-    	
-    	public boolean isFinished() {
-    		if (isPreGingerbread) {
-    			return scroller.isFinished();
-    		} else {
-    			return overScroller.isFinished();
-    		}
-    	}
-    	
-    	public boolean computeScrollOffset() {
-    		if (isPreGingerbread) {
-    			return scroller.computeScrollOffset();
-    		} else {
-    			overScroller.computeScrollOffset();
-    			return overScroller.computeScrollOffset();
-    		}
-    	}
-    	
-    	public int getCurrX() {
-    		if (isPreGingerbread) {
-    			return scroller.getCurrX();
-    		} else {
-    			return overScroller.getCurrX();
-    		}
-    	}
-    	
-    	public int getCurrY() {
-    		if (isPreGingerbread) {
-    			return scroller.getCurrY();
-    		} else {
-    			return overScroller.getCurrY();
-    		}
-    	}
-    }
-    
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
 	private void compatPostOnAnimation(Runnable runnable) {
-    	if (VERSION.SDK_INT >= VERSION_CODES.JELLY_BEAN) {
             postOnAnimation(runnable);
-            
-        } else {
-            postDelayed(runnable, 1000/60);
-        }
     }
     
     private class ZoomVariables {
@@ -1330,12 +1220,6 @@ public class TouchImageView extends AppCompatImageView {
     	}
     }
     
-    private void printMatrixInfo() {
-    	float[] n = new float[9];
-    	matrix.getValues(n);
-    	Log.d(DEBUG, "Scale: " + n[Matrix.MSCALE_X] + " TransX: " + n[Matrix.MTRANS_X] + " TransY: " + n[Matrix.MTRANS_Y]);
-    }
-
     /* Source: https://stackoverflow.com/questions/10200256/out-of-memory-error-imageview-issue */
     private void setScaledImage(final Uri uri) {
         final int imageViewHeight = (int)(getHeight() * this.normalizedScale);// superMaxScale);
@@ -1350,6 +1234,9 @@ public class TouchImageView extends AppCompatImageView {
                     try {
 
                         final Bitmap bitmap = decodeSampledBitmapFromUri(uri, imageViewWidth, imageViewHeight);
+
+                        TouchImageView.this.orientation = ImageOrientationUtil.getExifRotation(context.getContentResolver().openInputStream(uri));
+
                         Handler handler = TouchImageView.this.getHandler();
                         if (handler != null) {
                             handler.post(new Runnable() {
