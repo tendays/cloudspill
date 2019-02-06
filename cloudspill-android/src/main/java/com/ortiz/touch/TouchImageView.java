@@ -12,37 +12,27 @@
 
 package com.ortiz.touch;
 
-import android.annotation.TargetApi;
 import android.content.Context;
-import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
-import android.graphics.PointF;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.Log;
-import android.view.GestureDetector;
-import android.view.MotionEvent;
-import android.view.ScaleGestureDetector;
-import android.view.View;
-import android.view.animation.AccelerateDecelerateInterpolator;
-import android.widget.ImageView;
-import android.widget.OverScroller;
 
 import org.gamboni.cloudspill.shared.util.ImageOrientationUtil;
 
 import java.io.IOException;
 
-public class TouchImageView extends ImageView {
-    private static final String TAG = "TIV";
+public class TouchImageView extends AppCompatImageView {
+    private static final String TAG = "CloudSpill.ImageView";
 
     /** Immutable variant of Point */
     private static class Coordinate implements Parcelable {
@@ -104,6 +94,10 @@ public class TouchImageView extends ImageView {
             return new Coordinate(
                             (float)relativeWidth() / 2,
                             (float)relativeHeight() / 2);
+        }
+
+        Dimensions flipped() {
+            return new Dimensions(height, width);
         }
     }
 
@@ -167,7 +161,7 @@ public class TouchImageView extends ImageView {
     }
 
     Dimensions viewDimensions;
-    State state;
+    State state = new State(new Coordinate(0, 0), 1, 0);
 
     // Handling of touch state
     /** Which part of the image is being touched right now, in relative image coordinates (see {@link State#focusPoint} documentation for definition). */
@@ -181,10 +175,6 @@ public class TouchImageView extends ImageView {
 
     /** Image Uri to load as soon as we know our size. */
     private Uri uriToLoad = null;
-
-    private ScaleGestureDetector scaleDetector;
-    private GestureDetector gestureDetector;
-    private View.OnTouchListener userTouchListener = null;
 
     public TouchImageView(Context context) {
         super(context);
@@ -206,14 +196,6 @@ public class TouchImageView extends ImageView {
     
     private void sharedConstructing() {
         super.setClickable(true);
-        scaleDetector = new ScaleGestureDetector(context, new ScaleListener());
-        gestureDetector = new GestureDetector(context, new GestureListener());
-        super.setOnTouchListener(new PrivateOnTouchListener());
-    }
-
-    @Override
-    public void setOnTouchListener(View.OnTouchListener l) {
-        userTouchListener = l;
     }
 
     @Override
@@ -241,14 +223,6 @@ public class TouchImageView extends ImageView {
     	fitImageToView();
     }
     
-    /**
-     * Returns false if image is in initial, unzoomed state. False, otherwise.
-     * @return true if image is zoomed
-     */
-    public boolean isZoomed() {
-    	return state.zoom != 1;
-    }
-
     @Override
     public Parcelable onSaveInstanceState() {
     	Bundle bundle = new Bundle();
@@ -262,7 +236,7 @@ public class TouchImageView extends ImageView {
       	if (state instanceof Bundle) {
 	        Bundle bundle = (Bundle) state;
             super.onRestoreInstanceState(bundle.getParcelable("instanceState"));
-            state = bundle.getParcelable("state");
+            this.state = bundle.getParcelable("state");
 	        return;
       	}
 
@@ -277,6 +251,7 @@ public class TouchImageView extends ImageView {
     	    this.uriToLoad = null;
     	    setScaledImage(localUri);
         }
+        debug("Drawing with matrix", getImageMatrix());
     	super.onDraw(canvas);
     }
 
@@ -295,7 +270,7 @@ public class TouchImageView extends ImageView {
 
                         final Bitmap bitmap = decodeSampledBitmapFromUri(uri, imageViewWidth, imageViewHeight);
 
-                        state = state.withRotation(ImageOrientationUtil.getExifRotation(context.getContentResolver().openInputStream(uri)));
+                        state = state.withRotation(getRotation(ImageOrientationUtil.getExifRotation(context.getContentResolver().openInputStream(uri))));
 
                         Handler handler = TouchImageView.this.getHandler();
                         if (handler != null) {
@@ -397,11 +372,11 @@ public class TouchImageView extends ImageView {
         fitImageToView();
     }
 
-    private boolean widthHeightFlipped(int orientation) {
-        return (orientation == 6 || orientation == 8);
+    private boolean widthHeightFlipped(int rotation) {
+        return (rotation == 90 || rotation == 270);
     }
 
-    private float getRotation(int orientation) {
+    private int getRotation(int orientation) {
         if (orientation == 6) {
             return 90;
         } else if (orientation == 3) {
@@ -429,6 +404,9 @@ public class TouchImageView extends ImageView {
         }
         
         Dimensions drawableDimensions = drawableDimensions();
+        if (widthHeightFlipped(state.rotation)) {
+            drawableDimensions = drawableDimensions.flipped();
+        }
 
         /* Compute zoom to have entire image visible */
         float zoom = Math.min(viewDimensions.relativeWidth() / drawableDimensions.relativeWidth(),
@@ -438,8 +416,7 @@ public class TouchImageView extends ImageView {
                 /* Centre */
                 drawableDimensions.relativeCenter(),
                 zoom,
-                /* TODO rotation based on orientation */
-                0);
+                this.state.rotation);
 
         Matrix m = new Matrix();
         // scale drawable resolution to 1.0
@@ -453,15 +430,22 @@ public class TouchImageView extends ImageView {
         // move focus point to view center
         m.postTranslate(viewDimensions.width / 2, viewDimensions.height / 2);
 
-        debug(m);
+        debug("fitImageToView setting matrix ", m);
+        setScaleType(ScaleType.MATRIX);
         setImageMatrix(m);
     }
 
-    private void debug(Matrix matrix) {
+    @Override
+    public void setImageMatrix(Matrix matrix) {
+        debug("setImageMatrix called", matrix);
+        super.setImageMatrix(matrix);
+    }
+
+    private void debug(String text, Matrix matrix) {
         float[] values = new float[9];
         matrix.getValues(values);
 
-        Log.d(TAG, "[("+ values[0] +" "+ values[1] +" "+ values[2] +") ("+ values[3] +" "+ values[4] +" "+ values[5] +") ("+ values[6] +" "+ values[7] +" "+ values[8] +")]");
+        Log.d(TAG, text + "[("+ values[0] +" "+ values[1] +" "+ values[2] +") ("+ values[3] +" "+ values[4] +" "+ values[5] +") ("+ values[6] +" "+ values[7] +" "+ values[8] +")]");
     }
 
     /**
@@ -506,337 +490,5 @@ public class TouchImageView extends ImageView {
             // direction == 0: we can always not scroll...
             return true;
         }
-    }
-
-    /**
-     * Gesture Listener detects a single click or long click and passes that on
-     * to the view's listener.
-     * @author Ortiz
-     *
-     */
-    private class GestureListener extends GestureDetector.SimpleOnGestureListener {
-    	
-        @Override
-        public boolean onSingleTapConfirmed(MotionEvent e)
-        {
-        	return performClick();
-        }
-        
-        @Override
-        public void onLongPress(MotionEvent e)
-        {
-        	performLongClick();
-        }
-        
-        @Override
-        public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY)
-        {
-        		//
-        		// If a previous fling is still active, it should be cancelled so that two flings
-        		// are not run simultaneously.
-        		//
-
-        	Fling fling = new Fling((int) velocityX, (int) velocityY);
-        	compatPostOnAnimation(fling);
-        	return super.onFling(e1, e2, velocityX, velocityY);
-        }
-        
-        @Override
-        public boolean onDoubleTap(MotionEvent e) {
-        	boolean consumed = false;
-            /*if(doubleTapListener != null) {
-            	consumed = doubleTapListener.onDoubleTap(e);
-            }
-        	if (state == State.NONE) {
-	        	float targetZoom = (normalizedScale == minScale) ? maxScale : minScale;
-	        	DoubleTapZoom doubleTap = new DoubleTapZoom(targetZoom, e.getX(), e.getY(), false);
-	        	compatPostOnAnimation(doubleTap);
-	        	consumed = true;
-        	}*/
-        	return consumed;
-        }
-
-        @Override
-        public boolean onDoubleTapEvent(MotionEvent e) {
-            /*if(doubleTapListener != null) {
-            	return doubleTapListener.onDoubleTapEvent(e);
-            }*/
-            return false;
-        }
-    }
-    
-    public interface OnTouchImageViewListener {
-    	public void onMove();
-    }
-    
-    /**
-     * Responsible for all touch events. Handles the heavy lifting of drag and also sends
-     * touch events to Scale Detector and Gesture Detector.
-     * @author Ortiz
-     *
-     */
-    private class PrivateOnTouchListener implements OnTouchListener {
-    	
-    	//
-        // Remember last point position for dragging
-        //
-        private PointF last = new PointF();
-    	
-    	@Override
-        public boolean onTouch(View v, MotionEvent event) {
-            /*scaleDetector.onTouchEvent(event);
-            gestureDetector.onTouchEvent(event);
-            PointF curr = new PointF(event.getX(), event.getY());
-            
-            if (state == State.NONE || state == State.DRAG || state == State.FLING) {
-	            switch (event.getAction()) {
-	                case MotionEvent.ACTION_DOWN:
-	                	last.set(curr);
-	                    if (fling != null)
-	                    	fling.cancelFling();
-	                    setState(State.DRAG);
-	                    break;
-	                    
-	                case MotionEvent.ACTION_MOVE:
-	                    if (state == State.DRAG) {
-	                        float deltaX = curr.x - last.x;
-	                        float deltaY = curr.y - last.y;
-	                        float fixTransX = getFixDragTrans(deltaX, viewWidth, getImageWidth());
-	                        float fixTransY = getFixDragTrans(deltaY, viewHeight, getImageHeight());
-	                        matrix.postTranslate(fixTransX, fixTransY);
-	                        fixTrans();
-	                        last.set(curr.x, curr.y);
-	                    }
-	                    break;
-	
-	                case MotionEvent.ACTION_UP:
-	                case MotionEvent.ACTION_POINTER_UP:
-	                    setState(State.NONE);
-	                    break;
-	            }
-            }
-            
-            setImageMatrix(matrix);
-            
-            //
-    		// User-defined OnTouchListener
-    		//
-    		if(userTouchListener != null) {
-    			userTouchListener.onTouch(v, event);
-    		}
-            
-    		//
-    		// OnTouchImageViewListener is set: TouchImageView dragged by user.
-    		//
-    		if (touchImageViewListener != null) {
-    			touchImageViewListener.onMove();
-    		}
-    		
-            //
-            // true would indicate event was handled
-            //
-            */
-            return false;
-        }
-    }
-
-    /**
-     * ScaleListener detects user two finger scaling and scales image.
-     * @author Ortiz
-     *
-     */
-    private class ScaleListener extends ScaleGestureDetector.SimpleOnScaleGestureListener {
-        @Override
-        public boolean onScaleBegin(ScaleGestureDetector detector) {
-            //setState(State.ZOOM);
-            return true;
-        }
-
-        @Override
-        public boolean onScale(ScaleGestureDetector detector) {
-        	//scaleImage(detector.getScaleFactor(), detector.getFocusX(), detector.getFocusY(), true);
-        	
-        	//
-        	// OnTouchImageViewListener is set: TouchImageView pinch zoomed by user.
-        	//
-        	/*if (touchImageViewListener != null) {
-        		touchImageViewListener.onMove();
-        	}*/
-            return true;
-        }
-        
-        @Override
-        public void onScaleEnd(ScaleGestureDetector detector) {
-        	super.onScaleEnd(detector);
-        	/*setState(State.NONE);
-        	boolean animateToZoomBoundary = false;
-        	float targetZoom = normalizedScale;
-        	if (normalizedScale > maxScale) {
-        		targetZoom = maxScale;
-        		animateToZoomBoundary = true;
-        		
-        	} else if (normalizedScale < minScale) {
-        		targetZoom = minScale;
-        		animateToZoomBoundary = true;
-        	}
-        	
-        	if (animateToZoomBoundary) {
-	        	DoubleTapZoom doubleTap = new DoubleTapZoom(targetZoom, viewWidth / 2, viewHeight / 2, true);
-	        	compatPostOnAnimation(doubleTap);
-        	}*/
-        }
-    }
-    
-    /**
-     * DoubleTapZoom calls a series of runnables which apply
-     * an animated zoom in/out graphic to the image.
-     * @author Ortiz
-     *
-     */
-    private class DoubleTapZoom implements Runnable {
-    	
-    	private long startTime;
-    	private static final float ZOOM_TIME = 500;
-    	private float startZoom, targetZoom;
-    	private float bitmapX, bitmapY;
-    	private boolean stretchImageToSuper;
-    	private AccelerateDecelerateInterpolator interpolator = new AccelerateDecelerateInterpolator();
-    	private PointF startTouch;
-    	private PointF endTouch;
-
-    	DoubleTapZoom(float targetZoom, float focusX, float focusY, boolean stretchImageToSuper) {
-    		/*setState(State.ANIMATE_ZOOM);
-    		startTime = System.currentTimeMillis();
-    		this.startZoom = normalizedScale;
-    		this.targetZoom = targetZoom;
-    		this.stretchImageToSuper = stretchImageToSuper;
-    		PointF bitmapPoint = transformCoordTouchToBitmap(focusX, focusY, false);
-    		this.bitmapX = bitmapPoint.x;
-    		this.bitmapY = bitmapPoint.y;
-    		
-    		//
-    		// Used for translating image during scaling
-    		//
-    		startTouch = transformCoordBitmapToTouch(bitmapX, bitmapY);
-    		endTouch = new PointF(viewWidth / 2, viewHeight / 2);*/
-    	}
-
-		@Override
-		public void run() {
-/*			float t = interpolate();
-			double deltaScale = calculateDeltaScale(t);
-			scaleImage(deltaScale, bitmapX, bitmapY, stretchImageToSuper);
-			translateImageToCenterTouchPosition(t);
-			//fixScaleTrans();
-			setImageMatrix(matrix);
-			
-			//
-			// OnTouchImageViewListener is set: double tap runnable updates listener
-			// with every frame.
-			//
-			if (touchImageViewListener != null) {
-				touchImageViewListener.onMove();
-			}
-			
-			if (t < 1f) {
-				//
-				// We haven't finished zooming
-				//
-				compatPostOnAnimation(this);
-				
-			} else {
-				//
-				// Finished zooming
-				//
-				setState(State.NONE);
-			}
-			*/
-		}
-    }
-    
-    /**
-     * Fling launches sequential runnables which apply
-     * the fling graphic to the image. The values for the translation
-     * are interpolated by the Scroller.
-     * @author Ortiz
-     *
-     */
-    private class Fling implements Runnable {
-    	
-        OverScroller scroller;
-    	int currX, currY;
-    	
-    	Fling(int velocityX, int velocityY) {
-    /*		setState(State.FLING);
-    		scroller = new OverScroller(context);
-    		matrix.getValues(m);
-    		
-    		int startX = (int) m[Matrix.MTRANS_X];
-    		int startY = (int) m[Matrix.MTRANS_Y];
-    		int minX, maxX, minY, maxY;
-    		
-    		if (getImageWidth() > viewWidth) {
-    			minX = viewWidth - (int) getImageWidth();
-    			maxX = 0;
-    			
-    		} else {
-    			minX = maxX = startX;
-    		}
-    		
-    		if (getImageHeight() > viewHeight) {
-    			minY = viewHeight - (int) getImageHeight();
-    			maxY = 0;
-    			
-    		} else {
-    			minY = maxY = startY;
-    		}
-    		
-    		scroller.fling(startX, startY, (int) velocityX, (int) velocityY, minX,
-                    maxX, minY, maxY);
-    		currX = startX;
-    		currY = startY;
-    */	}
-    	
-    	public void cancelFling() {
-    /*		if (scroller != null) {
-    			setState(State.NONE);
-    			scroller.forceFinished(true);
-    		}
-    */	}
-    	
-		@Override
-		public void run() {
-			
-			//
-			// OnTouchImageViewListener is set: TouchImageView listener has been flung by user.
-			// Listener runnable updated with each frame of fling animation.
-			//
-	/*		if (touchImageViewListener != null) {
-				touchImageViewListener.onMove();
-			}
-			
-			if (scroller.isFinished()) {
-        		scroller = null;
-        		return;
-        	}
-			
-			if (scroller.computeScrollOffset()) {
-	        	int newX = scroller.getCurrX();
-	            int newY = scroller.getCurrY();
-	            int transX = newX - currX;
-	            int transY = newY - currY;
-	            currX = newX;
-	            currY = newY;
-	            matrix.postTranslate(transX, transY);
-	            //fixTrans();
-	            setImageMatrix(matrix);
-	            compatPostOnAnimation(this);
-        	}
-	*/	}
-    }
-    
-    @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
-	private void compatPostOnAnimation(Runnable runnable) {
-            postOnAnimation(runnable);
     }
 }
