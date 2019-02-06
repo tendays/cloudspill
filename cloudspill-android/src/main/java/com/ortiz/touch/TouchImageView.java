@@ -404,13 +404,11 @@ public class TouchImageView extends AppCompatImageView {
         }
         
         Dimensions drawableDimensions = drawableDimensions();
-        if (widthHeightFlipped(state.rotation)) {
-            drawableDimensions = drawableDimensions.flipped();
-        }
+        Dimensions rotatedDrawable = widthHeightFlipped(state.rotation) ? drawableDimensions.flipped() : drawableDimensions;
 
         /* Compute zoom to have entire image visible */
-        float zoom = Math.min(viewDimensions.relativeWidth() / drawableDimensions.relativeWidth(),
-            viewDimensions.relativeHeight() / drawableDimensions.relativeHeight());
+        float zoom = Math.min(viewDimensions.relativeWidth() / rotatedDrawable.relativeWidth(),
+            viewDimensions.relativeHeight() / rotatedDrawable.relativeHeight());
 
         this.state = new State(
                 /* Centre */
