@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.support.annotation.Nullable;
 import android.support.v4.view.PagerAdapter;
 import android.support.v7.app.AppCompatActivity;
@@ -31,7 +32,9 @@ import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.job.DownloadStatus;
 import org.gamboni.cloudspill.job.MediaDownloader;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.StringJoiner;
 
 /** Activity displaying a single image in full screen.
@@ -129,6 +132,30 @@ public class ItemActivity extends AppCompatActivity implements HasDomain {
             View.OnClickListener {}
 
     private class Adapter extends PagerAdapter {
+        /*
+        Map<Integer, View> views = new HashMap<>();
+        Map<Integer, Parcelable> restoredStates = new HashMap<>();
+        @Override
+        public Parcelable saveState() {
+            Log.d(TAG, "Adapter.saveState called");
+            Bundle bundle = new Bundle();
+            bundle.putParcelable("super", super.saveState());
+            for (Map.Entry<Integer, View> viewEntry : views.entrySet()) {
+                bundle.putParcelable(Integer.toString(viewEntry.getKey()), viewEntry.getValue().onSaveInstanceState());
+            }
+            return bundle;
+        }
+
+        @Override
+        public void restoreState(Parcelable state, ClassLoader loader) {
+            Log.d(TAG, "Adapter.restoreState called");
+            if (state instanceof Bundle) {
+                super.restoreState(((Bundle)state).getParcelable("super"), loader);
+            } else {
+                super.restoreState(state, loader);
+            }
+        }
+*/
         @Override
         public int getCount() {
             return evaluatedFilter.size();
@@ -144,6 +171,8 @@ public class ItemActivity extends AppCompatActivity implements HasDomain {
 
             frame.addView(loadingItem, LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT);
             container.addView(frame, LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT);
+
+  //          views.put(position, frame);
 
             final Domain.Item item = evaluatedFilter.getByPosition(position);
             if (item.getType() == ItemType.IMAGE) {
@@ -254,6 +283,7 @@ public class ItemActivity extends AppCompatActivity implements HasDomain {
         @Override
         public void destroyItem(ViewGroup container, int position, Object object) {
             Log.d(TAG, "destroyItem("+ position +")");
+        //    views.remove(position);
             container.removeView((View) object);
         }
 

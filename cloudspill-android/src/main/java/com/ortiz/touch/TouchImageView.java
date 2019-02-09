@@ -23,13 +23,23 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.support.annotation.NonNull;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.MotionEvent;
+import android.view.View;
 
 import org.gamboni.cloudspill.shared.util.ImageOrientationUtil;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class TouchImageView extends AppCompatImageView {
     private static final String TAG = "CloudSpill.ImageView";
@@ -66,7 +76,7 @@ public class TouchImageView extends AppCompatImageView {
         }
 
         public String toString() {
-            return "Coordinate("+ x +", "+ y +")";
+            return "("+ x +", "+ y +")";
         }
     }
 
@@ -108,7 +118,7 @@ public class TouchImageView extends AppCompatImageView {
          *
          * Design notes: we use the centre as reference, as it's invariant wrt rotation. We use coordinates relative to image size
          * to be invariant with image resolution change. We could have set the bottom-right corner to be at (1, 1) but that would not preserve
-         * angle and relative sizes if the image is not square. {@link #touchDistance} would also be ill-defined, for the same reason. */
+         * angle and relative sizes if the image is not square. {@link TouchState#radius} would also be ill-defined, for the same reason. */
         final Coordinate focusPoint;
         /** Zoom level: the ratio of apparent (rendered) image half-perimeter to screen half-perimeter (half-perimeter = width + height)
          *
@@ -158,23 +168,135 @@ public class TouchImageView extends AppCompatImageView {
         State withRotation(int rotation) {
             return new State(focusPoint, zoom, rotation);
         }
+
+        public String toString() {
+            return "State(f:"+ focusPoint +", z:"+ zoom +", r:"+ rotation +")";
+        }
+    }
+
+    private static class TouchState {
+        /** Which part of the image is being touched right now, in relative image coordinates (see {@link State#focusPoint} documentation for definition). */
+        final Coordinate centre;
+        /** The distance between two fingers, in case of two-finger touch, in relative image coordinates (see {@link State#focusPoint} documentation for definition). */
+        final float radius;
+
+        TouchState(Coordinate centre, float radius) {
+            this.centre  = centre;
+            this.radius = radius;
+        }
+
+        static TouchState forCoordinates(Collection<Coordinate> coordinates) {
+            if (coordinates.isEmpty()) { return null; }
+
+            /* Compute centre */
+            float x=0, y=0;
+            for (Coordinate c : coordinates) {
+                x += c.x;
+                y += c.y;
+            }
+            Coordinate centre = new Coordinate(
+                    x / coordinates.size(),
+                    y / coordinates.size());
+            /* Compute size */
+            float r=0;
+            for (Coordinate c : coordinates) {
+                r += Math.sqrt((c.x - centre.x) * (c.x - centre.x) + (c.y - centre.y) * (c.y - centre.y));
+            }
+            return new TouchState(centre, r/coordinates.size());
+        }
+
+        public String toString() {
+            return centre +"±"+ radius;
+        }
     }
 
     Dimensions viewDimensions;
     State state = new State(new Coordinate(0, 0), 1, 0);
-
-    // Handling of touch state
-    /** Which part of the image is being touched right now, in relative image coordinates (see {@link State#focusPoint} documentation for definition). */
-    Coordinate touchPosition;
-
-    /** The distance between two fingers, in case of two-finger touch, in relative image coordinates (see {@link State#focusPoint} documentation for definition). */
-    float touchDistance;
 
     private final Context context;
     private boolean onDrawReady = false;
 
     /** Image Uri to load as soon as we know our size. */
     private Uri uriToLoad = null;
+
+
+    private final OnTouchListener touchListener = new OnTouchListener() {
+
+        /** In relative view coordinates, the positions of all pointers. */
+        Map<Integer, Coordinate> drawablePointers = new HashMap<>();
+
+        @Override
+        public boolean onTouch(View v, MotionEvent m) {
+            /* compute drawable touch state, view touch state (both on intersection of pointers) */
+            /* compute state to align two touch states */
+            /* save current drawable touch state (only required if the pointer set changed since last step */
+
+            /* Whole calculation is done on the pointers that were touching in previous step, and are still touching now.
+             * drawableCoords: which points, in relative drawable coordinates, were touched in last step
+             */
+            List<Coordinate> drawableCoords = new ArrayList<>();
+            /* viewCoords: which points, in relative view coordinates are touched now */
+            List<Coordinate> viewCoords = new ArrayList<>();
+            MotionEvent.PointerCoords c = new MotionEvent.PointerCoords();
+
+            float[] touchArray = new float[m.getPointerCount() * 2];
+            for (int i = 0; i < m.getPointerCount(); i++) {
+                int id = m.getPointerId(i);
+                Coordinate drawablePointer = drawablePointers.get(id);
+                m.getPointerCoords(i, c);
+                touchArray[i*2] = c.x;
+                touchArray[i*2 + 1] = c.y;
+
+                if (drawablePointer != null) {
+                    drawableCoords.add(drawablePointer);
+                    Coordinate viewPointer = new Coordinate(c.x / viewDimensions.resolution(), c.y / viewDimensions.resolution());
+                    viewCoords.add(viewPointer);
+                }
+            }
+
+            final Matrix newMatrix;
+            if (drawableCoords.size() > 0) {
+                TouchState drawableState = TouchState.forCoordinates(drawableCoords);
+                TouchState viewState = TouchState.forCoordinates(viewCoords);
+                /*Log.d(TAG, "Drawable state :"+ drawableState);
+                Log.d(TAG, "View state :"+ viewState);*/
+                final float zoom;
+                if (drawableCoords.size() == 1) {
+                    // Keep current zoom when there's only one finger
+                    zoom = state.zoom;
+                } else {
+                    Log.d(TAG, "Setting zoom to "+ viewState.radius +" / "+ drawableState.radius);
+                    zoom = viewState.radius / drawableState.radius;
+                }
+//                Log.d(TAG, "view center: "+ viewDimensions.relativeWidth() / 2 +", "+ viewDimensions.relativeHeight() / 2);
+                // TODO probably won't work when rotation ≠ 0
+                state = new State(new Coordinate(
+                        drawableState.centre.x + (viewDimensions.relativeWidth() / 2 - viewState.centre.x) / zoom,
+                        drawableState.centre.y + (viewDimensions.relativeHeight() / 2 - viewState.centre.y) / zoom),
+                        zoom,
+                        state.rotation);
+                newMatrix = computeMatrix();
+
+ //               debug("touchEvent setting matrix ", newMatrix);
+                setImageMatrix(newMatrix);
+            } else {
+                newMatrix = getImageMatrix();
+            }
+
+            Matrix viewToDraw = new Matrix();
+            newMatrix.invert(viewToDraw);
+            viewToDraw.mapPoints(touchArray);
+            final int resolution = drawableDimensions().resolution();
+            Map<Integer, Coordinate> newPointers = new HashMap<>();
+            if (m.getAction() != MotionEvent.ACTION_UP) {
+                for (int i = 0; i < m.getPointerCount(); i++) {
+                    newPointers.put(m.getPointerId(i), new Coordinate(touchArray[2*i] / resolution, touchArray[2*i + 1]  / resolution));
+                }
+            } // else: "action up" causes state to be cleared
+            this.drawablePointers = newPointers;
+            return true;
+        }
+    };
 
     public TouchImageView(Context context) {
         super(context);
@@ -193,9 +315,12 @@ public class TouchImageView extends AppCompatImageView {
     	this.context = context;
     	sharedConstructing();
     }
-    
+
     private void sharedConstructing() {
         super.setClickable(true);
+        setOnTouchListener(touchListener);
+        super.setSaveEnabled(true);
+        Log.d(TAG, "New instance");
     }
 
     @Override
@@ -222,9 +347,10 @@ public class TouchImageView extends AppCompatImageView {
 
     	fitImageToView();
     }
-    
+
     @Override
     public Parcelable onSaveInstanceState() {
+        Log.d(TAG, "Saving instance state"+ state);
     	Bundle bundle = new Bundle();
     	bundle.putParcelable("instanceState", super.onSaveInstanceState());
     	bundle.putParcelable("state", state);
@@ -233,10 +359,12 @@ public class TouchImageView extends AppCompatImageView {
 
     @Override
     public void onRestoreInstanceState(Parcelable state) {
-      	if (state instanceof Bundle) {
-	        Bundle bundle = (Bundle) state;
+        Log.d(TAG, "Restoring instance state");
+        if (state instanceof Bundle) {
+            Bundle bundle = (Bundle) state;
             super.onRestoreInstanceState(bundle.getParcelable("instanceState"));
             this.state = bundle.getParcelable("state");
+            Log.d(TAG, "Got state "+ state);
 	        return;
       	}
 
@@ -402,19 +530,30 @@ public class TouchImageView extends AppCompatImageView {
         if (drawable == null || drawable.getIntrinsicWidth() <= 0 || drawable.getIntrinsicHeight() <= 0) {
         	return;
         }
-        
+
         Dimensions drawableDimensions = drawableDimensions();
         Dimensions rotatedDrawable = widthHeightFlipped(state.rotation) ? drawableDimensions.flipped() : drawableDimensions;
 
         /* Compute zoom to have entire image visible */
         float zoom = Math.min(viewDimensions.relativeWidth() / rotatedDrawable.relativeWidth(),
             viewDimensions.relativeHeight() / rotatedDrawable.relativeHeight());
-
         this.state = new State(
                 /* Centre */
                 drawableDimensions.relativeCenter(),
                 zoom,
                 this.state.rotation);
+        Log.d(TAG, "fitImageToView setting state " + this.state);
+
+        Matrix m = computeMatrix();
+
+        debug("fitImageToView setting matrix ", m);
+        setScaleType(ScaleType.MATRIX);
+        setImageMatrix(m);
+    }
+
+    @NonNull
+    private Matrix computeMatrix() {
+        Dimensions drawableDimensions = drawableDimensions();
 
         Matrix m = new Matrix();
         // scale drawable resolution to 1.0
@@ -427,16 +566,7 @@ public class TouchImageView extends AppCompatImageView {
         m.postScale(state.zoom * viewDimensions.resolution(), state.zoom * viewDimensions.resolution());
         // move focus point to view center
         m.postTranslate(viewDimensions.width / 2, viewDimensions.height / 2);
-
-        debug("fitImageToView setting matrix ", m);
-        setScaleType(ScaleType.MATRIX);
-        setImageMatrix(m);
-    }
-
-    @Override
-    public void setImageMatrix(Matrix matrix) {
-        debug("setImageMatrix called", matrix);
-        super.setImageMatrix(matrix);
+        return m;
     }
 
     private void debug(String text, Matrix matrix) {
