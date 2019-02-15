@@ -373,10 +373,7 @@ public class TouchImageView extends AppCompatImageView {
                 }
             }
             this.drawablePointers = newPointers;
-/*            if (drawablePointers.size() > 0) {
-                Log.d(TAG, "Drawable state after move: "+ TouchState.forCoordinates(drawablePointers.values()));
-            }
-*/            return true;
+            return true;
         }
     };
 
@@ -406,7 +403,6 @@ public class TouchImageView extends AppCompatImageView {
         super.setClickable(true);
         setOnTouchListener(touchListener);
         super.setSaveEnabled(true);
-        Log.d(TAG, "New instance");
     }
 
     @Override
@@ -465,7 +461,6 @@ public class TouchImageView extends AppCompatImageView {
     	    this.uriToLoad = null;
     	    setScaledImage(localUri);
         }
-        debug("Drawing with matrix", getImageMatrix());
     	super.onDraw(canvas);
     }
 
@@ -627,11 +622,9 @@ public class TouchImageView extends AppCompatImageView {
                 drawableDimensions.relativeCenter(),
                 zoom,
                 this.state.rotation);
-        Log.d(TAG, "fitImageToView setting state " + this.state);
 
         Matrix m = computeMatrix();
 
-        debug("fitImageToView setting matrix ", m);
         setScaleType(ScaleType.MATRIX);
         setImageMatrix(m);
     }
@@ -652,13 +645,6 @@ public class TouchImageView extends AppCompatImageView {
         // move focus point to view center
         m.postTranslate(viewDimensions.width / 2, viewDimensions.height / 2);
         return m;
-    }
-
-    private void debug(String text, Matrix matrix) {
-        float[] values = new float[9];
-        matrix.getValues(values);
-
-        Log.d(TAG, text + "[("+ values[0] +" "+ values[1] +" "+ values[2] +") ("+ values[3] +" "+ values[4] +" "+ values[5] +") ("+ values[6] +" "+ values[7] +" "+ values[8] +")]");
     }
 
     /**
