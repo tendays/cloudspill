@@ -17,6 +17,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
+import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
@@ -44,6 +45,27 @@ import java.util.Set;
 public class TouchImageView extends AppCompatImageView {
     private static final String TAG = "CloudSpill.ImageView";
 
+    /** Vectors can be added to Coordinates to make other Coordinates. */
+    private static class Vector {
+        final float x;
+        final float y;
+        Vector(float x, float y) {
+            this.x = x;
+            this.y = y;
+        }
+        public Vector rotate(int degrees) {
+            double rad = Math.toRadians(degrees);
+            double c = Math.cos(rad);
+            double s = Math.sin(rad);
+            return new Vector(
+                    (float)(x*c - y*s),
+                    (float)(x*s + y*c));
+        }
+        public Vector divide(float divider) {
+            return new Vector(x / divider, y / divider);
+        }
+    }
+
     /** Immutable variant of Point */
     private static class Coordinate implements Parcelable {
         public static final Creator<Coordinate> CREATOR = new Creator<Coordinate>() {
@@ -67,6 +89,14 @@ public class TouchImageView extends AppCompatImageView {
         @Override
         public int describeContents() {
             return 0;
+        }
+
+        public Vector minus(Coordinate that) {
+            return new Vector(this.x - that.x, this.y - that.y);
+        }
+
+        public Coordinate plus(Vector that) {
+            return new Coordinate(this.x + that.x, this.y + that.y);
         }
 
         @Override
@@ -108,6 +138,10 @@ public class TouchImageView extends AppCompatImageView {
 
         Dimensions flipped() {
             return new Dimensions(height, width);
+        }
+
+        public String toString() {
+            return width +"×"+ height;
         }
     }
 
@@ -258,8 +292,11 @@ public class TouchImageView extends AppCompatImageView {
             if (drawableCoords.size() > 0) {
                 TouchState drawableState = TouchState.forCoordinates(drawableCoords);
                 TouchState viewState = TouchState.forCoordinates(viewCoords);
-                /*Log.d(TAG, "Drawable state :"+ drawableState);
-                Log.d(TAG, "View state :"+ viewState);*/
+                Log.d(TAG, "current state: "+ state);
+                Log.d(TAG, "drawableState: "+ drawableState);
+                Log.d(TAG, "viewState: "+ viewState);
+                Log.d(TAG, "drawableDimensions: "+ drawableDimensions());
+                Log.d(TAG, "viewDimensions: "+ viewDimensions);
                 final float zoom;
                 if (drawableCoords.size() == 1) {
                     // Keep current zoom when there's only one finger
@@ -268,16 +305,12 @@ public class TouchImageView extends AppCompatImageView {
                     Log.d(TAG, "Setting zoom to "+ viewState.radius +" / "+ drawableState.radius);
                     zoom = viewState.radius / drawableState.radius;
                 }
-//                Log.d(TAG, "view center: "+ viewDimensions.relativeWidth() / 2 +", "+ viewDimensions.relativeHeight() / 2);
-                // TODO probably won't work when rotation ≠ 0
-                state = new State(new Coordinate(
-                        drawableState.centre.x + (viewDimensions.relativeWidth() / 2 - viewState.centre.x) / zoom,
-                        drawableState.centre.y + (viewDimensions.relativeHeight() / 2 - viewState.centre.y) / zoom),
+                state = new State(drawableState.centre.plus(viewDimensions.relativeCenter().minus(viewState.centre).rotate(-state.rotation).divide(zoom)),
                         zoom,
                         state.rotation);
+                Log.d(TAG, "new state: "+ state);
                 newMatrix = computeMatrix();
-
- //               debug("touchEvent setting matrix ", newMatrix);
+                Log.d(TAG, "new matrix: "+ newMatrix);
                 setImageMatrix(newMatrix);
             } else {
                 newMatrix = getImageMatrix();
@@ -285,18 +318,71 @@ public class TouchImageView extends AppCompatImageView {
 
             Matrix viewToDraw = new Matrix();
             newMatrix.invert(viewToDraw);
-            viewToDraw.mapPoints(touchArray);
-            final int resolution = drawableDimensions().resolution();
             Map<Integer, Coordinate> newPointers = new HashMap<>();
-            if (m.getAction() != MotionEvent.ACTION_UP) {
+            final Dimensions drawableDimensions = drawableDimensions();
+            if (m.getAction() == MotionEvent.ACTION_UP) {
+                /* Last pointer released: see if we need to shift or zoom to fill available space. */
+
+                /* Constraints:
+                 * A. There may be white space horizontally or vertically, but not both.
+                 * B. If there's horizontal white space, they should be the same amount on the left and right. Similarly for vertical space.
+                 */
+
+                /* Compute top and left space by converting view (0,0) to drawable coordinates */
+                RectF viewRect = new RectF(0, 0, viewDimensions.width, viewDimensions.height);
+                viewToDraw.mapRect(viewRect);
+
+                /* Constraint A: compute extra zoom factor to ensure the drawable is large enough */
+                float zoomCorrection = Math.max(1f, Math.min(
+                        viewRect.width() / drawableDimensions.width,
+                        viewRect.height() / drawableDimensions.height
+                ));
+
+                /* Supposing we apply the zoom correction, keeping focus point: adjust viewRect */
+                if (zoomCorrection != 1f) {
+                    float cx = viewRect.centerX();
+                    float cy = viewRect.centerY();
+                    // move focus point to (0, 0)
+                    viewRect.offset(-cx, -cy);
+                    viewRect.set(viewRect.left / zoomCorrection,
+                            viewRect.top / zoomCorrection,
+                            viewRect.right / zoomCorrection,
+                            viewRect.bottom / zoomCorrection);
+                    // restore focus point
+                    viewRect.offset(cx, cy);
+                }
+
+                /* Constraint B: check margins. We compute focus point coordinates for which the entire view would be covered with drawable pixels */
+                /* Dimensions of that "full-screen" area. Using max(0, -) to center the drawable in case it can't fill the view. */
+                float fsWidth = Math.max(0f, drawableDimensions.width - viewRect.width());
+                float fsHeight = Math.max(0f, drawableDimensions.height - viewRect.height());
+
+                // if the user doesn't touch the screen, let's gradually shift towards that "corrected state" which is the nearest
+                // that satisfies constraints.
+                State correctedState = new State(new Coordinate(
+                        bound(drawableDimensions.width / 2, fsWidth, viewRect.centerX()) / drawableDimensions.resolution(),
+                        bound(drawableDimensions.height / 2, fsHeight, viewRect.centerY()) / drawableDimensions.resolution()
+                ), state.zoom * zoomCorrection,
+                        state.rotation);
+                // TODO actually to the shifting
+            } else {
+                viewToDraw.mapPoints(touchArray);
+                final int resolution = drawableDimensions.resolution();
                 for (int i = 0; i < m.getPointerCount(); i++) {
                     newPointers.put(m.getPointerId(i), new Coordinate(touchArray[2*i] / resolution, touchArray[2*i + 1]  / resolution));
                 }
-            } // else: "action up" causes state to be cleared
+            }
             this.drawablePointers = newPointers;
-            return true;
+/*            if (drawablePointers.size() > 0) {
+                Log.d(TAG, "Drawable state after move: "+ TouchState.forCoordinates(drawablePointers.values()));
+            }
+*/            return true;
         }
     };
+
+    private static float bound(float centre, float span, float point) {
+        return Math.max(centre - span, Math.min(centre + span, point));
+    }
 
     public TouchImageView(Context context) {
         super(context);
@@ -427,7 +513,6 @@ public class TouchImageView extends AppCompatImageView {
 
             // Calculate inSampleSize
             options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight, lowMem);
-
             // Decode bitmap with inSampleSize set
             options.inJustDecodeBounds = false;
             return BitmapFactory.decodeStream(context.getContentResolver().openInputStream(uri), null, options);
