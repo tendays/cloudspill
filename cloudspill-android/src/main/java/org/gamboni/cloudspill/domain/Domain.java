@@ -482,7 +482,7 @@ public class Domain extends AbstractDomain<Domain> {
         public String getUrl() {
             return get(ServerSchema.URL);
         }
-
+        public long getId() { return get(ServerSchema.ID); }
         public String getName() {
             return get(ServerSchema.NAME);
         }

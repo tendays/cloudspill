@@ -27,6 +27,14 @@ public class ImageOrientationUtil {
         }
     }
 
+    public static int getExifRotationDegrees(File f) {
+        return getDegrees(getExifRotation(f));
+    }
+
+    public static int getExifRotationDegrees(InputStream i) {
+        return getDegrees(getExifRotation(i));
+    }
+
     public static int getExifRotation(InputStream in) {
         try {
             final ExifIFD0Directory directory = ImageMetadataReader.readMetadata(in).getFirstDirectoryOfType(ExifIFD0Directory.class);
@@ -34,6 +42,18 @@ public class ImageOrientationUtil {
         } catch (ImageProcessingException | MetadataException | IOException e) {
             Log.error(e.getMessage());
             return 1;
+        }
+    }
+
+    public static int getDegrees(int orientation) {
+        if (orientation == 6) {
+            return 90;
+        } else if (orientation == 3) {
+            return 180;
+        } else if (orientation == 8) {
+            return 270;
+        } else {
+            return 0;
         }
     }
 }

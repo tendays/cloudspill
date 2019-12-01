@@ -26,6 +26,8 @@
     <string name="server_name_hint">Server name</string>
     <string name="server_url_hint">Server URL</string>
     <string name="edit_server_title">Edit server...</string>
+    <string name="confirm_server_delete">Do you want to delete this server?</string>
+
 
     <!-- Strings related to Settings -->
 

@@ -394,7 +394,7 @@ public class CloudSpillServer extends AbstractServer {
 
 	private StringBuilder itemsSince(Domain domain, final Instant instant) {
 		StringBuilder result = new StringBuilder();
-		Instant timestamp = Instant.ofEpochMilli(0);
+		Instant timestamp = instant;
 		for (Item item : domain.selectItem()
 				.add(Restrictions.ge("updated", instant))
 				.addOrder(Order.asc("updated"))

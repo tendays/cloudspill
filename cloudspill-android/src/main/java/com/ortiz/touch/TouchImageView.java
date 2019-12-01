@@ -37,10 +37,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 public class TouchImageView extends AppCompatImageView {
     private static final String TAG = "CloudSpill.ImageView";
@@ -243,6 +241,23 @@ public class TouchImageView extends AppCompatImageView {
             return centre +"±"+ radius;
         }
     }
+
+    abstract class Animation implements Runnable {
+    }
+
+    class ShiftState extends Animation {
+        private final State target;
+        ShiftState(State target) {
+            this.target = target;
+        }
+
+        public void run() {
+
+        }
+    }
+
+    /** Currently running animation, if any. Setting this to null will abort the animation. */
+    private Animation animation = null;
 
     Dimensions viewDimensions;
     State state = new State(new Coordinate(0, 0), 1, 0);
@@ -479,7 +494,7 @@ public class TouchImageView extends AppCompatImageView {
 
                         final Bitmap bitmap = decodeSampledBitmapFromUri(uri, imageViewWidth, imageViewHeight);
 
-                        state = state.withRotation(getRotation(ImageOrientationUtil.getExifRotation(context.getContentResolver().openInputStream(uri))));
+                        state = state.withRotation(ImageOrientationUtil.getExifRotationDegrees(context.getContentResolver().openInputStream(uri)));
 
                         Handler handler = TouchImageView.this.getHandler();
                         if (handler != null) {
@@ -582,18 +597,6 @@ public class TouchImageView extends AppCompatImageView {
 
     private boolean widthHeightFlipped(int rotation) {
         return (rotation == 90 || rotation == 270);
-    }
-
-    private int getRotation(int orientation) {
-        if (orientation == 6) {
-            return 90;
-        } else if (orientation == 3) {
-            return 180;
-        } else if (orientation == 8) {
-            return 270;
-        } else {
-            return 0;
-        }
     }
 
     private Dimensions drawableDimensions() {

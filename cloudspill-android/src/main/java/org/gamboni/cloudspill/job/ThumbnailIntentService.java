@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
 import android.media.ThumbnailUtils;
 import android.os.Environment;
 import android.provider.MediaStore;
@@ -25,6 +26,7 @@ import org.gamboni.cloudspill.file.DiskLruCache;
 import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.message.SettableStatusListener;
 import org.gamboni.cloudspill.server.CloudSpillServerProxy;
+import org.gamboni.cloudspill.shared.util.ImageOrientationUtil;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -386,11 +388,25 @@ public class ThumbnailIntentService extends IntentService {
                         return;
                     }
                     // scale the *shortest* dimension to 'smallPx' so (after cropping) the image fills the whole thumbnail
-                    float ratio = smallPx / Math.min(bitmap.getWidth(), bitmap.getHeight());
+                    final int sourceSquareSize = Math.min(bitmap.getWidth(), bitmap.getHeight());
+                    float ratio = smallPx / sourceSquareSize;
 
+                    // rotate based on exif information, apparently not needed?
+
+                    Matrix m = new Matrix();
+                    m.setRotate(ImageOrientationUtil.getExifRotationDegrees(file.read()), bitmap.getWidth()/2, bitmap.getHeight() / 2);
+                    m.postScale(ratio, ratio);
+                    bitmap = Bitmap.createBitmap(bitmap,
+                            (bitmap.getWidth() - sourceSquareSize)/2,
+                            (bitmap.getHeight() - sourceSquareSize)/2,
+                            sourceSquareSize,
+                            sourceSquareSize,
+                            m, false);
+/*
                     bitmap = Bitmap.createScaledBitmap(bitmap,
                             (int) (bitmap.getWidth() * ratio),
                             (int) (bitmap.getHeight() * ratio), false);
+*/
                     publishBitmap(getCallbacks(key), bitmap);
 
                 /* Don't bother caching thumbnail if full image exists on disk. */

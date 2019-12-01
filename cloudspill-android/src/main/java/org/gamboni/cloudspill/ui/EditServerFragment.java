@@ -19,6 +19,8 @@ public class EditServerFragment extends DialogFragment {
 
     public interface ServerSavedListener {
         Domain getDomain();
+        String getServerName();
+        String getServerUrl();
         void onServerSaved(Domain.Server server);
     }
 
@@ -39,7 +41,9 @@ public class EditServerFragment extends DialogFragment {
         // Pass null as the parent view because its going in the dialog layout
         final View layout = getActivity().getLayoutInflater().inflate(R.layout.edit_server, null);
         final TextView nameField = ((TextView)layout.findViewById(R.id.editServerName));
+        nameField.setText(listener.getServerName());
         final TextView urlField = ((TextView)layout.findViewById(R.id.editServerUrl));
+        urlField.setText(listener.getServerUrl());
         return new AlertDialog.Builder(getActivity())
                 .setTitle(R.string.edit_server_title)
                 .setView(layout)
