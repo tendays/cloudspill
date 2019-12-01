@@ -13,6 +13,7 @@
 package com.ortiz.touch;
 
 import android.content.Context;
+import android.gesture.GestureOverlayView;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
@@ -28,6 +29,7 @@ import android.support.annotation.NonNull;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
 
@@ -268,6 +270,40 @@ public class TouchImageView extends AppCompatImageView {
     /** Image Uri to load as soon as we know our size. */
     private Uri uriToLoad = null;
 
+    private GestureDetector gestureDetector;
+
+    private final GestureDetector.OnGestureListener gestureListener = new GestureDetector.OnGestureListener() {
+        @Override
+        public boolean onDown(MotionEvent e) {
+            return false;
+        }
+
+        @Override
+        public void onShowPress(MotionEvent e) {
+
+        }
+
+        @Override
+        public boolean onSingleTapUp(MotionEvent e) {
+            Log.d(TAG, "single tap up detected");
+            return performClick();
+        }
+
+        @Override
+        public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+            return false;
+        }
+
+        @Override
+        public void onLongPress(MotionEvent e) {
+            performLongClick();
+        }
+
+        @Override
+        public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+            return false;
+        }
+    };
 
     private final OnTouchListener touchListener = new OnTouchListener() {
 
@@ -276,6 +312,9 @@ public class TouchImageView extends AppCompatImageView {
 
         @Override
         public boolean onTouch(View v, MotionEvent m) {
+
+            gestureDetector.onTouchEvent(m);
+
             /* compute drawable touch state, view touch state (both on intersection of pointers) */
             /* compute state to align two touch states */
             /* save current drawable touch state (only required if the pointer set changed since last step */
@@ -418,6 +457,8 @@ public class TouchImageView extends AppCompatImageView {
         super.setClickable(true);
         setOnTouchListener(touchListener);
         super.setSaveEnabled(true);
+
+        this.gestureDetector = new GestureDetector(context, gestureListener);
     }
 
     @Override
