@@ -15,4 +15,7 @@ public interface StatusReport {
     void updateMessage(Severity severity, String message);
     /** Display progress of the current operation. */
     void updatePercent(int percent);
+
+    /** Called to notify that a new item was added to the database */
+    void refresh();
 }

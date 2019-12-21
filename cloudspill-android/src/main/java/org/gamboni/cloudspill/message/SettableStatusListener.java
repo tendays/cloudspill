@@ -32,4 +32,12 @@ public class SettableStatusListener<T extends StatusReport> implements StatusRep
             delegate.updateMessage(severity, message);
         }
     }
+
+    @Override
+    public void refresh() {
+        StatusReport delegate = listener;
+        if (delegate != null) {
+            delegate.refresh();
+        }
+    }
 }

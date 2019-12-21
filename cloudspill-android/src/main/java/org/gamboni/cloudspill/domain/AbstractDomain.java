@@ -11,11 +11,13 @@ import android.util.Log;
 
 import org.gamboni.cloudspill.collect.ConcatList;
 
+import java.lang.ref.WeakReference;
 import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -29,6 +31,11 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
 
     protected final Context context;
 
+    /** java.util.function.Consumer replacement, the real one is not available at my API level. */
+    public interface Consumer<T> {
+        void accept(T object);
+    }
+
     public static abstract class Schema<D extends AbstractDomain<D>, E extends AbstractDomain<D>.Entity> {
         public abstract int since();
         public abstract String tableName();
@@ -38,6 +45,8 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
         public AbstractDomain<D>.Query<E> query(AbstractDomain<D> domain) {
             return domain.new EntityQuery<E>(this);
         }
+
+        private List<WeakReference<Consumer<E>>> watchers = new ArrayList<>();
 
         private String[] columnNames = null;
         public synchronized String[] columnNames() {
@@ -49,6 +58,32 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
                 }
             }
             return columnNames;
+        }
+
+        public void watch(Consumer<E> watcher) {
+            watchers.add(new WeakReference<Consumer<E>>(watcher));
+        }
+
+        public void unwatch(Consumer<E> watcher) {
+            Iterator<WeakReference<Consumer<E>>> iterator = watchers.iterator();
+            while (iterator.hasNext()) {
+                Consumer<E> consumer = iterator.next().get();
+                if (consumer == null || consumer == watcher) {
+                    iterator.remove();
+                }
+            }
+        }
+
+        public void notifyNewItem(Object item) {
+            Iterator<WeakReference<Consumer<E>>> iterator = watchers.iterator();
+            while (iterator.hasNext()) {
+                Consumer<E> consumer = iterator.next().get();
+                if (consumer == null) {
+                    iterator.remove();
+                } else {
+                    consumer.accept((E)item);
+                }
+            }
         }
     }
 
@@ -179,7 +214,9 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
             return result;
         }
         public long insert() {
-            return connect().insert(getSchema().tableName(), null, getValues());
+            final long newItem = connect().insert(getSchema().tableName(), null, getValues());
+            getSchema().notifyNewItem(newItem);
+            return newItem;
         }
 
         protected <T> void likeThis(Query<?> query, Column<T> column) {

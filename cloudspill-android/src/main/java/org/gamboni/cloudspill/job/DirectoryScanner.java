@@ -266,6 +266,7 @@ public class DirectoryScanner {
                 unqueue(file.getUri().getPath());
 
                 listener.updateMessage(StatusReport.Severity.INFO, "Scanning "+ folder +": "+ addedCount +" files uploaded");
+                listener.refresh();
             }
         },
         new Response.ErrorListener() {

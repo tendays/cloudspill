@@ -187,6 +187,11 @@ public class MainActivity extends AppCompatActivity implements StatusReport, Fil
     }
 
     @Override
+    public void refresh() {
+        this.adapter.notifyDataSetChanged();
+    }
+
+    @Override
     public void onPause() {
         CloudSpillIntentService.unsetListener(this);
         super.onPause();
@@ -270,6 +275,8 @@ public class MainActivity extends AppCompatActivity implements StatusReport, Fil
         @Override
         public void notifyDataSetChanged() {
             stateCounter++;
+            ThumbnailIntentService.forceRefresh();
+            Log.d(TAG, "notifyDataSetChanged called");
             super.notifyDataSetChanged();
         }
 

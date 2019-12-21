@@ -70,8 +70,9 @@ public class ThumbnailIntentService extends IntentService {
     private static FilterSpecification currentFilter = FilterSpecification.defaultFilter();
 
     private static final LruCache<Integer, BitmapWithItem> memoryCache;
+    /** When inserting stuff at the beginning, increase the offset. */
+    private static int offset;
 
-    // Source: https://developer.android.com/topic/performance/graphics/cache-bitmap.html
     private static DiskLruCache diskLruCache;
 
     static {
@@ -151,6 +152,7 @@ public class ThumbnailIntentService extends IntentService {
     }
 
     public static void forceRefresh() {
+        offset = 0;
         memoryCache.evictAll();
     }
 
@@ -169,6 +171,9 @@ public class ThumbnailIntentService extends IntentService {
     }
 
     private void runQuery() {
+        if (this.evaluatedFilter != null) {
+            this.evaluatedFilter.close();
+        }
         this.evaluatedFilter = new EvaluatedFilter(domain, currentFilter);
     }
 
@@ -286,7 +291,7 @@ public class ThumbnailIntentService extends IntentService {
     }
 
     public static void loadThumbnailAtPosition(Context context, int position, Callback callback) {
-        BitmapWithItem cached = memoryCache.get(position);
+        BitmapWithItem cached = memoryCache.get(position - offset);
 
         if (cached != null) {
             Log.d(TAG, "Found "+ position +" in mem cache (serverId="+ cached.item.getServerId() +")");
@@ -467,7 +472,7 @@ public class ThumbnailIntentService extends IntentService {
 
     private void cacheThumb(int position, Domain.Item item, Bitmap bitmap) {
         if (position != -1) {
-            memoryCache.put(position, new BitmapWithItem(item, bitmap));
+            memoryCache.put(position - offset, new BitmapWithItem(item, bitmap));
         }
     }
 }

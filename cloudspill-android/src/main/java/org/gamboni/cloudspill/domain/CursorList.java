@@ -43,6 +43,14 @@ public abstract class CursorList<T> extends AbstractList<T> implements AbstractD
         return cachedSize;
     }
 
+    void notifyNewItem(T item) {
+        // TODO (1) call me
+        // todo (2) how do cursors behave when elements have been added to the table since they were created?
+        if (cachedSize != -1) {
+            cachedSize++;
+        }
+    }
+
     @Override
     public Iterator<T> iterator() {
         Log.d(TAG, description +" creating iterator from position "+ cursor.getPosition());
