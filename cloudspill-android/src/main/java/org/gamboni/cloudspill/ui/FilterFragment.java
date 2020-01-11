@@ -17,15 +17,13 @@ import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.Spinner;
-import android.widget.TextView;
 
 import org.gamboni.cloudspill.R;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.FilterSpecification;
 import org.gamboni.cloudspill.domain.HasDomain;
-import org.gamboni.cloudspill.domain.Splitter;
+import org.gamboni.cloudspill.shared.util.Splitter;
 
-import java.text.ParseException;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;

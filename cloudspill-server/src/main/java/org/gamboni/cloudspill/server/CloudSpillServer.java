@@ -39,6 +39,7 @@ import org.bytedeco.javacv.Java2DFrameConverter;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.User;
+import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.shared.util.ImageOrientationUtil;
 import org.gamboni.cloudspill.shared.util.Log;
@@ -46,10 +47,6 @@ import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.mindrot.jbcrypt.BCrypt;
 
-import com.drew.imaging.ImageMetadataReader;
-import com.drew.imaging.ImageProcessingException;
-import com.drew.metadata.MetadataException;
-import com.drew.metadata.exif.ExifIFD0Directory;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
@@ -141,12 +138,12 @@ public class CloudSpillServer extends AbstractServer {
     	
 		SecuredBody createUser = (req, res, session, user) -> {
 			User u = new User();
-			u.setName(requireNotNull(req.params("name")));
+			u.setName(requireNotNull(req.params(CloudSpillApi.CREATE_USER_NAME)));
 
 			String salt = BCrypt.gensalt();
 			u.setSalt(salt);
 
-			u.setPass(BCrypt.hashpw(requireNotNull(req.queryParams("pass")), salt));
+			u.setPass(BCrypt.hashpw(requireNotNull(req.queryParams(CloudSpillApi.CREATE_USER_PASS)), salt));
 
 			session.persist(u);
 
@@ -158,12 +155,11 @@ public class CloudSpillServer extends AbstractServer {
 						(req, res) -> transacted(session -> createUser.handle(req, res, session, /* user */null))
 						: secured(createUser));
 
-    	/* Used by clients to ensure connectivity is available and check API compatibility. */
-    	get("/ping", secured((req, res, session, user) ->
+    	get(CloudSpillApi.PING, secured((req, res, session, user) ->
     		// WARN: currently the frontend requires precisely this syntax, spaces included
-    		"CloudSpill server.\n"
-    		+ "Data-Version: "+ DATA_VERSION +"\n"
-    		+ "Url: "+ configuration.getPublicUrl()));
+				CloudSpillApi.PING_PREAMBLE + "\n"
+    		+ CloudSpillApi.PING_DATA_VERSION + ": "+ DATA_VERSION +"\n"
+    		+ CloudSpillApi.PING_PUBLIC_URL + ": "+ configuration.getPublicUrl()));
 
         /* Html version of a file */
         get("/item/html/:id", securedItem(rootFolder, (req, res, session, user, item) -> {
@@ -200,7 +196,7 @@ public class CloudSpillServer extends AbstractServer {
         }));
         
         /* Upload a file */
-        put("/item/:user/:folder/*", secured((req, res, session, user) -> {
+        put(CloudSpillApi.upload(":user", ":folder", "*"), secured((req, res, session, user) -> {
         	
         	/*if (req.bodyAsBytes() == null) {
         		Log.warn("Missing body");
@@ -245,14 +241,13 @@ public class CloudSpillServer extends AbstractServer {
 				item.setFolder(folder);
 				item.setPath(normalisedPath);
 				item.setUser(username);
-				// TODO create shared artifact between backend and frontend to hold this kind of constants
-				final String timestampHeader = req.headers("X-CloudSpill-Timestamp");
+				final String timestampHeader = req.headers(CloudSpillApi.UPLOAD_TIMESTAMP_HEADER);
 				if (timestampHeader != null) {
 					item.setDate(Instant.ofEpochMilli(Long.valueOf(timestampHeader))
 						.atOffset(ZoneOffset.UTC)
 						.toLocalDateTime());
 				}
-				final String typeHeader = req.headers("X-CloudSpill-Type");
+				final String typeHeader = req.headers(CloudSpillApi.UPLOAD_TYPE_HEADER);
 				if (typeHeader != null) {
 					try {
 						item.setType(ItemType.valueOf(typeHeader));

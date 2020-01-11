@@ -10,6 +10,7 @@ import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.HttpHeaderParser;
 
+import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.domain.ItemType;
 
 import java.io.UnsupportedEncodingException;
@@ -45,8 +46,8 @@ public class FileUploadRequest extends StringBasedAuthenticatingRequest<Long> {
     @Override
     public Map<String, String> getHeaders() {
         Map<String, String> headers = super.getHeaders();
-        headers.put("X-CloudSpill-Timestamp", Long.toString(date.getTime()));
-        headers.put("X-CloudSpill-Type", type.name());
+        headers.put(CloudSpillApi.UPLOAD_TIMESTAMP_HEADER, Long.toString(date.getTime()));
+        headers.put(CloudSpillApi.UPLOAD_TYPE_HEADER, type.name());
         return headers;
     }
 

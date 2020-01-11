@@ -8,7 +8,6 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
-import android.net.Uri;
 import android.os.Bundle;
 import android.text.format.DateFormat;
 import android.util.Log;
@@ -20,9 +19,8 @@ import android.widget.TextView;
 import org.gamboni.cloudspill.R;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.HasDomain;
-import org.gamboni.cloudspill.domain.Splitter;
+import org.gamboni.cloudspill.shared.util.Splitter;
 import org.gamboni.cloudspill.job.DownloadStatus;
-import org.gamboni.cloudspill.job.MediaDownloader;
 import org.gamboni.cloudspill.job.ThumbnailIntentService;
 
 import java.util.ArrayList;

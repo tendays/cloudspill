@@ -1,4 +1,4 @@
-package org.gamboni.cloudspill.file;
+package org.gamboni.cloudspill.shared.util;
 
 import org.gamboni.cloudspill.shared.domain.ItemType;
 

@@ -1,8 +1,6 @@
 package org.gamboni.cloudspill.server;
 
 import android.content.Context;
-import android.support.annotation.NonNull;
-import android.util.Base64;
 import android.util.Log;
 
 import com.android.volley.RequestQueue;
@@ -10,8 +8,8 @@ import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.Volley;
 
-import org.gamboni.cloudspill.domain.ServerInfo;
-import org.gamboni.cloudspill.file.FileBuilder;
+import org.gamboni.cloudspill.shared.api.CloudSpillApi;
+import org.gamboni.cloudspill.shared.api.ServerInfo;
 import org.gamboni.cloudspill.message.StatusReport;
 import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.ui.SettingsActivity;
@@ -22,12 +20,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.Reader;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.nio.ByteOrder;
-import java.nio.CharBuffer;
 import java.util.Date;
 
 /**
@@ -189,7 +181,7 @@ public class CloudSpillServerProxy {
 
     public void upload(String folder, String path, Date date, ItemType type, byte[] body, Response.Listener<Long> listener, Response.ErrorListener onError) {
         Log.d(TAG, "Uploading "+ body.length +" bytes");
-        queue.add(new FileUploadRequest(context, url +"/item/"+ user +"/" + folder +"/"+ path,
+        queue.add(new FileUploadRequest(context, url + CloudSpillApi.upload(user, folder, path),
                 date,
                 type,
                 body,

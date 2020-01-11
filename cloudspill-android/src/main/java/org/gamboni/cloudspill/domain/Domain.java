@@ -8,12 +8,12 @@ import android.util.Log;
 
 import org.gamboni.cloudspill.file.FileBuilder;
 import org.gamboni.cloudspill.shared.domain.ItemType;
+import org.gamboni.cloudspill.shared.util.Splitter;
 import org.gamboni.cloudspill.ui.SettingsActivity;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 

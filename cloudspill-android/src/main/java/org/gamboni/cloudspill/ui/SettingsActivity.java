@@ -3,7 +3,6 @@ package org.gamboni.cloudspill.ui;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.content.res.Configuration;
 import android.os.Bundle;
 import android.preference.Preference;
 import android.preference.PreferenceActivity;
@@ -14,7 +13,7 @@ import android.util.Log;
 
 import org.gamboni.cloudspill.job.CloudSpillIntentService;
 import org.gamboni.cloudspill.R;
-import org.gamboni.cloudspill.domain.ServerInfo;
+import org.gamboni.cloudspill.shared.api.ServerInfo;
 import org.gamboni.cloudspill.file.FileBuilder;
 
 import java.io.File;

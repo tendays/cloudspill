@@ -1,4 +1,4 @@
-package org.gamboni.cloudspill.domain;
+package org.gamboni.cloudspill.shared.api;
 
 /** Represents a version of the server-side CloudSpill data schema.
  *

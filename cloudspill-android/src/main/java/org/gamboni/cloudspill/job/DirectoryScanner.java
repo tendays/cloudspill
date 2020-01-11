@@ -8,10 +8,9 @@ import android.util.Log;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 
-import org.gamboni.cloudspill.domain.AbstractDomain;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.file.FileBuilder;
-import org.gamboni.cloudspill.file.FileTypeChecker;
+import org.gamboni.cloudspill.shared.util.FileTypeChecker;
 import org.gamboni.cloudspill.message.StatusReport;
 import org.gamboni.cloudspill.server.CloudSpillServerProxy;
 import org.gamboni.cloudspill.shared.domain.ItemType;
@@ -28,8 +27,6 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
-import javax.xml.datatype.DatatypeFactory;
 
 /**
  * Created by tendays on 24.06.17.

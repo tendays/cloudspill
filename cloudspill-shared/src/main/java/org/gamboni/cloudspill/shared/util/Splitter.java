@@ -1,4 +1,4 @@
-package org.gamboni.cloudspill.domain;
+package org.gamboni.cloudspill.shared.util;
 
 import java.util.Collection;
 

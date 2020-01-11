@@ -8,7 +8,7 @@ import com.android.volley.VolleyError;
 
 import org.gamboni.cloudspill.domain.AbstractDomain;
 import org.gamboni.cloudspill.domain.Domain;
-import org.gamboni.cloudspill.domain.ServerInfo;
+import org.gamboni.cloudspill.shared.api.ServerInfo;
 import org.gamboni.cloudspill.message.StatusReport;
 import org.gamboni.cloudspill.server.CloudSpillServerProxy;
 import org.gamboni.cloudspill.server.ItemsSinceRequest;
