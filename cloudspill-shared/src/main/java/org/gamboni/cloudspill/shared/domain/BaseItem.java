@@ -29,6 +29,7 @@ public class BaseItem {
 	LocalDateTime date;
 	ItemType type;
 	Set<String> tags;
+	String description;
 	
 	@Column
 	public String getUser() {
@@ -87,6 +88,15 @@ public class BaseItem {
 	
 	public void setTags(Set<String> tags) {
 		this.tags = tags;
+	}
+
+	@Column
+	public String getDescription() {
+		return description;
+	}
+
+	public void setDescription(String description) {
+		this.description = description;
 	}
 
 	public File getFile(File rootFolder) {

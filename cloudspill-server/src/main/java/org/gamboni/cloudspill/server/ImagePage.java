@@ -8,6 +8,7 @@ import java.time.format.DateTimeFormatter;
 import org.gamboni.cloudspill.domain.Item;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.MoreObjects;
 import com.google.inject.Inject;
 
 /**
@@ -118,8 +119,11 @@ public class ImagePage {
 						tag("h1", "", getTitle()) +
 						unclosedTag("img class='image' src="+ quote(getImageUrl())) +
 						tag("div", "class='metadata'", "By: "+ item.getUser() +
-								dateLine() +
-								"<br>Tags: "+ Joiner.on(", ").join(item.getTags())))
+								dateLine()) +
+								tag("div", "class='metadata'",
+										MoreObjects.firstNonNull(item.getDescription(), "")) +
+								tag("div", "class='metadata'",
+								"Tags: "+ Joiner.on(", ").join(item.getTags())))
 				);
 	}
 
