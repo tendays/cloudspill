@@ -9,6 +9,8 @@ import org.hibernate.criterion.Restrictions;
 
 import java.util.stream.Collectors;
 
+import javax.persistence.criteria.JoinType;
+
 /**
  * @author tendays
  */
@@ -38,7 +40,8 @@ public class GalleryPage extends AbstractPage {
     @Override
     protected String getBody() {
         final Domain.Query<Item> itemQuery = domain.selectItem();
-        itemQuery.join("tags").add(Restrictions.eq("tags", Iterables.getOnlyElement(criteria.getTags())));
+        //itemQuery.join("tags");
+        itemQuery.add(Restrictions.eq("tags", Iterables.getOnlyElement(criteria.getTags())));
         return itemQuery.list().stream().map(Item::getPath).collect(Collectors.joining("<br>"));
     }
 }
