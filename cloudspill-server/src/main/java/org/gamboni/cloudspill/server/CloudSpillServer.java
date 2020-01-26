@@ -500,16 +500,6 @@ public class CloudSpillServer extends AbstractServer {
 			String key = req.queryParams("key");
 			if (key != null) { key = key.replace(' ', '+'); }
 			
-			User user;
-			if (key == null) {
-				user = authenticate(req, res, session);
-				if (user == null) {
-					return String.valueOf(res.status());
-				}
-			} else {
-				user = optionalAuthenticate(req, res, session);
-			}
-
 			String idParam = req.params("id");
 			if (idParam != null && idParam.endsWith(ID_HTML_SUFFIX)) {
 				idParam = idParam.substring(0, idParam.length() - ID_HTML_SUFFIX.length());
@@ -517,7 +507,7 @@ public class CloudSpillServer extends AbstractServer {
 			
 			/* Either we have a key, or user is authenticated. */
 			final long id = Long.parseLong(idParam);
-			Item item = session.get(Item.class, id);
+			final Item item = session.get(Item.class, id);
 			
 			if (item == null) {
 				return notFound(res, id);
@@ -528,6 +518,17 @@ public class CloudSpillServer extends AbstractServer {
 				Log.warn("Bad key value. Expected "+ item.getChecksum() +", got "+ key);
 				return forbidden(res, false);
 			}
+
+			User user;
+			if (key == null && !item.getTags().contains("public")) {
+				user = authenticate(req, res, session);
+				if (user == null) {
+					return String.valueOf(res.status());
+				}
+			} else {
+				user = optionalAuthenticate(req, res, session);
+			}
+
 			return task.handle(req, res, session, user, item);
 		});
 	}
