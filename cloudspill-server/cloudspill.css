@@ -1,6 +1,7 @@
 .image {
     max-width: 90vw;
     max-height: 90vh;
+    image-orientation: from-image;
 }
 .metadata {
     float: right;
