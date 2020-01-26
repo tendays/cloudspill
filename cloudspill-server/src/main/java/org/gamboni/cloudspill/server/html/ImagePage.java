@@ -1,11 +1,13 @@
 /**
  * 
  */
-package org.gamboni.cloudspill.server;
+package org.gamboni.cloudspill.server.html;
 
 import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 
 import org.gamboni.cloudspill.domain.Item;
+import org.gamboni.cloudspill.server.ServerConfiguration;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
@@ -15,12 +17,13 @@ import com.google.inject.Inject;
  * @author tendays
  *
  */
-public class ImagePage {
-	
-	private final Item item;
+public class ImagePage extends AbstractPage {
 	private final ServerConfiguration configuration;
+	private final Item item;
 	
 	private ImagePage(ServerConfiguration configuration, Item item) {
+		super(configuration.getCss());
+
 		this.configuration = configuration;
 		this.item = item;
 	}
@@ -56,33 +59,6 @@ public class ImagePage {
   </body>
 </html>
  */
-	private static String tag(String name, String attributes, String content) {
-		return "<"+ name +" "+ attributes +">"+ content +"</"+ name +">";
-	}
-	
-	private static String tag(String name, String content) {
-		return "<"+ name +">"+ content +"</"+ name +">";
-	}
-	
-	private static String slashedTag(String name) {
-		return "<"+ name +"/>";
-	}
-	
-	private static String unclosedTag(String name) {
-		return "<"+ name +">";
-	}
-	
-	private static String meta(String property, String content) {
-		return slashedTag("meta property="+ quote(property) +" content="+ quote(content));
-	}
-	
-	private static String quote(String text) {
-		return "\""+ text
-				.replace("&", "&amp;")
-		.replace("<", "&lt;")
-		.replace("\"", "&quot;")
-		+ "\"";
-	}
 
 	public String getTitle() {
 		return item.getUser() +"/"+ item.getFolder() +"/"+ item.getPath();
@@ -92,8 +68,8 @@ public class ImagePage {
 		return configuration.getPublicUrl() + "/item/html/"+ item.getId() + accessKeyQueryString();
 	}
 
-	public String getThumbnailUrl() {
-		return configuration.getPublicUrl() + "/thumbs/300/"+ item.getId() + accessKeyQueryString();
+	public Optional<String> getThumbnailUrl() {
+		return Optional.of(configuration.getPublicUrl() + "/thumbs/300/"+ item.getId() + accessKeyQueryString());
 	}
 
 	public String getImageUrl() {
@@ -103,28 +79,15 @@ public class ImagePage {
 	private String accessKeyQueryString() {
 		return "?key="+ item.getChecksum().replace("+", "%2B");
 	}
-	
-	public String getHtml() {
-		return tag("html", "prefix=\"og: http://ogp.me/ns#\"",
-				tag("head",
-						tag("title", getTitle()) +
-						meta("og:title", getTitle()) +
-						meta("og:type", "article") +
-						meta("og:url", getPageUrl()) +
-						meta("og:image", getThumbnailUrl()) +
-						slashedTag("link rel=\"stylesheet\" type=\"text/css\" href=" +
-						quote(configuration.getCss()))
-						) +
-				tag("body",
-						tag("h1", "", getTitle()) +
-						unclosedTag("img class='image' src="+ quote(getImageUrl())) +
+
+	public String getBody() {
+					return	unclosedTag("img class='image' src="+ quote(getImageUrl())) +
 						tag("div", "class='metadata'", "By: "+ item.getUser() +
 								dateLine()) +
 								tag("div", "class='metadata'",
 										MoreObjects.firstNonNull(item.getDescription(), "")) +
 								tag("div", "class='metadata'",
-								"Tags: "+ Joiner.on(", ").join(item.getTags())))
-				);
+								"Tags: "+ Joiner.on(", ").join(item.getTags()));
 	}
 
 	private String dateLine() {

@@ -4,6 +4,7 @@ import java.util.Properties;
 
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.User;
+import org.gamboni.cloudspill.server.html.ImagePage;
 import org.hibernate.SessionFactory;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 import org.hibernate.c3p0.internal.C3P0ConnectionProvider;

@@ -39,6 +39,9 @@ import org.bytedeco.javacv.Java2DFrameConverter;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.User;
+import org.gamboni.cloudspill.server.html.GalleryPage;
+import org.gamboni.cloudspill.server.html.ImagePage;
+import org.gamboni.cloudspill.server.html.SearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.shared.util.ImageOrientationUtil;
@@ -48,6 +51,7 @@ import org.hibernate.criterion.Restrictions;
 import org.mindrot.jbcrypt.BCrypt;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
 import com.google.inject.Guice;
@@ -164,6 +168,11 @@ public class CloudSpillServer extends AbstractServer {
         /* Html version of a file */
         get("/item/html/:id", securedItem(rootFolder, (req, res, session, user, item) -> {
         	return imagePages.create(item).getHtml();
+		}));
+
+        get("/tag/:tag", secured((req, res, domain, user) -> {
+        	SearchCriteria criteria = new SearchCriteria(ImmutableSet.of(req.params("tag")), null, null);
+        	return new GalleryPage(configuration, domain, criteria).getHtml();
 		}));
         
         /* Download a file */

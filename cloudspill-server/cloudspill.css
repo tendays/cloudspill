@@ -2,10 +2,11 @@
     max-width: 90vw;
     max-height: 90vh;
     image-orientation: from-image;
+    float: left;
 }
 .metadata {
     float: right;
     width: 10vw;
+    min-width: 10em;
     text-align: left;
-    clear: left;
 }

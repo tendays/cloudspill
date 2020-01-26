@@ -30,20 +30,40 @@ public class Domain {
 		return new Query<>(User.class);
 	}
 
-	public class Query<T> {
-		private final Criteria criteria;
-		public Query(Class<T> persistentClass) {
-			this.criteria = session.createCriteria(persistentClass);
+	public class QueryNode<SELF> {
+		protected final Criteria criteria;
+		protected QueryNode(Criteria criteria) {
+			this.criteria = criteria;
 		}
-		
-		public Query<T> add(Criterion c) {
+
+		public SELF add(Criterion c) {
 			criteria.add(c);
-			return this;
+			return self();
+		}
+
+		protected SELF self() {
+			return (SELF)this;
+		}
+	}
+
+	public class Subquery extends QueryNode<Subquery> {
+		protected Subquery(Criteria criteria) {
+			super(criteria);
+		}
+	}
+
+	public class Query<T> extends QueryNode<Query<T>> {
+		public Query(Class<T> persistentClass) {
+			super(session.createCriteria(persistentClass));
 		}
 
 		public Query<T> addOrder(Order order) {
 			criteria.addOrder(order);
 			return this;
+		}
+
+		public Subquery join(String join) {
+			return new Subquery(criteria.createCriteria(join));
 		}
 		
 		public Query<T> forUpdate() {
