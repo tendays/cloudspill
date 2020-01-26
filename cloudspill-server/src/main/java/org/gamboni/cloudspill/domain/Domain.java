@@ -30,7 +30,7 @@ public class Domain {
 		return new Query<>(User.class);
 	}
 
-	public class QueryNode<SELF> {
+	public abstract class QueryNode<SELF> {
 		protected final Criteria criteria;
 		protected QueryNode(Criteria criteria) {
 			this.criteria = criteria;
@@ -41,14 +41,16 @@ public class Domain {
 			return self();
 		}
 
-		protected SELF self() {
-			return (SELF)this;
-		}
+		protected abstract SELF self();
 	}
 
 	public class Subquery extends QueryNode<Subquery> {
 		protected Subquery(Criteria criteria) {
 			super(criteria);
+		}
+
+		protected Subquery self() {
+			return this;
 		}
 	}
 
@@ -76,6 +78,11 @@ public class Domain {
 		@SuppressWarnings("unchecked")
 		public List<T> list() {
 			return criteria.list();
+		}
+
+		@Override
+		protected Query<T> self() {
+			return this;
 		}
 	}
 
