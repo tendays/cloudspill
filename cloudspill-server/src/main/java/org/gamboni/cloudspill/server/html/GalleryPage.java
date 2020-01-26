@@ -1,5 +1,6 @@
 package org.gamboni.cloudspill.server.html;
 
+import com.google.common.base.CaseFormat;
 import com.google.common.collect.Iterables;
 
 import org.gamboni.cloudspill.domain.Domain;
@@ -28,7 +29,10 @@ public class GalleryPage extends AbstractPage {
 
     @Override
     protected String getTitle() {
-        return "Photos"; // TODO take criteria into account
+        return criteria.getTags().stream()
+                .map(t -> CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, t))
+        .collect(Collectors.joining(" "))
+        + " Photos";
     }
 
     @Override
