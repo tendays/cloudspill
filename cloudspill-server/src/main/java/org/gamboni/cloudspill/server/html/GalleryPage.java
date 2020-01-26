@@ -6,6 +6,7 @@ import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.server.ServerConfiguration;
 import org.hibernate.criterion.Restrictions;
+import org.hibernate.persister.collection.CollectionPropertyNames;
 
 import java.util.stream.Collectors;
 
@@ -41,7 +42,9 @@ public class GalleryPage extends AbstractPage {
     protected String getBody() {
         final Domain.Query<Item> itemQuery = domain.selectItem();
         //itemQuery.join("tags");
-        itemQuery.add(Restrictions.eq("tags", Iterables.getOnlyElement(criteria.getTags())));
+        itemQuery.add(Restrictions.eq(
+                itemQuery.alias("tags", "t") +"."+ CollectionPropertyNames.COLLECTION_ELEMENTS,
+                Iterables.getOnlyElement(criteria.getTags())));
         return itemQuery.list().stream().map(Item::getPath).collect(Collectors.joining("<br>"));
     }
 }

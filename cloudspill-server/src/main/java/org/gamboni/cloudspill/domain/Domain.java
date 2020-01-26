@@ -41,6 +41,11 @@ public class Domain {
 			return self();
 		}
 
+		public String alias(String path, String alias) {
+			criteria.createAlias(path, alias);
+			return alias;
+		}
+
 		protected abstract SELF self();
 	}
 
