@@ -16,14 +16,12 @@ import javax.persistence.criteria.JoinType;
  * @author tendays
  */
 public class GalleryPage extends AbstractPage {
-    private final ServerConfiguration config;
     private final Domain domain;
     private final SearchCriteria criteria;
 
-    public GalleryPage(ServerConfiguration config, Domain domain, SearchCriteria criteria) {
-        super(config.getCss());
+    public GalleryPage(ServerConfiguration configuration, Domain domain, SearchCriteria criteria) {
+        super(configuration, configuration.getCss());
 
-        this.config = config;
         this.domain = domain;
         this.criteria = criteria;
     }
@@ -35,16 +33,21 @@ public class GalleryPage extends AbstractPage {
 
     @Override
     protected String getPageUrl() {
-        return config.getPublicUrl(); // TODO take criteria into account
+        return configuration.getPublicUrl(); // TODO take criteria into account
     }
 
     @Override
     protected String getBody() {
         final Domain.Query<Item> itemQuery = domain.selectItem();
-        //itemQuery.join("tags");
-        itemQuery.add(Restrictions.eq(
-                itemQuery.alias("tags", "t") +"."+ CollectionPropertyNames.COLLECTION_ELEMENTS,
-                Iterables.getOnlyElement(criteria.getTags())));
-        return itemQuery.list().stream().map(Item::getPath).collect(Collectors.joining("<br>"));
+
+        int counter=1;
+        for (String tag : criteria.getTags()) {
+            itemQuery.add(Restrictions.eq(
+                    itemQuery.alias("tags", "t" + (counter++)) + "." + CollectionPropertyNames.COLLECTION_ELEMENTS,
+                    tag));
+        }
+        return itemQuery.list().stream().map(item ->
+            unclosedTag("img class='image' src="+ quote(getThumbnailUrl(item)))
+        ).collect(Collectors.joining());
     }
 }

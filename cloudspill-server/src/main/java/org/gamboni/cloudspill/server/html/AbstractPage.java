@@ -1,5 +1,8 @@
 package org.gamboni.cloudspill.server.html;
 
+import org.gamboni.cloudspill.domain.Item;
+import org.gamboni.cloudspill.server.ServerConfiguration;
+
 import java.util.Optional;
 
 /**
@@ -35,8 +38,10 @@ public abstract class AbstractPage {
     }
 
     private final String css;
+    protected final ServerConfiguration configuration;
 
-    protected AbstractPage(String css) {
+    protected AbstractPage(ServerConfiguration configuration, String css) {
+        this.configuration = configuration;
         this.css = css;
     }
 
@@ -49,6 +54,19 @@ public abstract class AbstractPage {
     protected Optional<String> getThumbnailUrl() {
         return Optional.empty();
     }
+
+    protected String getThumbnailUrl(Item item) {
+        return configuration.getPublicUrl() + "/thumbs/300/"+ item.getId() + accessKeyQueryString(item);
+    }
+
+    protected String getImageUrl(Item item) {
+        return configuration.getPublicUrl() +"/item/"+ item.getId() + accessKeyQueryString(item);
+    }
+
+    protected String accessKeyQueryString(Item item) {
+        return "?key="+ item.getChecksum().replace("+", "%2B");
+    }
+
 
     public String getHtml() {
         return tag("html", "prefix=\"og: http://ogp.me/ns#\"",

@@ -18,13 +18,11 @@ import com.google.inject.Inject;
  *
  */
 public class ImagePage extends AbstractPage {
-	private final ServerConfiguration configuration;
 	private final Item item;
 	
 	private ImagePage(ServerConfiguration configuration, Item item) {
-		super(configuration.getCss());
+		super(configuration, configuration.getCss());
 
-		this.configuration = configuration;
 		this.item = item;
 	}
 	
@@ -65,19 +63,15 @@ public class ImagePage extends AbstractPage {
 	}
 
 	public String getPageUrl() {
-		return configuration.getPublicUrl() + "/item/html/"+ item.getId() + accessKeyQueryString();
+		return configuration.getPublicUrl() + "/item/html/"+ item.getId() + accessKeyQueryString(item);
 	}
 
 	public Optional<String> getThumbnailUrl() {
-		return Optional.of(configuration.getPublicUrl() + "/thumbs/300/"+ item.getId() + accessKeyQueryString());
+		return Optional.of(getThumbnailUrl(item));
 	}
 
 	public String getImageUrl() {
-		return configuration.getPublicUrl() +"/item/"+ item.getId() + accessKeyQueryString();
-	}
-
-	private String accessKeyQueryString() {
-		return "?key="+ item.getChecksum().replace("+", "%2B");
+		return getImageUrl(item);
 	}
 
 	public String getBody() {
