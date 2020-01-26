@@ -63,7 +63,7 @@ public abstract class AbstractPage {
         return configuration.getPublicUrl() +"/item/"+ item.getId() + accessKeyQueryString(item);
     }
 
-    protected String accessKeyQueryString(Item item) {
+    protected static String accessKeyQueryString(Item item) {
         return "?key="+ item.getChecksum().replace("+", "%2B");
     }
 

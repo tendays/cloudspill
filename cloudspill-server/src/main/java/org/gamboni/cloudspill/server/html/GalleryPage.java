@@ -51,7 +51,8 @@ public class GalleryPage extends AbstractPage {
                     tag));
         }
         return itemQuery.list().stream().map(item ->
-            unclosedTag("img class='image' src="+ quote(getThumbnailUrl(item)))
+                tag("a href="+ quote(ImagePage.getUrl(configuration, item)),
+            unclosedTag("img class='image' src="+ quote(getThumbnailUrl(item))))
         ).collect(Collectors.joining());
     }
 }

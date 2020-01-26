@@ -62,6 +62,10 @@ public class ImagePage extends AbstractPage {
 		return item.getUser() +"/"+ item.getFolder() +"/"+ item.getPath();
 	}
 
+	public static String getUrl(ServerConfiguration configuration, Item item) {
+		return configuration.getPublicUrl() + "/item/html/"+ item.getId() + accessKeyQueryString(item);
+	}
+
 	public String getPageUrl() {
 		return configuration.getPublicUrl() + "/item/html/"+ item.getId() + accessKeyQueryString(item);
 	}
