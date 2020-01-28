@@ -1,9 +1,26 @@
+/* "dark mode" */
+
+body {
+    background-color: #222;
+    color: white;
+}
+
+h1 {
+    text-align: center;
+    font-family: sans;
+    font-weight: 100;
+    letter-spacing: 0.3em;
+    font-variant: small-caps;
+    color: gray;
+}
+
 .image {
     max-width: 90vw;
     max-height: 90vh;
     image-orientation: from-image;
     float: left;
 }
+
 .metadata {
     float: right;
     width: 10vw;

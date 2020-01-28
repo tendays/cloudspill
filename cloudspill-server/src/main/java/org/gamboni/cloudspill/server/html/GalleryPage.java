@@ -6,6 +6,7 @@ import com.google.common.collect.Iterables;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.server.ServerConfiguration;
+import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.persister.collection.CollectionPropertyNames;
 
@@ -42,7 +43,7 @@ public class GalleryPage extends AbstractPage {
 
     @Override
     protected String getBody() {
-        final Domain.Query<Item> itemQuery = domain.selectItem();
+        final Domain.Query<Item> itemQuery = domain.selectItem().addOrder(Order.desc("date"));
 
         int counter=1;
         for (String tag : criteria.getTags()) {
