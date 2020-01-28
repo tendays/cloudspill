@@ -23,6 +23,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.List;
@@ -61,9 +62,12 @@ import spark.Request;
 import spark.Response;
 import spark.Route;
 
-/**
- * @author tendays
+/** Planned general API structure:
+ * /public/* for stuff that does not require authentication
+ * /api/* for everything that isn't media or html
+ * /public/api/* both of the above
  *
+ * @author tendays
  */
 public class CloudSpillServer extends AbstractServer {
 	
@@ -170,9 +174,15 @@ public class CloudSpillServer extends AbstractServer {
         	return imagePages.create(item).getHtml();
 		}));
 
-        get("/tag/:tag", secured((req, res, domain, user) -> {
-        	SearchCriteria criteria = new SearchCriteria(ImmutableSet.of(req.params("tag")), null, null);
-        	return new GalleryPage(configuration, domain, criteria).getHtml();
+		get("/tag/:tag", secured((req, res, domain, user) -> {
+			SearchCriteria criteria = new SearchCriteria(ImmutableSet.of(req.params("tag")), null, null);
+			return new GalleryPage(configuration, domain, criteria).getHtml();
+		}));
+
+		get("/day/:day", secured((req, res, domain, user) -> {
+			LocalDate day = LocalDate.parse(req.params("day"));
+			SearchCriteria criteria = new SearchCriteria(ImmutableSet.of(), day, day);
+			return new GalleryPage(configuration, domain, criteria).getHtml();
 		}));
 
 		get("/public", (req, res) -> transacted(session -> {

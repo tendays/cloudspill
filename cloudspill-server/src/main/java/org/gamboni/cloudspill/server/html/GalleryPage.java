@@ -2,6 +2,7 @@ package org.gamboni.cloudspill.server.html;
 
 import com.google.common.base.CaseFormat;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.Item;
@@ -10,7 +11,9 @@ import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.persister.collection.CollectionPropertyNames;
 
+import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import javax.persistence.criteria.JoinType;
 
@@ -30,7 +33,11 @@ public class GalleryPage extends AbstractPage {
 
     @Override
     protected String getTitle() {
-        return criteria.getTags().stream()
+        Stream<String> day = (criteria.getFrom() != null && criteria.getFrom().equals(criteria.getTo())) ?
+                Stream.of(criteria.getFrom().toString()) : Stream.empty();
+        return Streams.concat(
+                day,
+                criteria.getTags().stream())
                 .map(t -> CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, t))
         .collect(Collectors.joining(" "))
         + " Photos";
@@ -50,6 +57,12 @@ public class GalleryPage extends AbstractPage {
             itemQuery.add(Restrictions.eq(
                     itemQuery.alias("tags", "t" + (counter++)) + "." + CollectionPropertyNames.COLLECTION_ELEMENTS,
                     tag));
+        }
+        if (criteria.getFrom() != null) {
+            itemQuery.add(Restrictions.ge("date", criteria.getFrom().atStartOfDay()));
+        }
+        if (criteria.getTo() != null) {
+            itemQuery.add(Restrictions.lt("date", criteria.getTo().atStartOfDay()));
         }
         return itemQuery.list().stream().map(item ->
                 tag("a href="+ quote(ImagePage.getUrl(configuration, item)),
