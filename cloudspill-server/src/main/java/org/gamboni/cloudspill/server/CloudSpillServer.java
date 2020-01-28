@@ -174,6 +174,11 @@ public class CloudSpillServer extends AbstractServer {
         	SearchCriteria criteria = new SearchCriteria(ImmutableSet.of(req.params("tag")), null, null);
         	return new GalleryPage(configuration, domain, criteria).getHtml();
 		}));
+
+		get("/public", (req, res) -> transacted(session -> {
+			SearchCriteria criteria = new SearchCriteria(ImmutableSet.of("public"), null, null);
+			return new GalleryPage(configuration, session, criteria).getHtml();
+		}));
         
         /* Download a file */
         get("/item/:id", securedItem(rootFolder, (req, res, session, user, item) -> {
