@@ -102,7 +102,7 @@ public class ImagePage extends AbstractPage {
 								"Tags: "+
 										item.getTags().stream()
 										.map(tag -> tagElement(tag, user))
-										.collect(Collectors.joining()));
+										.collect(Collectors.joining(" ")));
 	}
 
 	private String tagElement(String tag, User user) {
