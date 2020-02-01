@@ -15,6 +15,7 @@ import javax.persistence.EnumType;
 import javax.persistence.Enumerated;
 import javax.persistence.FetchType;
 import javax.persistence.MappedSuperclass;
+import javax.persistence.Transient;
 
 /**
  * @author tendays
@@ -108,6 +109,7 @@ public class BaseItem {
 	}
 
 
+	@Transient
 	public boolean isPublic() {
 		return this.getTags().contains("public");
 	}
