@@ -68,7 +68,16 @@ public class ImagePage extends AbstractPage {
 	}
 
 	public static String getUrl(ServerConfiguration configuration, Item item, User user) {
-		return configuration.getPublicUrl() + (user == null ? "/public" : "") + "/item/"+ item.getId() + CloudSpillServer.ID_HTML_SUFFIX + accessKeyQueryString(item);
+		if (user == null) {
+			if (item.isPublic()) {
+				return configuration.getPublicUrl() + "/public/item/" + item.getId() + CloudSpillServer.ID_HTML_SUFFIX;
+			} else {
+				return configuration.getPublicUrl() + "/item/" + item.getId() + CloudSpillServer.ID_HTML_SUFFIX +
+						accessKeyQueryString(item);
+			}
+		} else {
+			return configuration.getPublicUrl() + "/item/" + item.getId() + CloudSpillServer.ID_HTML_SUFFIX;
+		}
 	}
 
 	public String getPageUrl(User user) {
