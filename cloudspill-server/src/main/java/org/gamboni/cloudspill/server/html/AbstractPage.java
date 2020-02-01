@@ -1,9 +1,14 @@
 package org.gamboni.cloudspill.server.html;
 
+import com.google.common.collect.Iterables;
+
 import org.gamboni.cloudspill.domain.Item;
+import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.ServerConfiguration;
 
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * @author tendays
@@ -47,9 +52,9 @@ public abstract class AbstractPage {
 
     protected abstract String getTitle();
 
-    protected abstract String getPageUrl();
+    protected abstract String getPageUrl(User user);
 
-    protected abstract String getBody();
+    protected abstract String getBody(User user);
 
     protected Optional<String> getThumbnailUrl() {
         return Optional.empty();
@@ -67,21 +72,32 @@ public abstract class AbstractPage {
         return "?key="+ item.getChecksum().replace("+", "%2B");
     }
 
+    protected String getGalleryUrl(SearchCriteria c) {
+        Set<String> otherTags = c.getTags().stream().filter(t -> !t.equals("public")).collect(Collectors.toSet());
+        String baseUrl = c.getTags().contains("public") ? configuration.getPublicUrl() +"/public" : configuration.getPublicUrl();
+        if (otherTags.size() == 1 && c.getFrom() == null && c.getTo() == null) {
+            return baseUrl + "/tag/" + Iterables.getOnlyElement(c.getTags());
+        } else if (otherTags.isEmpty() && c.getFrom() != null && c.getFrom().equals(c.getTo())) {
+            return baseUrl +"/day/"+ c.getFrom();
+        } else {
+            return baseUrl; // TODO
+        }
+    }
 
-    public String getHtml() {
+    public String getHtml(User user) {
         return tag("html", "prefix=\"og: http://ogp.me/ns#\"",
                 tag("head",
                         tag("title", getTitle()) +
                                 meta("og:title", getTitle()) +
                                 meta("og:type", "article") +
-                                meta("og:url", getPageUrl()) +
+                                meta("og:url", getPageUrl(user)) +
                                 getThumbnailUrl().map(url -> meta("og:image", url)).orElse("") +
                                 slashedTag("link rel=\"stylesheet\" type=\"text/css\" href=" +
                                         quote(css))
                 ) +
                         tag("body",
                                 tag("h1", "", getTitle()) +
-                                getBody()));
+                                getBody(user)));
     }
 
 }

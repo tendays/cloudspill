@@ -5,12 +5,17 @@ package org.gamboni.cloudspill.server.html;
 
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.gamboni.cloudspill.domain.Item;
+import org.gamboni.cloudspill.domain.User;
+import org.gamboni.cloudspill.server.CloudSpillServer;
 import org.gamboni.cloudspill.server.ServerConfiguration;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 
 /**
@@ -62,12 +67,12 @@ public class ImagePage extends AbstractPage {
 		return item.getUser() +"/"+ item.getFolder() +"/"+ item.getPath();
 	}
 
-	public static String getUrl(ServerConfiguration configuration, Item item) {
-		return configuration.getPublicUrl() + "/item/html/"+ item.getId() + accessKeyQueryString(item);
+	public static String getUrl(ServerConfiguration configuration, Item item, User user) {
+		return configuration.getPublicUrl() + (user == null ? "/public" : "") + "/item/"+ item.getId() + CloudSpillServer.ID_HTML_SUFFIX + accessKeyQueryString(item);
 	}
 
-	public String getPageUrl() {
-		return configuration.getPublicUrl() + "/item/html/"+ item.getId() + accessKeyQueryString(item);
+	public String getPageUrl(User user) {
+		return getUrl(this.configuration, this.item, user);
 	}
 
 	public Optional<String> getThumbnailUrl() {
@@ -78,21 +83,36 @@ public class ImagePage extends AbstractPage {
 		return getImageUrl(item);
 	}
 
-	public String getBody() {
+	public String getBody(User user) {
 					return	unclosedTag("img class='image' src="+ quote(getImageUrl())) +
 						tag("div", "class='metadata'", "By: "+ item.getUser() +
-								dateLine()) +
+								dateLine(user)) +
 								tag("div", "class='metadata'",
 										MoreObjects.firstNonNull(item.getDescription(), "")) +
 								tag("div", "class='metadata'",
-								"Tags: "+ Joiner.on(", ").join(item.getTags()));
+								"Tags: "+
+										item.getTags().stream()
+										.map(tag -> tagElement(tag, user))
+										.collect(Collectors.joining()));
 	}
 
-	private String dateLine() {
+	private String tagElement(String tag, User user) {
+		if (user == null) {
+			return tag("span class='tag'", tag);
+		} else {
+			return tag("a class='tag' href="+ quote(getGalleryUrl(
+					new SearchCriteria(ImmutableSet.of(tag),null, null))),
+					tag);
+		}
+	}
+
+	private String dateLine(User user) {
 		if (item.getDate() == null) { return ""; }
-		
-		return "<br>Date: "+ item.getDate()
-		.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm:ss"));
+		String dateString = "Date: "+ item.getDate()
+				.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm:ss"));
+		return "<br>" + (user == null ? dateString : tag("a href="+
+				quote(getGalleryUrl(new SearchCriteria(ImmutableSet.of(), item.getDate().toLocalDate(), item.getDate().toLocalDate()))),
+				dateString));
 	}
 	
 	

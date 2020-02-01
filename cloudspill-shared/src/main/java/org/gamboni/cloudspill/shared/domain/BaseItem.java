@@ -108,4 +108,7 @@ public class BaseItem {
 	}
 
 
+	public boolean isPublic() {
+		return this.getTags().contains("public");
+	}
 }

@@ -67,12 +67,15 @@ import spark.Route;
  * /api/* for everything that isn't media or html
  * /public/api/* both of the above
  *
+ *
+ *
+ *
  * @author tendays
  */
 public class CloudSpillServer extends AbstractServer {
 	
 	/** Suffix added to the id parameter to trigger downloading an html page instead of the raw image. */
-	private static final String ID_HTML_SUFFIX = ".cloudspill";
+	public static final String ID_HTML_SUFFIX = ".cloudspill";
 	@Inject ServerConfiguration configuration;
 	@Inject ImagePage.Factory imagePages;
 	
@@ -169,36 +172,56 @@ public class CloudSpillServer extends AbstractServer {
     		+ CloudSpillApi.PING_DATA_VERSION + ": "+ DATA_VERSION +"\n"
     		+ CloudSpillApi.PING_PUBLIC_URL + ": "+ configuration.getPublicUrl()));
 
-        /* Html version of a file */
-        get("/item/html/:id", securedItem(rootFolder, (req, res, session, user, item) -> {
-        	return imagePages.create(item).getHtml();
-		}));
-
 		get("/tag/:tag", secured((req, res, domain, user) -> {
 			SearchCriteria criteria = new SearchCriteria(ImmutableSet.of(req.params("tag")), null, null);
-			return new GalleryPage(configuration, domain, criteria).getHtml();
+			return new GalleryPage(configuration, domain, criteria).getHtml(user);
 		}));
 
 		get("/day/:day", secured((req, res, domain, user) -> {
 			LocalDate day = LocalDate.parse(req.params("day"));
 			SearchCriteria criteria = new SearchCriteria(ImmutableSet.of(), day, day);
-			return new GalleryPage(configuration, domain, criteria).getHtml();
+			return new GalleryPage(configuration, domain, criteria).getHtml(user);
 		}));
 
 		get("/public", (req, res) -> transacted(session -> {
 			SearchCriteria criteria = new SearchCriteria(ImmutableSet.of("public"), null, null);
-			return new GalleryPage(configuration, session, criteria).getHtml();
+			return new GalleryPage(configuration, session, criteria).getHtml(null);
 		}));
-        
-        /* Download a file */
-        get("/item/:id", securedItem(rootFolder, (req, res, session, user, item) -> {
-        	if (req.params("id").endsWith(ID_HTML_SUFFIX)) {
-        		return imagePages.create(item).getHtml();
-        	} else {
-        		download(rootFolder, res, session, item);
-        		return String.valueOf(res.status());
-        	}
+
+		/* Download a file */
+		get("/item/:id", securedItem(rootFolder, (req, res, session, user, item) -> {
+			if (req.params("id").endsWith(ID_HTML_SUFFIX)) {
+				return imagePages.create(item).getHtml(user);
+			} else {
+				download(rootFolder, res, session, item);
+				return String.valueOf(res.status());
+			}
 		}));
+
+		/* Download a public file */
+		get("/public/item/:id", (req, res) -> transacted(session -> {
+			String idParam = req.params("id");
+			if (idParam.endsWith(ID_HTML_SUFFIX)) {
+				idParam = idParam.substring(0, idParam.length() - ID_HTML_SUFFIX.length());
+			}
+			final long id = Long.parseLong(idParam);
+			final Item item = session.get(Item.class, id);
+
+			if (item == null) {
+				return notFound(res, id);
+			} else if (!item.isPublic()) {
+				return forbidden(res, false);
+			}
+
+			if (req.params("id").endsWith(ID_HTML_SUFFIX)) {
+				return imagePages.create(item).getHtml(null);
+			} else {
+				download(rootFolder, res, session, item);
+				return String.valueOf(res.status());
+			}
+		}));
+
+
         
         /* Download a thumbnail */
         get("/thumbs/:size/:id", securedItem(rootFolder, (req, res, session, user, item) -> 
@@ -544,7 +567,7 @@ public class CloudSpillServer extends AbstractServer {
 			}
 
 			User user;
-			if (key == null && !item.getTags().contains("public")) {
+			if (key == null && !item.isPublic()) {
 				user = authenticate(req, res, session);
 				if (user == null) {
 					return String.valueOf(res.status());

@@ -1,21 +1,18 @@
 package org.gamboni.cloudspill.server.html;
 
 import com.google.common.base.CaseFormat;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.Item;
+import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.ServerConfiguration;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.persister.collection.CollectionPropertyNames;
 
-import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import javax.persistence.criteria.JoinType;
 
 /**
  * @author tendays
@@ -44,12 +41,12 @@ public class GalleryPage extends AbstractPage {
     }
 
     @Override
-    protected String getPageUrl() {
-        return configuration.getPublicUrl(); // TODO take criteria into account
+    protected String getPageUrl(User user) {
+        return getGalleryUrl(criteria);
     }
 
     @Override
-    protected String getBody() {
+    protected String getBody(User user) {
         final Domain.Query<Item> itemQuery = domain.selectItem().addOrder(Order.desc("date"));
 
         int counter=1;
@@ -65,7 +62,7 @@ public class GalleryPage extends AbstractPage {
             itemQuery.add(Restrictions.lt("date", criteria.getTo().plusDays(1).atStartOfDay()));
         }
         return itemQuery.list().stream().map(item ->
-                tag("a href="+ quote(ImagePage.getUrl(configuration, item)),
+                tag("a href="+ quote(ImagePage.getUrl(configuration, item, user)),
             unclosedTag("img class='image' src="+ quote(getThumbnailUrl(item))))
         ).collect(Collectors.joining());
     }
