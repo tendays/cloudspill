@@ -11,6 +11,7 @@ import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.CloudSpillServer;
 import org.gamboni.cloudspill.server.ServerConfiguration;
+import org.gamboni.cloudspill.shared.domain.ItemType;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
@@ -93,7 +94,8 @@ public class ImagePage extends AbstractPage {
 	}
 
 	public String getBody(User user) {
-					return	unclosedTag("img class='image' src="+ quote(getImageUrl())) +
+					return	unclosedTag((item.getType() == ItemType.VIDEO ? "video controls " : "img ") +
+							"class='image' src="+ quote(getImageUrl())) +
 						tag("div", "class='metadata'", "By: "+ item.getUser() +
 								dateLine(user)) +
 								tag("div", "class='metadata'",
