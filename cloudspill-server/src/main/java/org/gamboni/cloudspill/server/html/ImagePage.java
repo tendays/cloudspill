@@ -116,7 +116,7 @@ public class ImagePage extends AbstractPage {
 
 	private String dateLine(User user) {
 		if (item.getDate() == null) { return ""; }
-		String dateString = "Date: "+ item.getDate()
+		String dateString = item.getDate()
 				.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm:ss"));
 		return (user == null ? tag("span class='date'", dateString) : tag("a class='date' href="+
 				quote(getGalleryUrl(new SearchCriteria(ImmutableSet.of(), item.getDate().toLocalDate(), item.getDate().toLocalDate()))),

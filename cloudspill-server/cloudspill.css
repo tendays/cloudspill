@@ -39,9 +39,21 @@ h1 {
     padding: 1px;
     background-color:#666;
     color: #fba;
+    text-decoration: none;
 }
 
 .date::before {
     /*Note: calendar emoji between quotes */
     content: "📅";
+}
+
+.date {
+    border: white solid 1px;
+    margin:1px;
+    border-radius: 3px;
+    padding: 1px;
+    background-color: #844;
+    color: white;
+    text-decoration: none;
+    display: inline-block;
 }
