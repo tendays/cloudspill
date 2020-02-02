@@ -99,7 +99,6 @@ public class ImagePage extends AbstractPage {
 								tag("div", "class='metadata'",
 										MoreObjects.firstNonNull(item.getDescription(), "")) +
 								tag("div", "class='metadata'",
-								"Tags: "+
 										item.getTags().stream()
 										.map(tag -> tagElement(tag, user))
 										.collect(Collectors.joining(" ")));
@@ -119,7 +118,7 @@ public class ImagePage extends AbstractPage {
 		if (item.getDate() == null) { return ""; }
 		String dateString = "Date: "+ item.getDate()
 				.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm:ss"));
-		return "<br>" + (user == null ? dateString : tag("a href="+
+		return (user == null ? tag("span class='date'", dateString) : tag("a class='date' href="+
 				quote(getGalleryUrl(new SearchCriteria(ImmutableSet.of(), item.getDate().toLocalDate(), item.getDate().toLocalDate()))),
 				dateString));
 	}

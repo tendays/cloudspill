@@ -27,3 +27,21 @@ h1 {
     min-width: 10em;
     text-align: left;
 }
+
+.tag::before {
+    content: "🏷️";
+}
+
+.tag {
+    border: #fba solid 1px;
+    margin: 1px;
+    border-radius: 3px;
+    padding: 1px;
+    background-color:#666;
+    color: #fba;
+}
+
+.date::before {
+    /*Note: calendar emoji between quotes */
+    content: "📅";
+}
