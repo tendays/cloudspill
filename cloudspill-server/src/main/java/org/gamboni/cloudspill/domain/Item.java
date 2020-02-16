@@ -3,28 +3,18 @@
  */
 package org.gamboni.cloudspill.domain;
 
-import static org.gamboni.cloudspill.shared.util.Files.append;
-
-import java.io.File;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.Set;
 
 import javax.persistence.Column;
-import javax.persistence.ElementCollection;
 import javax.persistence.Entity;
-import javax.persistence.EnumType;
-import javax.persistence.Enumerated;
-import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Version;
 
-import org.gamboni.cloudspill.shared.domain.BaseItem;
-import org.gamboni.cloudspill.shared.domain.ItemType;
-import org.hibernate.annotations.BatchSize;
+import org.gamboni.cloudspill.shared.domain.JpaItem;
 
 import com.google.common.base.Joiner;
 
@@ -35,7 +25,7 @@ import com.google.common.base.Joiner;
  * @author tendays
  */
 @Entity
-public class Item extends BaseItem {
+public class Item extends JpaItem {
 	
 	long id;
 	Instant updated;
@@ -46,6 +36,11 @@ public class Item extends BaseItem {
 	public long getId() {
 		return id;
 	}
+
+	public Long getServerId() {
+		return id;
+	}
+
 	public void setId(long id) {
 		this.id = id;
 	}

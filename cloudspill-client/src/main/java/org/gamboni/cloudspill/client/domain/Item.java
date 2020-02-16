@@ -3,30 +3,16 @@
  */
 package org.gamboni.cloudspill.client.domain;
 
-import static org.gamboni.cloudspill.shared.util.Files.append;
-
-import java.io.File;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.util.Set;
 
 import javax.persistence.Column;
-import javax.persistence.ElementCollection;
 import javax.persistence.Entity;
-import javax.persistence.EnumType;
-import javax.persistence.Enumerated;
-import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Version;
 
-import org.gamboni.cloudspill.shared.domain.BaseItem;
-import org.gamboni.cloudspill.shared.domain.ItemType;
-import org.hibernate.annotations.BatchSize;
-
-import com.google.common.base.Joiner;
+import org.gamboni.cloudspill.shared.domain.JpaItem;
 
 /**
  * An Item represents a file. Hierarchy is as follows: /user/folder/path where
@@ -35,10 +21,12 @@ import com.google.common.base.Joiner;
  * @author tendays
  */
 @Entity
-public class Item extends BaseItem {
+public class Item extends JpaItem {
 	
 	long id;
 	Instant updated;
+
+	Long serverId;
 	
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -59,4 +47,12 @@ public class Item extends BaseItem {
 		this.updated = updated;
 	}
 
+	@Override
+	public Long getServerId() {
+		return serverId;
+	}
+
+	public void setServerId(Long serverId) {
+		this.serverId = serverId;
+	}
 }

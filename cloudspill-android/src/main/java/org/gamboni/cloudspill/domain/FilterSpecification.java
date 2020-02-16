@@ -4,6 +4,10 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.support.annotation.NonNull;
 
+import org.gamboni.cloudspill.shared.query.SearchCriteria;
+
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -16,7 +20,7 @@ import java.util.logging.Filter;
  * @author tendays
  */
 
-public class FilterSpecification implements Parcelable {
+public class FilterSpecification implements SearchCriteria, Parcelable {
 
     public enum Sort {
         DATE_DESC, DATE_ASC
@@ -24,13 +28,13 @@ public class FilterSpecification implements Parcelable {
 
     public final Date from;
     public final Date to;
+    public final Set<String> tags;
     public final String by;
     public final Sort sort;
-    public final Set<String> tags;
 
     private static final long NULL_DATE = -1L;
     private static final String NULL_STRING = "";
-    public static final Creator<FilterSpecification> CREATOR = new Creator<FilterSpecification>() {
+    public static final Parcelable.Creator<FilterSpecification> CREATOR = new Creator<FilterSpecification>() {
         @Override
         public FilterSpecification createFromParcel(Parcel source) {
             return new FilterSpecification(
@@ -59,12 +63,12 @@ public class FilterSpecification implements Parcelable {
     };
 
     public FilterSpecification(Date from, Date to, String by, Sort sort, Set<String> tags) {
-        Objects.requireNonNull(sort);
         this.from = from;
         this.to = to;
+        this.tags = tags;
+        Objects.requireNonNull(sort);
         this.by = by;
         this.sort = sort;
-        this.tags = tags;
     }
 
     public static FilterSpecification defaultFilter() {
@@ -83,6 +87,21 @@ public class FilterSpecification implements Parcelable {
         dest.writeString(asString(by));
         dest.writeInt(sort.ordinal());
         dest.writeStringList(new ArrayList<>(tags));
+    }
+
+    @Override
+    public String getStringFrom() {
+        return new SimpleDateFormat("yyyy-MM-dd").format(this.from);
+    }
+
+    @Override
+    public String getStringTo() {
+        return new SimpleDateFormat("yyyy-MM-dd").format(this.to);
+    }
+
+    @Override
+    public Set<String> getTags() {
+        return this.tags;
     }
 
     private long asLong(Date date) {

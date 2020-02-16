@@ -22,7 +22,7 @@ import javax.persistence.Transient;
  *
  */
 @MappedSuperclass
-public class BaseItem {
+public abstract class JpaItem implements IsItem {
 	String user;
 	String folder;
 	String path;
@@ -66,6 +66,7 @@ public class BaseItem {
 	}
 	
 	@Column
+	@Override
 	public String getChecksum() {
 		return checksum;
 	}
@@ -111,6 +112,6 @@ public class BaseItem {
 
 	@Transient
 	public boolean isPublic() {
-		return this.getTags().contains("public");
+		return Items.isPublic(this);
 	}
 }

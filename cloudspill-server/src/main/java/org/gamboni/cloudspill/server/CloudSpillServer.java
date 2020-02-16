@@ -3,6 +3,7 @@
  */
 package org.gamboni.cloudspill.server;
 
+import static org.gamboni.cloudspill.shared.api.CloudSpillApi.ID_HTML_SUFFIX;
 import static org.gamboni.cloudspill.shared.util.Files.append;
 import static spark.Spark.before;
 import static spark.Spark.get;
@@ -42,7 +43,8 @@ import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.html.GalleryPage;
 import org.gamboni.cloudspill.server.html.ImagePage;
-import org.gamboni.cloudspill.server.html.SearchCriteria;
+import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
+import org.gamboni.cloudspill.shared.query.SearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.shared.util.ImageOrientationUtil;
@@ -73,9 +75,7 @@ import spark.Route;
  * @author tendays
  */
 public class CloudSpillServer extends AbstractServer {
-	
-	/** Suffix added to the id parameter to trigger downloading an html page instead of the raw image. */
-	public static final String ID_HTML_SUFFIX = ".cloudspill";
+
 	@Inject ServerConfiguration configuration;
 	@Inject ImagePage.Factory imagePages;
 	
@@ -173,18 +173,18 @@ public class CloudSpillServer extends AbstractServer {
     		+ CloudSpillApi.PING_PUBLIC_URL + ": "+ configuration.getPublicUrl()));
 
 		get("/tag/:tag", secured((req, res, domain, user) -> {
-			SearchCriteria criteria = new SearchCriteria(ImmutableSet.of(req.params("tag")), null, null);
+			ServerSearchCriteria criteria = new ServerSearchCriteria(null, null, ImmutableSet.of(req.params("tag")));
 			return new GalleryPage(configuration, domain, criteria).getHtml(user);
 		}));
 
 		get("/day/:day", secured((req, res, domain, user) -> {
 			LocalDate day = LocalDate.parse(req.params("day"));
-			SearchCriteria criteria = new SearchCriteria(ImmutableSet.of(), day, day);
+			ServerSearchCriteria criteria = new ServerSearchCriteria(day, day, ImmutableSet.of());
 			return new GalleryPage(configuration, domain, criteria).getHtml(user);
 		}));
 
 		get("/public", (req, res) -> transacted(session -> {
-			SearchCriteria criteria = new SearchCriteria(ImmutableSet.of("public"), null, null);
+			ServerSearchCriteria criteria = new ServerSearchCriteria(null, null, ImmutableSet.of("public"));
 			return new GalleryPage(configuration, session, criteria).getHtml(null);
 		}));
 

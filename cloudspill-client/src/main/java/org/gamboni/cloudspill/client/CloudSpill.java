@@ -78,7 +78,7 @@ public class CloudSpill {
 
 							final Metadata metadata = ImageMetadataReader.readMetadata(new File(path));
 							final ExifSubIFDDirectory exif = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
-							if (exif != null) {
+							if (exif != null && exif.getDateDigitized() != null) {
 								itemDate = exif.getDateDigitized();
 							} else {
 								itemDate = new Date(new File(path).lastModified());

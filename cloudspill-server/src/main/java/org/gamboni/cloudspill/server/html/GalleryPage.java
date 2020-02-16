@@ -7,6 +7,8 @@ import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.ServerConfiguration;
+import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
+import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.persister.collection.CollectionPropertyNames;
@@ -14,14 +16,16 @@ import org.hibernate.persister.collection.CollectionPropertyNames;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.gamboni.cloudspill.shared.api.CloudSpillApi.getGalleryUrl;
+
 /**
  * @author tendays
  */
 public class GalleryPage extends AbstractPage {
     private final Domain domain;
-    private final SearchCriteria criteria;
+    private final ServerSearchCriteria criteria;
 
-    public GalleryPage(ServerConfiguration configuration, Domain domain, SearchCriteria criteria) {
+    public GalleryPage(ServerConfiguration configuration, Domain domain, ServerSearchCriteria criteria) {
         super(configuration, configuration.getCss());
 
         this.domain = domain;
@@ -42,7 +46,7 @@ public class GalleryPage extends AbstractPage {
 
     @Override
     protected String getPageUrl(User user) {
-        return getGalleryUrl(criteria);
+        return configuration.getPublicUrl() + getGalleryUrl(criteria);
     }
 
     @Override
@@ -61,9 +65,9 @@ public class GalleryPage extends AbstractPage {
         if (criteria.getTo() != null) {
             itemQuery.add(Restrictions.lt("date", criteria.getTo().plusDays(1).atStartOfDay()));
         }
-        return itemQuery.list().stream().map(item ->
+        return itemQuery.limit(100).list().stream().map(item ->
                 tag("a href="+ quote(ImagePage.getUrl(configuration, item, user)),
-            unclosedTag("img class='image' src="+ quote(getThumbnailUrl(item))))
+            unclosedTag("img class='image' src="+ quote(configuration.getPublicUrl() + CloudSpillApi.getThumbnailUrl(item))))
         ).collect(Collectors.joining());
     }
 }

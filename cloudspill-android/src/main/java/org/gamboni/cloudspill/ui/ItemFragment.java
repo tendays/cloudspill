@@ -111,7 +111,7 @@ public class ItemFragment extends DialogFragment {
                     @Override
                     public void onClick(DialogInterface dialogInterface, int i) {
                         final Collection<String> newTags = new Splitter(tagBox.getText().toString(), ',').trimValues().allRemainingTo(new ArrayList<String>());
-                        Iterator<String> oldTags = item.getTags().iterator();
+                        Iterator<String> oldTags = item.getTagList().iterator();
                         while (oldTags.hasNext()) {
                             String tag = oldTags.next();
                             if (!newTags.contains(tag)) {
@@ -120,7 +120,7 @@ public class ItemFragment extends DialogFragment {
                         }
                         for (String tag : newTags) {
                             if (!item.getTags().contains(tag)) {
-                                item.getTags().add(tag);
+                                item.getTagList().add(tag);
                             }
                         }
                     }

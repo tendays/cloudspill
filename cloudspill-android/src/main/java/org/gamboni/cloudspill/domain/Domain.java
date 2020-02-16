@@ -7,6 +7,7 @@ import android.net.Uri;
 import android.util.Log;
 
 import org.gamboni.cloudspill.file.FileBuilder;
+import org.gamboni.cloudspill.shared.domain.IsItem;
 import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.shared.util.Splitter;
 import org.gamboni.cloudspill.ui.SettingsActivity;
@@ -14,6 +15,7 @@ import org.gamboni.cloudspill.ui.SettingsActivity;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -168,7 +170,7 @@ public class Domain extends AbstractDomain<Domain> {
         return Collections.unmodifiableList(Arrays.asList(columns));
     }
 
-    public class Item extends Entity {
+    public class Item extends Entity implements IsItem {
 
         @Override
         ItemSchema getSchema() {
@@ -188,7 +190,7 @@ public class Domain extends AbstractDomain<Domain> {
             set(ItemSchema.PATH, splitter.getString());
             set(ItemSchema.DATE, toDate(splitter.getLong())); // TODO this is supposed to be UTC - check!
             set(ItemSchema.TYPE, ItemType.valueOfOptional(splitter.getString()));
-            new Splitter(splitter.getString(), ',').allRemainingTo(getTags());
+            new Splitter(splitter.getString(), ',').allRemainingTo(getTagList());
             set(ItemSchema.CHECKSUM, splitter.getString());
         }
 
@@ -229,6 +231,11 @@ public class Domain extends AbstractDomain<Domain> {
             return get(ItemSchema.TYPE);
         }
 
+        @Override
+        public String getChecksum() {
+            return get(ItemSchema.CHECKSUM);
+        }
+
         FileBuilder file = null;
         public FileBuilder getFile() {
             if (file != null) { return file; }
@@ -252,16 +259,20 @@ public class Domain extends AbstractDomain<Domain> {
             this.values.putAll(that.values);
             // 1. remove deleted tags
             // TODO dirty tags should be kept as is
-            this.getTags().retainAll(that.getTags());
+            this.getTagList().retainAll(that.getTags());
             // 2. add missing tags
             for (String tag : that.getTags()) {
                 if (!this.getTags().contains(tag)) {
-                    this.getTags().add(tag);
+                    this.getTagList().add(tag);
                 }
             }
         }
 
-        public List<String> getTags() {
+        public Set<String> getTags() {
+            return Collections.unmodifiableSet(new HashSet<>(getTagList()));
+        }
+
+        public List<String> getTagList() {
             if (tags == null) {
                 tags = new TrackingList<String, Tag>(
                         new EntityQuery<Tag>(tagSchema)

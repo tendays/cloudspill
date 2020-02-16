@@ -1,14 +1,9 @@
 package org.gamboni.cloudspill.server.html;
 
-import com.google.common.collect.Iterables;
-
-import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.ServerConfiguration;
 
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * @author tendays
@@ -58,30 +53,6 @@ public abstract class AbstractPage {
 
     protected Optional<String> getThumbnailUrl() {
         return Optional.empty();
-    }
-
-    protected String getThumbnailUrl(Item item) {
-        return configuration.getPublicUrl() + "/thumbs/300/"+ item.getId() + accessKeyQueryString(item);
-    }
-
-    protected String getImageUrl(Item item) {
-        return configuration.getPublicUrl() +"/item/"+ item.getId() + accessKeyQueryString(item);
-    }
-
-    protected static String accessKeyQueryString(Item item) {
-        return "?key="+ item.getChecksum().replace("+", "%2B");
-    }
-
-    protected String getGalleryUrl(SearchCriteria c) {
-        Set<String> otherTags = c.getTags().stream().filter(t -> !t.equals("public")).collect(Collectors.toSet());
-        String baseUrl = c.getTags().contains("public") ? configuration.getPublicUrl() +"/public" : configuration.getPublicUrl();
-        if (otherTags.size() == 1 && c.getFrom() == null && c.getTo() == null) {
-            return baseUrl + "/tag/" + Iterables.getOnlyElement(c.getTags());
-        } else if (otherTags.isEmpty() && c.getFrom() != null && c.getFrom().equals(c.getTo())) {
-            return baseUrl +"/day/"+ c.getFrom();
-        } else {
-            return baseUrl; // TODO
-        }
     }
 
     public String getHtml(User user) {

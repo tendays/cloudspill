@@ -79,6 +79,11 @@ public class Domain {
 			criteria.setLockMode(LockMode.PESSIMISTIC_FORCE_INCREMENT);
 			return this;
 		}
+
+		public Query<T> limit(int limit) {
+			criteria.setMaxResults(limit);
+			return this;
+		}
 		
 		@SuppressWarnings("unchecked")
 		public List<T> list() {
