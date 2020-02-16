@@ -12,6 +12,7 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.Transient;
 import javax.persistence.Version;
 
 import org.gamboni.cloudspill.shared.domain.JpaItem;
@@ -37,6 +38,7 @@ public class Item extends JpaItem {
 		return id;
 	}
 
+	@Transient
 	public Long getServerId() {
 		return id;
 	}
