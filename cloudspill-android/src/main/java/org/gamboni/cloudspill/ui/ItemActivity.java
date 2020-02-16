@@ -28,6 +28,7 @@ import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.EvaluatedFilter;
 import org.gamboni.cloudspill.domain.FilterSpecification;
 import org.gamboni.cloudspill.domain.HasDomain;
+import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.job.DownloadStatus;
 import org.gamboni.cloudspill.job.MediaDownloader;
@@ -47,7 +48,6 @@ public class ItemActivity extends AppCompatActivity implements HasDomain {
 
     private static final String POSITION_PARAM = "org.gamboni.cloudspill.param.position";
     private static final String FILTER_PARAM = "org.gamboni.cloudspill.param.filter";
-    public static final String URL_SUFFIX = ".cloudspill";
 
     private Domain domain;
     private EvaluatedFilter evaluatedFilter;
@@ -81,8 +81,8 @@ public class ItemActivity extends AppCompatActivity implements HasDomain {
             Log.d(TAG, "Displaying "+ uri);
             int slash = uri.getPath().lastIndexOf('/');
             String file = uri.getPath().substring(slash + 1);
-            if (file.endsWith(URL_SUFFIX)) {
-                file = file.substring(0, file.length() - URL_SUFFIX.length());
+            if (file.endsWith(CloudSpillApi.ID_HTML_SUFFIX)) {
+                file = file.substring(0, file.length() - CloudSpillApi.ID_HTML_SUFFIX.length());
             }
             final int serverId = Integer.parseInt(file);
 

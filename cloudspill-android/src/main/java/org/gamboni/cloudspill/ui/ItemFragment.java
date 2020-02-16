@@ -19,6 +19,7 @@ import android.widget.TextView;
 import org.gamboni.cloudspill.R;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.HasDomain;
+import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.util.Splitter;
 import org.gamboni.cloudspill.job.DownloadStatus;
 import org.gamboni.cloudspill.job.ThumbnailIntentService;
@@ -128,8 +129,8 @@ public class ItemFragment extends DialogFragment {
                 .setNeutralButton(R.string.share, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        String uri = SettingsActivity.getLastServerVersion(getActivity()).getPublicUrl() +"/item/"+ item.getServerId() +".cloudspill?key="+ item.get(
-                                Domain.ItemSchema.CHECKSUM).replace("+", "%2B");
+                        String uri = SettingsActivity.getLastServerVersion(getActivity()).getPublicUrl() +
+                                CloudSpillApi.getPublicImagePageUrl(item);
                         Log.d(TAG, "Uri: "+ uri);
                         Intent shareIntent = new Intent();
                         shareIntent.setAction(Intent.ACTION_SEND);
