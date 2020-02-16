@@ -66,7 +66,11 @@ public class GalleryPage extends AbstractPage {
             itemQuery.add(Restrictions.lt("date", criteria.getTo().plusDays(1).atStartOfDay()));
         }
         return itemQuery.limit(100).list().stream().map(item ->
-                tag("a href="+ quote(ImagePage.getUrl(configuration, item, user)),
+                tag("a href="+ quote(
+                        configuration.getPublicUrl() +
+                                (user == null ?
+                                CloudSpillApi.getPublicImagePageUrl(item) :
+                        CloudSpillApi.getLoggedInImagePageUrl(item))),
             unclosedTag("img class='image' src="+ quote(configuration.getPublicUrl() + CloudSpillApi.getThumbnailUrl(item))))
         ).collect(Collectors.joining());
     }
