@@ -38,6 +38,11 @@ public class GalleryPart implements SearchCriteria {
         return user;
     }
 
+    @Override
+    public int getOffset() {
+        return 0;
+    }
+
     public void setUser(String user) {
         this.user = user;
     }
