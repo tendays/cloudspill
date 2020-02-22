@@ -73,7 +73,7 @@ public class GalleryPage extends AbstractPage {
         long totalCount = itemQuery.getTotalCount();
         return pageLink(pageNumber - 1, "&lt;", totalCount) +
                 itemQuery.offset(criteria.getOffset()).limit(PAGE_SIZE).list().stream().map(item ->
-                tag("a href="+ quote(
+                tag("a", "href="+ quote(
                         configuration.getPublicUrl() +
                                 (user == null ?
                                 CloudSpillApi.getPublicImagePageUrl(item) :
