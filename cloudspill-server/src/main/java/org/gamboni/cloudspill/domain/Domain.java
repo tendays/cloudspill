@@ -80,6 +80,11 @@ public class Domain {
 			return this;
 		}
 
+		public Query<T> offset(int offset) {
+			criteria.setFirstResult(offset);
+			return this;
+		}
+
 		public Query<T> limit(int limit) {
 			criteria.setMaxResults(limit);
 			return this;

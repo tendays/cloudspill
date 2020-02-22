@@ -65,7 +65,7 @@ public class GalleryPage extends AbstractPage {
         if (criteria.getTo() != null) {
             itemQuery.add(Restrictions.lt("date", criteria.getTo().plusDays(1).atStartOfDay()));
         }
-        return itemQuery.limit(100).list().stream().map(item ->
+        return itemQuery.offset(criteria.getOffset()).limit(60).list().stream().map(item ->
                 tag("a href="+ quote(
                         configuration.getPublicUrl() +
                                 (user == null ?

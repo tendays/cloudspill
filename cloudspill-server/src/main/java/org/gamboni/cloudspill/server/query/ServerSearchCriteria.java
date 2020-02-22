@@ -13,11 +13,13 @@ import java.util.Set;
 public class ServerSearchCriteria implements SearchCriteria {
     private final LocalDate from, to;
     private final ImmutableSet<String> tags;
+    private final int offset;
 
-    public ServerSearchCriteria(LocalDate from, LocalDate to, Set<String> tags) {
+    public ServerSearchCriteria(LocalDate from, LocalDate to, Set<String> tags, int offset) {
         this.tags = ImmutableSet.copyOf(tags);
         this.from = from;
         this.to = to;
+        this.offset = offset;
     }
 
     @Override
@@ -41,5 +43,9 @@ public class ServerSearchCriteria implements SearchCriteria {
     @Override
     public String getStringTo() {
         return (to == null) ? null : to.toString();
+    }
+
+    public int getOffset() {
+        return offset;
     }
 }
