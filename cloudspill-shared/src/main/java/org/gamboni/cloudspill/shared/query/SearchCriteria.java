@@ -17,4 +17,6 @@ public interface SearchCriteria {
     String getStringTo();
 
     String getUser();
+
+    int getOffset();
 }

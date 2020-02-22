@@ -71,11 +71,12 @@ public abstract class CloudSpillApi {
                 otherTags.add(tag);
             }
         }
+        String offsetQuery = (c.getOffset() == 0) ? "" : ("?offset="+ c.getOffset());
         String baseUrl = (isPublic) ? "/public" : "/";
         if (otherTags.size() == 1 && c.getStringFrom() == null && c.getStringTo() == null) {
-            return baseUrl + "/tag/" + c.getTags().iterator().next();
+            return baseUrl + "/tag/" + c.getTags().iterator().next() + offsetQuery;
         } else if (otherTags.isEmpty() && c.getStringFrom() != null && c.getStringFrom().equals(c.getStringTo())) {
-            return baseUrl +"/day/"+ c.getStringFrom();
+            return baseUrl +"/day/"+ c.getStringFrom() + offsetQuery;
         } else {
             return baseUrl; // TODO
         }

@@ -86,7 +86,7 @@ public class GalleryPage extends AbstractPage {
     private String pageLink(int pageNumber, String label, long totalCount) {
         int offset = pageNumber * PAGE_SIZE;
         if (offset >= 0 && offset < totalCount) {
-            return "<a href='"+ configuration.getPublicUrl() + CloudSpillApi.getGalleryUrl(criteria.atOffset(offset)) +"'>"+ label +"</a>";
+            return "<a class='pagerLink' href='"+ configuration.getPublicUrl() + CloudSpillApi.getGalleryUrl(criteria.atOffset(offset)) +"'>"+ label +"</a>";
         } else {
             return "";
         }
