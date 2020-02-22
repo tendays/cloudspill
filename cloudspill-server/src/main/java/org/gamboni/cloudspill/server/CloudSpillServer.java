@@ -440,6 +440,7 @@ public class CloudSpillServer extends AbstractServer {
 		for (Item item : domain.selectItem()
 				.add(Restrictions.ge("updated", instant))
 				.addOrder(Order.asc("updated"))
+				.limit(500) // large datasets make the Android client crash
 				.list()) {
 			result.append(item.serialise()).append("\n");
 			timestamp = item.getUpdated();
