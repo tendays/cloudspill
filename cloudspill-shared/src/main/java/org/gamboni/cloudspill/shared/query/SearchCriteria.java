@@ -15,4 +15,6 @@ public interface SearchCriteria {
     String getStringFrom();
 
     String getStringTo();
+
+    String getUser();
 }

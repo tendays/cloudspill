@@ -10,6 +10,7 @@ import org.hibernate.LockMode;
 import org.hibernate.Session;
 import org.hibernate.criterion.Criterion;
 import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Projections;
 
 /**
  * @author tendays
@@ -92,12 +93,18 @@ public class Domain {
 		
 		@SuppressWarnings("unchecked")
 		public List<T> list() {
+			criteria.setProjection(null); // = default projection?
 			return criteria.list();
 		}
 
 		@Override
 		protected Query<T> self() {
 			return this;
+		}
+
+		public long getTotalCount() {
+			criteria.setProjection(Projections.rowCount());
+			return ((Number)criteria.uniqueResult()).longValue();
 		}
 	}
 

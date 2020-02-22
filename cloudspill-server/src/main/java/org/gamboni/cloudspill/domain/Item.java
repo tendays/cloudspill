@@ -33,7 +33,6 @@ public class Item extends JpaItem {
 	
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	@Column
 	public long getId() {
 		return id;
 	}
@@ -48,7 +47,6 @@ public class Item extends JpaItem {
 	}
 	
 	@Version
-	@Column
 	public Instant getUpdated() {
 		return updated;
 	}

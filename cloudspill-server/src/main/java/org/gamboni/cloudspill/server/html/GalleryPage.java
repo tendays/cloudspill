@@ -22,6 +22,9 @@ import static org.gamboni.cloudspill.shared.api.CloudSpillApi.getGalleryUrl;
  * @author tendays
  */
 public class GalleryPage extends AbstractPage {
+
+    /* 60 is the smallest multiple of 2, 3, 4, 5 and 6. So as long as there are six or fewer images per row, the last result row will be full */
+    private static final int PAGE_SIZE = 60;
     private final Domain domain;
     private final ServerSearchCriteria criteria;
 
@@ -65,13 +68,27 @@ public class GalleryPage extends AbstractPage {
         if (criteria.getTo() != null) {
             itemQuery.add(Restrictions.lt("date", criteria.getTo().plusDays(1).atStartOfDay()));
         }
-        return itemQuery.offset(criteria.getOffset()).limit(60).list().stream().map(item ->
+
+        int pageNumber = criteria.getOffset() / PAGE_SIZE;
+        long totalCount = itemQuery.getTotalCount();
+        return pageLink(pageNumber - 1, "&lt;", totalCount) +
+                itemQuery.offset(criteria.getOffset()).limit(PAGE_SIZE).list().stream().map(item ->
                 tag("a href="+ quote(
                         configuration.getPublicUrl() +
                                 (user == null ?
                                 CloudSpillApi.getPublicImagePageUrl(item) :
                         CloudSpillApi.getLoggedInImagePageUrl(item))),
-            unclosedTag("img class='image' src="+ quote(configuration.getPublicUrl() + CloudSpillApi.getThumbnailUrl(item))))
-        ).collect(Collectors.joining());
+            unclosedTag("img class='thumb' src="+ quote(configuration.getPublicUrl() + CloudSpillApi.getThumbnailUrl(item))))
+        ).collect(Collectors.joining()) +
+                pageLink(pageNumber + 1, "&gt;", totalCount);
+    }
+
+    private String pageLink(int pageNumber, String label, long totalCount) {
+        int offset = pageNumber * PAGE_SIZE;
+        if (offset >= 0 && offset < totalCount) {
+            return "<a href='"+ CloudSpillApi.getGalleryUrl(criteria.atOffset(offset)) +"'>"+ label +"</a>";
+        } else {
+            return "";
+        }
     }
 }

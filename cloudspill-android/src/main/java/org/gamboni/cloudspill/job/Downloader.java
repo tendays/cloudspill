@@ -69,65 +69,73 @@ public class Downloader {
         }
 
         listener.updateMessage(StatusReport.Severity.INFO, "Downloading new items @"+ timestamp);
-        server.itemsSince(timestamp, new Response.Listener<ItemsSinceRequest.Result>() {
-            @Override
-            public void onResponse(ItemsSinceRequest.Result result) {
-                publish(result);
-            }
-        },
-                // TODO create standard error listener instead of re-implementing ErrorListener everywhere
-        new Response.ErrorListener() {
-            @Override
-            public void onErrorResponse(VolleyError error) {
-                Log.e(TAG, "Downloading failed", error);
-                listener.updateMessage(StatusReport.Severity.ERROR, "Downloading failed: "+ error);
-                publish(null);
-            }
-        });
-
-        if (!waitForResponse()) { return; }
 
         int loaded = 0;
         int created = 0;
-        int slowDown = 10;
+        try {
+            server.itemsSince(timestamp, new Response.Listener<ItemsSinceRequest.Result>() {
+                        @Override
+                        public void onResponse(ItemsSinceRequest.Result result) {
+                            publish(result);
+                        }
+                    },
+                    // TODO create standard error listener instead of re-implementing ErrorListener everywhere
+                    new Response.ErrorListener() {
+                        @Override
+                        public void onErrorResponse(VolleyError error) {
+                            Log.e(TAG, "Downloading failed", error);
+                            listener.updateMessage(StatusReport.Severity.ERROR, "Downloading failed: " + error);
+                            publish(null);
+                        }
+                    });
 
-        for (Domain.Item item : result) {
-            loaded++;
-            if (falseMeansDelete.size() > item.getServerId()) {
-                falseMeansDelete.set(item.getServerId().intValue());
-            }
-            List<Domain.Item> allExisting = domain.selectItemsByServerId(item.getServerId());
-            if (allExisting.isEmpty()) {
-                item.insert();
-                created++;
-            } else {
-                Domain.Item existing = allExisting.get(0);
-                existing.copyFrom(item);
-                existing.update();
+            if (!waitForResponse()) {
+                return;
             }
 
-            if (slowDown-- == 0) { // TODO move this into StatusReport implementation (with new Severity.PROGRESS)
-                listener.updateMessage(StatusReport.Severity.INFO, "Downloading new items @" + timestamp + ". Created " + created + "/" + loaded);
-                slowDown = 10;
+            int slowDown = 10;
+
+            for (Domain.Item item : result) {
+                loaded++;
+                if (falseMeansDelete.size() > item.getServerId()) {
+                    falseMeansDelete.set(item.getServerId().intValue());
+                }
+                List<Domain.Item> allExisting = domain.selectItemsByServerId(item.getServerId());
+                if (allExisting.isEmpty()) {
+                    item.insert();
+                    created++;
+                } else {
+                    Domain.Item existing = allExisting.get(0);
+                    existing.copyFrom(item);
+                    existing.update();
+                }
+
+                if (slowDown-- == 0) { // TODO move this into StatusReport implementation (with new Severity.PROGRESS)
+                    listener.updateMessage(StatusReport.Severity.INFO, "Downloading new items @" + timestamp + ". Created " + created + "/" + loaded);
+                    slowDown = 10;
+                }
             }
+
+            int deleteCount = 0;
+            for (int serverIdToDelete = falseMeansDelete.nextClearBit(0);
+                 serverIdToDelete < falseMeansDelete.size();
+                 serverIdToDelete = falseMeansDelete.nextClearBit(serverIdToDelete + 1)) {
+                domain.selectItems().eq(Domain.ItemSchema.SERVER_ID, (long) serverIdToDelete).delete();
+                deleteCount++;
+
+                if (slowDown-- == 0) { // TODO move this into StatusReport implementation (with new Severity.PROGRESS)
+                    listener.updateMessage(StatusReport.Severity.INFO, "Deleting stale items. Deleted " + deleteCount + "/" + serverIdToDelete);
+                    slowDown = 10;
+                }
+            }
+            SettingsActivity.setLatestUpdate(context, result.getLatestUpdate());
+            SettingsActivity.setLastServerVersion(context, currentServer);
+            listener.updateMessage(StatusReport.Severity.INFO, "Download complete. Created " + created + "/" + loaded +
+                    (deleteCount > 0 ? ". Deleted " + deleteCount : ""));
+        } catch (Throwable oops) {
+            listener.updateMessage(StatusReport.Severity.ERROR, "After "+ created +"/"+ loaded +": "+ oops.toString());
+            Log.e(TAG, "Downloader failed", oops);
         }
-
-        int deleteCount = 0;
-        for (int serverIdToDelete=falseMeansDelete.nextClearBit(0);
-             serverIdToDelete < falseMeansDelete.size();
-             serverIdToDelete = falseMeansDelete.nextClearBit(serverIdToDelete+1)) {
-            domain.selectItems().eq(Domain.ItemSchema.SERVER_ID, (long)serverIdToDelete).delete();
-            deleteCount++;
-
-            if (slowDown-- == 0) { // TODO move this into StatusReport implementation (with new Severity.PROGRESS)
-                listener.updateMessage(StatusReport.Severity.INFO, "Deleting stale items. Deleted " + deleteCount + "/" + serverIdToDelete);
-                slowDown = 10;
-            }
-        }
-        SettingsActivity.setLatestUpdate(context, result.getLatestUpdate());
-        SettingsActivity.setLastServerVersion(context, currentServer);
-        listener.updateMessage(StatusReport.Severity.INFO, "Download complete. Created " + created + "/" + loaded +
-                (deleteCount>0 ? ". Deleted "+ deleteCount : ""));
     }
 
     private synchronized void publish(ItemsSinceRequest.Result result) {

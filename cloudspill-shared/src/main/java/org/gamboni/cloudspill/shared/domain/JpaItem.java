@@ -41,14 +41,13 @@ public abstract class JpaItem implements IsItem {
 	}
 	
 	/** Each Folder represents a physical folder on one of the user's devices. */
-	@Column
 	public String getFolder() {
 		return folder;
 	}
 	public void setFolder(String folder) {
 		this.folder = folder;
 	}
-	@Column
+
 	public String getPath() {
 		return path;
 	}
@@ -56,16 +55,13 @@ public abstract class JpaItem implements IsItem {
 		this.path = path;
 	}
 	
-	@Column
 	public LocalDateTime getDate() {
 		return this.date;
 	}
-	
 	public void setDate(LocalDateTime date) {
 		this.date = date;
 	}
 	
-	@Column
 	@Override
 	public String getChecksum() {
 		return checksum;
@@ -73,7 +69,7 @@ public abstract class JpaItem implements IsItem {
 	public void setChecksum(String checksum) {
 		this.checksum = checksum;
 	}
-	@Column
+
 	@Enumerated(EnumType.STRING)
 	public ItemType getType() {
 		return type;
@@ -92,11 +88,9 @@ public abstract class JpaItem implements IsItem {
 		this.tags = tags;
 	}
 
-	@Column
 	public String getDescription() {
 		return description;
 	}
-
 	public void setDescription(String description) {
 		this.description = description;
 	}
@@ -108,7 +102,6 @@ public abstract class JpaItem implements IsItem {
 	public String toString() {
 		return "Item("+ user +", "+ folder +", "+ path + ", "+ tags +")";
 	}
-
 
 	@Transient
 	public boolean isPublic() {

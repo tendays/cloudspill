@@ -100,6 +100,11 @@ public class FilterSpecification implements SearchCriteria, Parcelable {
     }
 
     @Override
+    public String getUser() {
+        return by;
+    }
+
+    @Override
     public Set<String> getTags() {
         return this.tags;
     }

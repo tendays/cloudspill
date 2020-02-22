@@ -173,19 +173,19 @@ public class CloudSpillServer extends AbstractServer {
     		+ CloudSpillApi.PING_PUBLIC_URL + ": "+ configuration.getPublicUrl()));
 
 		get("/tag/:tag", secured((req, res, domain, user) -> {
-			ServerSearchCriteria criteria = new ServerSearchCriteria(null, null, ImmutableSet.of(req.params("tag")),
+			ServerSearchCriteria criteria = new ServerSearchCriteria(null, null, null, ImmutableSet.of(req.params("tag")),
 					Integer.parseInt(req.queryParamOrDefault("offset", "0")));
 			return new GalleryPage(configuration, domain, criteria).getHtml(user);
 		}));
 
 		get("/day/:day", secured((req, res, domain, user) -> {
 			LocalDate day = LocalDate.parse(req.params("day"));
-			ServerSearchCriteria criteria = new ServerSearchCriteria(day, day, ImmutableSet.of(), Integer.parseInt(req.queryParamOrDefault("offset", "0")));
+			ServerSearchCriteria criteria = new ServerSearchCriteria(day, day, null, ImmutableSet.of(), Integer.parseInt(req.queryParamOrDefault("offset", "0")));
 			return new GalleryPage(configuration, domain, criteria).getHtml(user);
 		}));
 
 		get("/public", (req, res) -> transacted(session -> {
-			ServerSearchCriteria criteria = new ServerSearchCriteria(null, null, ImmutableSet.of("public"), Integer.parseInt(req.queryParamOrDefault("offset", "0")));
+			ServerSearchCriteria criteria = new ServerSearchCriteria(null, null, null, ImmutableSet.of("public"), Integer.parseInt(req.queryParamOrDefault("offset", "0")));
 			return new GalleryPage(configuration, session, criteria).getHtml(null);
 		}));
 
