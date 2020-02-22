@@ -85,7 +85,7 @@ public class ImagePage extends AbstractPage {
 			return tag("span class='tag'", tag);
 		} else {
 			return tag("a class='tag' href="+ quote(configuration.getPublicUrl() + getGalleryUrl(
-					new ServerSearchCriteria(null, null, ImmutableSet.of(tag), 0))),
+					new ServerSearchCriteria(null, null, null, ImmutableSet.of(tag), 0))),
 					tag);
 		}
 	}
@@ -95,7 +95,7 @@ public class ImagePage extends AbstractPage {
 		String dateString = item.getDate()
 				.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm:ss"));
 		return (user == null ? tag("span class='date'", dateString) : tag("a class='date' href="+
-				quote(getGalleryUrl(new ServerSearchCriteria(item.getDate().toLocalDate(), item.getDate().toLocalDate(), ImmutableSet.of(), 0))),
+				quote(getGalleryUrl(new ServerSearchCriteria(item.getDate().toLocalDate(), item.getDate().toLocalDate(), null, ImmutableSet.of(), 0))),
 				dateString));
 	}
 	
