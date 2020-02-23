@@ -569,7 +569,7 @@ public class CloudSpillServer extends AbstractServer {
 			}
 
 			User user;
-			if (key == null && !item.isPublic()) {
+			if (key == null) {
 				user = authenticate(req, res, session);
 				if (user == null) {
 					return String.valueOf(res.status());
