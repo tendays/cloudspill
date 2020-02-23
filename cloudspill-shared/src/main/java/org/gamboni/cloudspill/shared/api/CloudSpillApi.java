@@ -78,7 +78,7 @@ public abstract class CloudSpillApi {
         } else if (otherTags.isEmpty() && c.getStringFrom() != null && c.getStringFrom().equals(c.getStringTo())) {
             return baseUrl +"/day/"+ c.getStringFrom() + offsetQuery;
         } else {
-            return baseUrl; // TODO
+            return baseUrl + offsetQuery; // TODO
         }
     }
 }
