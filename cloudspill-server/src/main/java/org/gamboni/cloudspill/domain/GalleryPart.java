@@ -1,5 +1,6 @@
 package org.gamboni.cloudspill.domain;
 
+import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.shared.query.SearchCriteria;
 
 import java.time.LocalDate;
@@ -17,12 +18,13 @@ import javax.persistence.Id;
  * @author tendays
  */
 @Entity
-public class GalleryPart implements SearchCriteria {
+public class GalleryPart implements Java8SearchCriteria {
     long id;
     String user;
     Set<String> tags;
     LocalDate from;
     LocalDate to;
+    String description;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -56,13 +58,63 @@ public class GalleryPart implements SearchCriteria {
         this.tags = tags;
     }
 
-    @Override
-    public String getStringFrom() {
-        return (from == null) ? null : from.toString();
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 
     @Override
-    public String getStringTo() {
-        return (to == null) ? null : to.toString();
+    public LocalDate getFrom() {
+        return from;
+    }
+
+    @Override
+    public LocalDate getTo() {
+        return to;
+    }
+
+    @Override
+    public Java8SearchCriteria atOffset(int newOffset) {
+        return new AtOffset(newOffset);
+    }
+
+    private class AtOffset implements Java8SearchCriteria {
+        final int offset;
+        AtOffset(int offset) {
+            this.offset = offset;
+        }
+
+        @Override
+        public Java8SearchCriteria atOffset(int newOffset) {
+            return new AtOffset(newOffset);
+        }
+
+        @Override
+        public LocalDate getFrom() {
+            return from;
+        }
+
+        @Override
+        public LocalDate getTo() {
+            return to;
+        }
+
+        @Override
+        public Set<String> getTags() {
+            return tags;
+        }
+
+        @Override
+        public String getUser() {
+            return user;
+        }
+
+        @Override
+        public int getOffset() {
+            return offset;
+        }
     }
 }

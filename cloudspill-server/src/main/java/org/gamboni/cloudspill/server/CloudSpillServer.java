@@ -39,6 +39,7 @@ import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.FrameGrabber;
 import org.bytedeco.javacv.Java2DFrameConverter;
 import org.gamboni.cloudspill.domain.Domain;
+import org.gamboni.cloudspill.domain.GalleryPart;
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.html.GalleryPage;
@@ -182,6 +183,10 @@ public class CloudSpillServer extends AbstractServer {
 			LocalDate day = LocalDate.parse(req.params("day"));
 			ServerSearchCriteria criteria = new ServerSearchCriteria(day, day, null, ImmutableSet.of(), Integer.parseInt(req.queryParamOrDefault("offset", "0")));
 			return new GalleryPage(configuration, domain, criteria).getHtml(user);
+		}));
+
+		get("/gallery/:part", secured((req, res, domain, user) -> {
+			return new GalleryPage(configuration, domain, domain.get(GalleryPart.class, Long.parseLong(req.params("part"))));
 		}));
 
 		get("/public", (req, res) -> transacted(session -> {

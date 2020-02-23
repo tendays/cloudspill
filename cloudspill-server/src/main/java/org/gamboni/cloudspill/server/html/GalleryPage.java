@@ -7,8 +7,10 @@ import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.ServerConfiguration;
+import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
+import org.gamboni.cloudspill.shared.query.SearchCriteria;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.persister.collection.CollectionPropertyNames;
@@ -26,9 +28,9 @@ public class GalleryPage extends AbstractPage {
     /* 60 is the smallest multiple of 2, 3, 4, 5 and 6. So as long as there are six or fewer images per row, the last result row will be full */
     private static final int PAGE_SIZE = 60;
     private final Domain domain;
-    private final ServerSearchCriteria criteria;
+    private final Java8SearchCriteria criteria;
 
-    public GalleryPage(ServerConfiguration configuration, Domain domain, ServerSearchCriteria criteria) {
+    public GalleryPage(ServerConfiguration configuration, Domain domain, Java8SearchCriteria criteria) {
         super(configuration, configuration.getCss());
 
         this.domain = domain;

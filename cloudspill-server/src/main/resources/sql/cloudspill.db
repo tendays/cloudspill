@@ -61,3 +61,5 @@ CREATE TABLE `User` (
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
+create table GalleryPart (id int(11) auto_increment, user varchar(100), description text, `from` date, `to` date, primary key(id));
+create table GalleryPart_tags (GalleryPart_id int(11), tags varchar(100));

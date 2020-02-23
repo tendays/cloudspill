@@ -10,7 +10,7 @@ import java.util.Set;
 /**
  * @author tendays
  */
-public class ServerSearchCriteria implements SearchCriteria {
+public class ServerSearchCriteria implements Java8SearchCriteria {
     private final LocalDate from, to;
     private final String user;
     private final ImmutableSet<String> tags;
@@ -29,14 +29,17 @@ public class ServerSearchCriteria implements SearchCriteria {
         return tags;
     }
 
+    @Override
     public LocalDate getFrom() {
         return from;
     }
 
+    @Override
     public LocalDate getTo() {
         return to;
     }
 
+    @Override
     public String getUser() {
         return user;
     }
@@ -51,10 +54,12 @@ public class ServerSearchCriteria implements SearchCriteria {
         return (to == null) ? null : to.toString();
     }
 
+    @Override
     public int getOffset() {
         return offset;
     }
 
+    @Override
     public ServerSearchCriteria atOffset(int newOffset) {
         return new ServerSearchCriteria(from, to, user, tags, newOffset);
     }
