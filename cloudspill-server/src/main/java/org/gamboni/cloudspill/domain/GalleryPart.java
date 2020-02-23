@@ -26,6 +26,7 @@ public class GalleryPart implements Java8SearchCriteria {
     LocalDate from;
     LocalDate to;
     String description;
+    String title;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -87,6 +88,15 @@ public class GalleryPart implements Java8SearchCriteria {
     }
 
     @Override
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    @Override
     public Java8SearchCriteria atOffset(int newOffset) {
         return new AtOffset(newOffset);
     }
@@ -120,6 +130,11 @@ public class GalleryPart implements Java8SearchCriteria {
         @Override
         public String getUser() {
             return user;
+        }
+
+        @Override
+        public String getTitle() {
+            return title;
         }
 
         @Override

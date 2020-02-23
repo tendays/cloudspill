@@ -39,14 +39,7 @@ public class GalleryPage extends AbstractPage {
 
     @Override
     protected String getTitle() {
-        Stream<String> day = (criteria.getFrom() != null && criteria.getFrom().equals(criteria.getTo())) ?
-                Stream.of(criteria.getFrom().toString()) : Stream.empty();
-        return Streams.concat(
-                day,
-                criteria.getTags().stream())
-                .map(t -> CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, t))
-        .collect(Collectors.joining(" "))
-        + " Photos";
+        return criteria.getTitle();
     }
 
     @Override
