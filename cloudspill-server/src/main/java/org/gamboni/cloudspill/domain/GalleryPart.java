@@ -13,6 +13,7 @@ import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.Transient;
 
 /**
  * @author tendays
@@ -41,6 +42,7 @@ public class GalleryPart implements Java8SearchCriteria {
     }
 
     @Override
+    @Transient
     public int getOffset() {
         return 0;
     }
