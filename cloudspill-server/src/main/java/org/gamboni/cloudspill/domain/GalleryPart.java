@@ -76,6 +76,14 @@ public class GalleryPart implements Java8SearchCriteria {
         return to;
     }
 
+    public void setFrom(LocalDate from) {
+        this.from = from;
+    }
+
+    public void setTo(LocalDate to) {
+        this.to = to;
+    }
+
     @Override
     public Java8SearchCriteria atOffset(int newOffset) {
         return new AtOffset(newOffset);
