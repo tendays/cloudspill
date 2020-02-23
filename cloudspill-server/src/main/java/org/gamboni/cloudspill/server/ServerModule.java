@@ -2,6 +2,7 @@ package org.gamboni.cloudspill.server;
 
 import java.util.Properties;
 
+import org.gamboni.cloudspill.domain.GalleryPart;
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.html.ImagePage;
@@ -54,6 +55,7 @@ public class ServerModule extends AbstractModule {
 			   .addProperties(prop)
 			   .addAnnotatedClass(Item.class)
 			   .addAnnotatedClass(User.class)
+				.addAnnotatedClass(GalleryPart.class)
 			   .buildSessionFactory(serviceRegistry);
 	}
 	
