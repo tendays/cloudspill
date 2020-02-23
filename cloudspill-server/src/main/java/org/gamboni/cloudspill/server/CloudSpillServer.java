@@ -186,7 +186,7 @@ public class CloudSpillServer extends AbstractServer {
 		}));
 
 		get("/gallery/:part", secured((req, res, domain, user) -> {
-			return new GalleryPage(configuration, domain, domain.get(GalleryPart.class, Long.parseLong(req.params("part"))));
+			return new GalleryPage(configuration, domain, domain.get(GalleryPart.class, Long.parseLong(req.params("part")))).getHtml(user);
 		}));
 
 		get("/public", (req, res) -> transacted(session -> {
