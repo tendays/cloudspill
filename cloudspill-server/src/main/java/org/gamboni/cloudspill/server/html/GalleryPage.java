@@ -45,8 +45,9 @@ public class GalleryPage extends AbstractPage {
 
         int counter=1;
         for (String tag : criteria.getTags()) {
-            itemQuery.add(Restrictions.eq(
-                    itemQuery.alias("tags", "t" + (counter++)) + "." + CollectionPropertyNames.COLLECTION_ELEMENTS,
+            itemQuery.subquery("tags", "t" + (counter++)).add(
+            Restrictions.eq(
+                    CollectionPropertyNames.COLLECTION_ELEMENTS,
                     tag));
         }
         if (criteria.getFrom() != null) {

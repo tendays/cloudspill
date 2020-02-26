@@ -42,6 +42,10 @@ public class Domain {
 			return self();
 		}
 
+		public Subquery subquery(String path, String alias) {
+			return new Subquery(criteria.createCriteria(path, alias));
+		}
+
 		public String alias(String path, String alias) {
 			criteria.createAlias(path, alias);
 			return alias;
