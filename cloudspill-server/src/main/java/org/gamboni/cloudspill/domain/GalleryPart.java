@@ -90,7 +90,7 @@ public class GalleryPart implements Java8SearchCriteria {
 
     @Override
     public String getTitle() {
-        return title;
+        return (title == null) ? Java8SearchCriteria.super.getTitle() : title;
     }
 
     public void setTitle(String title) {
