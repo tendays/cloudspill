@@ -61,6 +61,7 @@ public class GalleryPart implements Java8SearchCriteria {
         this.tags = tags;
     }
 
+    @Override
     public String getDescription() {
         return description;
     }
@@ -94,6 +95,10 @@ public class GalleryPart implements Java8SearchCriteria {
 
     public void setTitle(String title) {
         this.title = title;
+    }
+
+    @Override @Transient public String getUrl() {
+        return "/gallery/"+ getId();
     }
 
     @Override
@@ -140,6 +145,11 @@ public class GalleryPart implements Java8SearchCriteria {
         @Override
         public int getOffset() {
             return offset;
+        }
+
+        @Override
+        public String getUrl() {
+            return GalleryPart.this.getUrl() + "?offset="+ getOffset();
         }
     }
 }

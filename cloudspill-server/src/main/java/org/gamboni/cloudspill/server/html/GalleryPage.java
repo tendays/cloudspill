@@ -1,22 +1,14 @@
 package org.gamboni.cloudspill.server.html;
 
-import com.google.common.base.CaseFormat;
-import com.google.common.collect.Streams;
-
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.ServerConfiguration;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
-import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
-import org.gamboni.cloudspill.shared.query.SearchCriteria;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.persister.collection.CollectionPropertyNames;
-
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static org.gamboni.cloudspill.shared.api.CloudSpillApi.getGalleryUrl;
 
@@ -48,7 +40,7 @@ public class GalleryPage extends AbstractPage {
     }
 
     @Override
-    protected String getBody(User user) {
+    protected HtmlFragment getBody(User user) {
         final Domain.Query<Item> itemQuery = domain.selectItem().addOrder(Order.desc("date"));
 
         int counter=1;
@@ -66,24 +58,28 @@ public class GalleryPage extends AbstractPage {
 
         int pageNumber = criteria.getOffset() / PAGE_SIZE;
         long totalCount = itemQuery.getTotalCount();
-        return pageLink(pageNumber - 1, "&lt;", totalCount) +
-                itemQuery.offset(criteria.getOffset()).limit(PAGE_SIZE).list().stream().map(item ->
-                tag("a", "href="+ quote(
-                        configuration.getPublicUrl() +
-                                (user == null ?
-                                CloudSpillApi.getPublicImagePageUrl(item) :
-                        CloudSpillApi.getLoggedInImagePageUrl(item))),
-            unclosedTag("img class='thumb' src="+ quote(configuration.getPublicUrl() + CloudSpillApi.getThumbnailUrl(item))))
-        ).collect(Collectors.joining()) +
-                pageLink(pageNumber + 1, "&gt;", totalCount);
+        return HtmlFragment.concatenate(
+                tag("div", "class='description'", criteria.getDescription()),
+                pageLink(pageNumber - 1, "<", totalCount),
+                HtmlFragment.concatenate(
+                        itemQuery.offset(criteria.getOffset()).limit(PAGE_SIZE).list().stream().map(item ->
+                                tag("a", "href=" + quote(
+                                        configuration.getPublicUrl() +
+                                                (user == null ?
+                                                        CloudSpillApi.getPublicImagePageUrl(item) :
+                                                        CloudSpillApi.getLoggedInImagePageUrl(item))),
+                                        unclosedTag("img class='thumb' src=" + quote(configuration.getPublicUrl() + CloudSpillApi.getThumbnailUrl(item))))
+                        ).toArray(HtmlFragment[]::new)),
+                pageLink(pageNumber + 1, ">", totalCount));
     }
 
-    private String pageLink(int pageNumber, String label, long totalCount) {
+    private HtmlFragment pageLink(int pageNumber, String label, long totalCount) {
         int offset = pageNumber * PAGE_SIZE;
         if (offset >= 0 && offset < totalCount) {
-            return "<a class='pagerLink' href='"+ configuration.getPublicUrl() + CloudSpillApi.getGalleryUrl(criteria.atOffset(offset)) +"'>"+ label +"</a>";
+            return tag("a", "class='pagerLink' href="+ quote(configuration.getPublicUrl() + criteria.atOffset(offset).getUrl()),
+                    label);
         } else {
-            return "";
+            return HtmlFragment.EMPTY;
         }
     }
 }

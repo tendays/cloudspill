@@ -3,6 +3,7 @@ package org.gamboni.cloudspill.server.query;
 import com.google.common.base.CaseFormat;
 import com.google.common.collect.Streams;
 
+import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.query.SearchCriteria;
 
 import java.time.LocalDate;
@@ -39,6 +40,13 @@ public interface Java8SearchCriteria extends SearchCriteria {
                 .map(t -> CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, t))
                 .collect(Collectors.joining(" "))
                 + " Photos";
+    }
 
+    default String getDescription() {
+        return "";
+    }
+
+    default String getUrl() {
+        return CloudSpillApi.getGalleryUrl(this);
     }
 }

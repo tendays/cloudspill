@@ -109,6 +109,11 @@ public class FilterSpecification implements SearchCriteria, Parcelable {
         return this.tags;
     }
 
+    @Override
+    public int getOffset() {
+        return 0;
+    }
+
     private long asLong(Date date) {
         return (date == null) ? NULL_DATE : date.getTime();
     }

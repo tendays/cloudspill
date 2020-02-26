@@ -9,12 +9,10 @@ import java.util.stream.Collectors;
 
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.User;
-import org.gamboni.cloudspill.server.CloudSpillServer;
 import org.gamboni.cloudspill.server.ServerConfiguration;
 import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.domain.ItemType;
-import org.gamboni.cloudspill.shared.query.SearchCriteria;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableSet;
@@ -67,20 +65,19 @@ public class ImagePage extends AbstractPage {
 		return configuration.getPublicUrl() + CloudSpillApi.getImageUrl(item);
 	}
 
-	public String getBody(User user) {
-					return	unclosedTag((item.getType() == ItemType.VIDEO ? "video controls " : "img ") +
-							"class='image' src="+ quote(getImageUrl())) +
-						tag("div", "class='metadata'", "By: "+ item.getUser() +
-								dateLine(user)) +
+	public HtmlFragment getBody(User user) {
+					return HtmlFragment.concatenate(unclosedTag((item.getType() == ItemType.VIDEO ? "video controls " : "img ") +
+							"class='image' src="+ quote(getImageUrl())),
+						tag("div", "class='metadata'", HtmlFragment.escape("By: "+ item.getUser()),
+								dateLine(user)),
+								tag("div", "class='metadata'", MoreObjects.firstNonNull(item.getDescription(), "")),
 								tag("div", "class='metadata'",
-										MoreObjects.firstNonNull(item.getDescription(), "")) +
-								tag("div", "class='metadata'",
-										item.getTags().stream()
-										.map(tag -> tagElement(tag, user))
-										.collect(Collectors.joining(" ")));
+										new HtmlFragment(item.getTags().stream()
+										.map(tag -> tagElement(tag, user).toString())
+										.collect(Collectors.joining(" ")))));
 	}
 
-	private String tagElement(String tag, User user) {
+	private HtmlFragment tagElement(String tag, User user) {
 		if (user == null) {
 			return tag("span class='tag'", tag);
 		} else {
@@ -90,8 +87,8 @@ public class ImagePage extends AbstractPage {
 		}
 	}
 
-	private String dateLine(User user) {
-		if (item.getDate() == null) { return ""; }
+	private HtmlFragment dateLine(User user) {
+		if (item.getDate() == null) { return HtmlFragment.EMPTY; }
 		String dateString = item.getDate()
 				.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm:ss"));
 		return (user == null ? tag("span class='date'", dateString) : tag("a class='date' href="+
