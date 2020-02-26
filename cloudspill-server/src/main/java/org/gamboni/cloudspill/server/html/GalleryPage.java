@@ -31,7 +31,7 @@ public class GalleryPage extends AbstractPage {
 
     @Override
     protected String getTitle() {
-        return criteria.getTitle();
+        return criteria.buildTitle();
     }
 
     @Override

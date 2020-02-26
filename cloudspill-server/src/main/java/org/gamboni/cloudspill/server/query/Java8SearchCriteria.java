@@ -31,7 +31,7 @@ public interface Java8SearchCriteria extends SearchCriteria {
 
     Java8SearchCriteria atOffset(int newOffset);
 
-    default String getTitle() {
+    default String buildTitle() {
         Stream<String> day = (getFrom() != null && getFrom().equals(getTo())) ?
                 Stream.of(getFrom().toString()) : Stream.empty();
         return Streams.concat(

@@ -88,9 +88,13 @@ public class GalleryPart implements Java8SearchCriteria {
         this.to = to;
     }
 
-    @Override
     public String getTitle() {
-        return (title == null) ? Java8SearchCriteria.super.getTitle() : title;
+        return title;
+    }
+
+    @Override
+    public String buildTitle() {
+        return (getTitle() == null) ? Java8SearchCriteria.super.buildTitle() : getTitle();
     }
 
     public void setTitle(String title) {
@@ -138,8 +142,8 @@ public class GalleryPart implements Java8SearchCriteria {
         }
 
         @Override
-        public String getTitle() {
-            return title;
+        public String buildTitle() {
+            return GalleryPart.this.buildTitle();
         }
 
         @Override
