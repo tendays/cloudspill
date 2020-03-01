@@ -54,7 +54,8 @@ public class GalleryPage extends AbstractPage {
                     tag));
         }
         if (criteria.getFrom() != null) {
-            itemQuery.add(Restrictions.ge("date", criteria.getFrom().atStartOfDay()));
+            itemQuery.add(domain.criteriaBuilder.ge(itemQuery.root.get("date"),
+                    criteria.getFrom().atStartOfDay()));
         }
         if (criteria.getTo() != null) {
             itemQuery.add(Restrictions.lt("date", criteria.getTo().plusDays(1).atStartOfDay()));

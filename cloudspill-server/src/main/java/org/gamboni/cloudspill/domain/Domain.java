@@ -40,7 +40,7 @@ public class Domain {
 
 	public abstract class QueryNode<SELF> {
 		protected final CriteriaQuery<?> criteria;
-		protected final Root<?> root;
+		public final Root<?> root;
 		protected QueryNode(CriteriaQuery<?> criteria, Root<?> root) {
 			this.criteria = criteria;
 			this.root = root;

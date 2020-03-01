@@ -20,7 +20,9 @@
     <output-test url="file://$MODULE_DIR$/build/classes/java/test" />
     <exclude-output />
     <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/src/generated/java" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/main/java" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/generated/resources" type="java-resource" />
       <sourceFolder url="file://$MODULE_DIR$/src/main/resources" type="java-resource" />
       <sourceFolder url="file://$MODULE_DIR$/src/test/java" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/src/test/resources" type="java-test-resource" />
@@ -264,9 +266,8 @@
     <orderEntry type="library" exported="" name="Gradle: common-image-3.1.1" level="project" />
     <orderEntry type="library" exported="" name="Gradle: common-io-3.1.1" level="project" />
     <orderEntry type="library" exported="" name="Gradle: common-lang-3.1.1" level="project" />
-    <orderEntry type="library" exported="" scope="RUNTIME" name="Gradle: jta-1.1" level="project" />
+    <orderEntry type="library" exported="" scope="TEST" name="Gradle: jta-1.1" level="project" />
     <orderEntry type="library" exported="" scope="TEST" name="Gradle: junit-4.12" level="project" />
     <orderEntry type="library" exported="" scope="TEST" name="Gradle: hamcrest-core-1.3" level="project" />
-    <orderEntry type="library" exported="" scope="TEST" name="Gradle: jta-1.1" level="project" />
   </component>
 </module>

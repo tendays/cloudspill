@@ -23,7 +23,23 @@ repositories {
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
+tasks.withType(JavaCompile) {
+    options.annotationProcessorGeneratedSourcesDirectory = file("src/generated/java")
+}
+
+sourceSets {
+    generated {
+        java {
+            srcDirs = ['src/generated/java']
+        }
+    }
+}
+
 dependencies {
+
+// source: https://stackoverflow.com/questions/54218556/how-to-generate-jpa-metamodel-with-gradle-5-x
+    annotationProcessor('org.hibernate:hibernate-jpamodelgen:5.1.0.Final')
+
     implementation project(':cloudspill-shared')
     
     implementation 'com.google.guava:guava:21.0'
