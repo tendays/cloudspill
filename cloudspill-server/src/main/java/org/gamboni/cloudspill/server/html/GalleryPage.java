@@ -10,6 +10,8 @@ import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.persister.collection.CollectionPropertyNames;
 
+import javax.persistence.criteria.Path;
+
 import static org.gamboni.cloudspill.shared.api.CloudSpillApi.getGalleryUrl;
 
 /**
@@ -45,6 +47,7 @@ public class GalleryPage extends AbstractPage {
 
         int counter=1;
         for (String tag : criteria.getTags()) {
+            itemQuery.add(...);
             itemQuery.subquery("tags", "t" + (counter++)).add(
             Restrictions.eq(
                     CollectionPropertyNames.COLLECTION_ELEMENTS,

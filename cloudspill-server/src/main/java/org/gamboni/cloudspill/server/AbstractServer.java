@@ -5,6 +5,9 @@ import java.util.Base64;
 import java.util.List;
 
 import javax.inject.Inject;
+import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
+import javax.persistence.EntityTransaction;
 import javax.servlet.http.HttpServletResponse;
 
 import org.gamboni.cloudspill.domain.Domain;
@@ -25,7 +28,7 @@ import spark.Route;
 public class AbstractServer {
 
 	@Inject
-	SessionFactory sessionFactory;
+	EntityManagerFactory sessionFactory;
 
 	protected interface TransactionBody<R> {
 	    	R run(Domain s) throws Exception;
@@ -144,11 +147,11 @@ public class AbstractServer {
 	}
 
 	protected <R> R transacted(TransactionBody<R> task) throws Exception {
-		Session session = null;
-		Transaction tx = null;
+		EntityManager session = null;
+		EntityTransaction tx = null;
 		try {
-			session = sessionFactory.openSession();
-			tx = session.beginTransaction();
+			session = sessionFactory.createEntityManager();
+			tx = session.getTransaction();
 			R result = task.run(new Domain(session));
 			tx.commit();
 			tx = null;
