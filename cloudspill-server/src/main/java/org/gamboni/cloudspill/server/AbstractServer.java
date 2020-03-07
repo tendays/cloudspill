@@ -156,6 +156,7 @@ public class AbstractServer {
 		try {
 			session = sessionFactory.createEntityManager();
 			tx = session.getTransaction();
+			tx.begin();
 			R result = task.run(new Domain(session));
 			tx.commit();
 			tx = null;
