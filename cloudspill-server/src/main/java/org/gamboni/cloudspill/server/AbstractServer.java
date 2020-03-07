@@ -88,8 +88,8 @@ public class AbstractServer {
 			String username = credentials.substring(0, colon);
 			String password = credentials.substring(colon+1);
             final Domain.Query<User> userQuery = session.selectUser();
-            final List<User> users = userQuery.add(
-                    session.criteriaBuilder.equal(userQuery.root.get(User_.name), username))
+            final List<User> users = userQuery.add(root ->
+                    session.criteriaBuilder.equal(root.get(User_.name), username))
                     .list();
 			if (users.isEmpty()) {
 				Log.error("Unknown user "+ username);

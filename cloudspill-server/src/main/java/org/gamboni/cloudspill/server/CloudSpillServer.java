@@ -113,8 +113,8 @@ public class CloudSpillServer extends AbstractServer {
     	try {
     	transacted(session -> {
 			final Domain.Query<Item> itemQuery = session.selectItem();
-			for (Item item : itemQuery.add(session.criteriaBuilder.isNull(
-					itemQuery.root.get(Item_.checksum))).list()) {
+			for (Item item : itemQuery.add(root -> session.criteriaBuilder.isNull(
+					root.get(Item_.checksum))).list()) {
     			File file = item.getFile(rootFolder);
     			final MessageDigest md5 = MessageDigest.getInstance("MD5");
 				try (InputStream in = new FileInputStream(file)) {
@@ -283,13 +283,14 @@ public class CloudSpillServer extends AbstractServer {
         	if (normalisedPath.startsWith("/")) {
         		normalisedPath = normalisedPath.substring(1);
 			}
+        	String finalNormalisedPath = normalisedPath;
         	
         	/* First see if the path already exists. */
 			final Domain.Query<Item> itemQuery = session.selectItem();
 			List<Item> existing = itemQuery
-        		.add(session.criteriaBuilder.equal(itemQuery.root.get(Item_.user), username))
-        		.add(session.criteriaBuilder.equal(itemQuery.root.get(Item_.folder), folder))
-        		.add(session.criteriaBuilder.equal(itemQuery.root.get(Item_.path), normalisedPath))
+        		.add(root -> session.criteriaBuilder.equal(root.get(Item_.user), username))
+        		.add(root -> session.criteriaBuilder.equal(root.get(Item_.folder), folder))
+        		.add(root -> session.criteriaBuilder.equal(root.get(Item_.path), finalNormalisedPath))
         		.list();
         	
 			switch (existing.size()) {
@@ -381,7 +382,7 @@ public class CloudSpillServer extends AbstractServer {
 	private Item itemForUpdate(Domain session, long id) {
 		final Domain.Query<Item> itemQuery = session.selectItem();
 		final Item item = Iterables.getOnlyElement(
-				itemQuery.add(session.criteriaBuilder.equal(itemQuery.root.get(Item_.id), id)).forUpdate().list());
+				itemQuery.add(root -> session.criteriaBuilder.equal(root.get(Item_.id), id)).forUpdate().list());
 		Log.debug("Loaded item "+ id +" for update, at timestamp "+ item.getUpdated().toString());
 		session.reload(item);
 		Log.debug("After reload, item "+ id +" has timestamp "+ item.getUpdated().toString());
@@ -439,8 +440,8 @@ public class CloudSpillServer extends AbstractServer {
 		StringBuilder result = new StringBuilder();
 		final Domain.Query<Item> itemQuery = domain.selectItem();
 		for (Item item : itemQuery
-				.add(domain.criteriaBuilder.gt(itemQuery.root.get(Item_.id), id))
-				.addOrder(domain.criteriaBuilder.asc(itemQuery.root.get(Item_.id)))
+				.add(root -> domain.criteriaBuilder.gt(root.get(Item_.id), id))
+				.addOrder(root -> domain.criteriaBuilder.asc(root.get(Item_.id)))
 				.list()) {
 			result.append(item.serialise()).append("\n");
 		}
@@ -452,9 +453,9 @@ public class CloudSpillServer extends AbstractServer {
 		Instant timestamp = instant;
 		final Domain.Query<Item> itemQuery = domain.selectItem();
 		for (Item item : itemQuery
-				.add(domain.criteriaBuilder.greaterThanOrEqualTo(
-						itemQuery.root.get(Item_.updated), instant))
-				.addOrder(domain.criteriaBuilder.asc(itemQuery.root.get(Item_.updated)))
+				.add(root -> domain.criteriaBuilder.greaterThanOrEqualTo(
+						root.get(Item_.updated), instant))
+				.addOrder(root -> domain.criteriaBuilder.asc(root.get(Item_.updated)))
 				.limit(500) // large datasets make the Android client crash
 				.list()) {
 			result.append(item.serialise()).append("\n");

@@ -7,14 +7,10 @@ import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.ServerConfiguration;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
-import org.hibernate.criterion.Order;
-import org.hibernate.criterion.Restrictions;
-import org.hibernate.persister.collection.CollectionPropertyNames;
 
 import java.util.Set;
 
 import javax.persistence.criteria.Expression;
-import javax.persistence.criteria.Path;
 import javax.persistence.metamodel.SetAttribute;
 
 import static org.gamboni.cloudspill.shared.api.CloudSpillApi.getGalleryUrl;
@@ -49,21 +45,23 @@ public class GalleryPage extends AbstractPage {
     @Override
     protected HtmlFragment getBody(User user) {
         final Domain.Query<Item> itemQuery = domain.selectItem();
-        itemQuery.addOrder(domain.criteriaBuilder.desc(itemQuery.root.get(Item_.date)));
+        itemQuery.addOrder(root -> domain.criteriaBuilder.desc(root.get(Item_.date)));
 
         int counter=1;
         for (String tag : criteria.getTags()) {
-            // why isn't get(PluralAttribute) contravariant on root type?
-            Expression<Set<String>> tagPath = itemQuery.root.get(
-                    (SetAttribute<Item, String>)(SetAttribute)Item_.tags);
-            itemQuery.add(domain.criteriaBuilder.isMember(tag, tagPath));
+            itemQuery.add(root -> {
+                // why isn't get(PluralAttribute) contravariant on root type?
+                Expression<Set<String>> tagPath = root.get(
+                        (SetAttribute<Item, String>)(SetAttribute)Item_.tags);
+                return domain.criteriaBuilder.isMember(tag, tagPath);
+            });
         }
         if (criteria.getFrom() != null) {
-            itemQuery.add(domain.criteriaBuilder.greaterThanOrEqualTo(itemQuery.root.get(Item_.date),
+            itemQuery.add(root -> domain.criteriaBuilder.greaterThanOrEqualTo(root.get(Item_.date),
                     criteria.getFrom().atStartOfDay()));
         }
         if (criteria.getTo() != null) {
-            itemQuery.add(domain.criteriaBuilder.lessThanOrEqualTo(itemQuery.root.get(Item_.date),
+            itemQuery.add(root -> domain.criteriaBuilder.lessThanOrEqualTo(root.get(Item_.date),
                     criteria.getTo().plusDays(1).atStartOfDay()));
         }
 
