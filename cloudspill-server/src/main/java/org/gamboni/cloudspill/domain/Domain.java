@@ -3,7 +3,9 @@
  */
 package org.gamboni.cloudspill.domain;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 import javax.persistence.EntityManager;
 import javax.persistence.LockModeType;
@@ -36,15 +38,16 @@ public class Domain {
 	}
 
 	public abstract class QueryNode<R, SELF> {
+		protected final Class<R> entityClass;
 		protected final CriteriaQuery<?> criteria;
-		public final Root<R> root;
-		protected QueryNode(CriteriaQuery<?> criteria, Root<R> root) {
+		protected final List<Function<Root<R>, Predicate>> whereClause = new ArrayList<>();
+		protected QueryNode(CriteriaQuery<?> criteria, Class<R> entityClass) {
 			this.criteria = criteria;
-			this.root = root;
+			this.entityClass = entityClass;
 		}
 
-		public SELF add(Predicate c) {
-			criteria.where(c);
+		public SELF add(Function<Root<R>, Predicate> pred) {
+			whereClause.add(pred);
 			return self();
 		}
 /*
@@ -75,23 +78,19 @@ public class Domain {
 	private int offset = 0;
 	private Integer limit = null;
 	private LockModeType lockMode = null;
+	private List<Function<Root<T>, Order>> orders = new ArrayList<>();
 
 	public Query(Class<T> persistentClass) {
 			this(persistentClass, session.getCriteriaBuilder().createQuery(persistentClass));
 		}
 
-		private Query(Class<T> persistentClass, CriteriaQuery<T> cq) {
-			this(cq, cq.from(persistentClass));
-		}
-
-		private Query(CriteriaQuery<T> cq, Root<T> root) {
-			super(cq, root);
-			cq.select(root);
+		public Query(Class<T> persistentClass, CriteriaQuery<T> cq) {
+			super(cq, persistentClass);
 			this.typedQuery = cq;
 		}
 
-		public Query<T> addOrder(Order order) {
-			criteria.orderBy(order);
+		public Query<T> addOrder(Function<Root<T>, Order> order) {
+			this.orders.add(order);
 			return this;
 		}
 /*
@@ -117,6 +116,10 @@ public class Domain {
 		}
 		
 		public List<T> list() {
+			final Root<T> root = typedQuery.from(this.entityClass);
+
+			typedQuery.where(this.whereClause.stream().map(f -> f.apply(root)).toArray(Predicate[]::new));
+			typedQuery.orderBy(this.orders.stream().map(f -> f.apply(root)).toArray(Order[]::new));
 			TypedQuery<T> typedQuery = session.createQuery(this.typedQuery)
 					.setFirstResult(offset);
 
@@ -136,7 +139,11 @@ public class Domain {
 		}
 
 		public long getTotalCount() {
-			return session.createQuery(session.getCriteriaBuilder().createQuery(Long.class)
+			final CriteriaQuery<Long> totalQuery = session.getCriteriaBuilder().createQuery(Long.class);
+			final Root<T> root = totalQuery.from(this.entityClass);
+
+			totalQuery.where(this.whereClause.stream().map(f -> f.apply(root)).toArray(Predicate[]::new));
+			return session.createQuery(totalQuery
 					.where(criteria.getRestriction())
 					.select(session.getCriteriaBuilder().count(root)))
 					.getSingleResult();
