@@ -5,9 +5,6 @@ package org.gamboni.cloudspill.domain;
 
 import java.util.List;
 
-import org.hibernate.LockMode;
-import org.hibernate.criterion.Projections;
-
 import javax.persistence.EntityManager;
 import javax.persistence.LockModeType;
 import javax.persistence.TypedQuery;
@@ -38,10 +35,10 @@ public class Domain {
 		return new Query<>(User.class);
 	}
 
-	public abstract class QueryNode<SELF> {
+	public abstract class QueryNode<R, SELF> {
 		protected final CriteriaQuery<?> criteria;
-		public final Root<?> root;
-		protected QueryNode(CriteriaQuery<?> criteria, Root<?> root) {
+		public final Root<R> root;
+		protected QueryNode(CriteriaQuery<?> criteria, Root<R> root) {
 			this.criteria = criteria;
 			this.root = root;
 		}
@@ -73,7 +70,7 @@ public class Domain {
 		}
 	}
 */
-	public class Query<T> extends QueryNode<Query<T>> {
+	public class Query<T> extends QueryNode<T, Query<T>> {
 	private final CriteriaQuery<T> typedQuery;
 	private int offset = 0;
 	private Integer limit = null;
@@ -119,7 +116,6 @@ public class Domain {
 			return this;
 		}
 		
-		@SuppressWarnings("unchecked")
 		public List<T> list() {
 			TypedQuery<T> typedQuery = session.createQuery(this.typedQuery)
 					.setFirstResult(offset);
@@ -148,7 +144,7 @@ public class Domain {
 	}
 
 	public <T> T get(Class<T> persistentClass, long id) {
-		return (T) session.find(persistentClass, id);
+		return session.find(persistentClass, id);
 	}
 
 	public void persist(Object entity) {

@@ -2,6 +2,7 @@ package org.gamboni.cloudspill.server.html;
 
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.Item;
+import org.gamboni.cloudspill.domain.Item_;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.ServerConfiguration;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
@@ -10,7 +11,11 @@ import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.persister.collection.CollectionPropertyNames;
 
+import java.util.Set;
+
+import javax.persistence.criteria.Expression;
 import javax.persistence.criteria.Path;
+import javax.persistence.metamodel.SetAttribute;
 
 import static org.gamboni.cloudspill.shared.api.CloudSpillApi.getGalleryUrl;
 
@@ -43,22 +48,23 @@ public class GalleryPage extends AbstractPage {
 
     @Override
     protected HtmlFragment getBody(User user) {
-        final Domain.Query<Item> itemQuery = domain.selectItem().addOrder(Order.desc("date"));
+        final Domain.Query<Item> itemQuery = domain.selectItem();
+        itemQuery.addOrder(domain.criteriaBuilder.desc(itemQuery.root.get(Item_.date)));
 
         int counter=1;
         for (String tag : criteria.getTags()) {
-            itemQuery.add(...);
-            itemQuery.subquery("tags", "t" + (counter++)).add(
-            Restrictions.eq(
-                    CollectionPropertyNames.COLLECTION_ELEMENTS,
-                    tag));
+            // why isn't get(PluralAttribute) contravariant on root type?
+            Expression<Set<String>> tagPath = itemQuery.root.get(
+                    (SetAttribute<Item, String>)(SetAttribute)Item_.tags);
+            itemQuery.add(domain.criteriaBuilder.isMember(tag, tagPath));
         }
         if (criteria.getFrom() != null) {
-            itemQuery.add(domain.criteriaBuilder.ge(itemQuery.root.get("date"),
+            itemQuery.add(domain.criteriaBuilder.greaterThanOrEqualTo(itemQuery.root.get(Item_.date),
                     criteria.getFrom().atStartOfDay()));
         }
         if (criteria.getTo() != null) {
-            itemQuery.add(Restrictions.lt("date", criteria.getTo().plusDays(1).atStartOfDay()));
+            itemQuery.add(domain.criteriaBuilder.lessThanOrEqualTo(itemQuery.root.get(Item_.date),
+                    criteria.getTo().plusDays(1).atStartOfDay()));
         }
 
         int pageNumber = criteria.getOffset() / PAGE_SIZE;

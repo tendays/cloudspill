@@ -12,6 +12,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.User;
+import org.gamboni.cloudspill.domain.User_;
 import org.gamboni.cloudspill.shared.util.Log;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -86,7 +87,10 @@ public class AbstractServer {
 			}
 			String username = credentials.substring(0, colon);
 			String password = credentials.substring(colon+1);
-			final List<User> users = session.selectUser().add(Restrictions.eq("name", username)).list();
+            final Domain.Query<User> userQuery = session.selectUser();
+            final List<User> users = userQuery.add(
+                    session.criteriaBuilder.equal(userQuery.root.get(User_.name), username))
+                    .list();
 			if (users.isEmpty()) {
 				Log.error("Unknown user "+ username);
 				forbidden(res, true);

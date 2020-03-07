@@ -41,6 +41,7 @@ import org.bytedeco.javacv.Java2DFrameConverter;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.GalleryPart;
 import org.gamboni.cloudspill.domain.Item;
+import org.gamboni.cloudspill.domain.Item_;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.html.GalleryPage;
 import org.gamboni.cloudspill.server.html.ImagePage;
@@ -111,7 +112,9 @@ public class CloudSpillServer extends AbstractServer {
     	Log.info("Upgrading database, please wait");
     	try {
     	transacted(session -> {
-    		for (Item item : session.selectItem().add(Restrictions.isNull("checksum")).list()) {
+			final Domain.Query<Item> itemQuery = session.selectItem();
+			for (Item item : itemQuery.add(session.criteriaBuilder.isNull(
+					itemQuery.root.get(Item_.checksum))).list()) {
     			File file = item.getFile(rootFolder);
     			final MessageDigest md5 = MessageDigest.getInstance("MD5");
 				try (InputStream in = new FileInputStream(file)) {
@@ -282,10 +285,11 @@ public class CloudSpillServer extends AbstractServer {
 			}
         	
         	/* First see if the path already exists. */
-        	List<Item> existing = session.selectItem()
-        		.add(Restrictions.eq("user", username))
-        		.add(Restrictions.eq("folder", folder))
-        		.add(Restrictions.eq("path", normalisedPath))
+			final Domain.Query<Item> itemQuery = session.selectItem();
+			List<Item> existing = itemQuery
+        		.add(session.criteriaBuilder.equal(itemQuery.root.get(Item_.user), username))
+        		.add(session.criteriaBuilder.equal(itemQuery.root.get(Item_.folder), folder))
+        		.add(session.criteriaBuilder.equal(itemQuery.root.get(Item_.path), normalisedPath))
         		.list();
         	
 			switch (existing.size()) {
@@ -375,7 +379,9 @@ public class CloudSpillServer extends AbstractServer {
 	}
 
 	private Item itemForUpdate(Domain session, long id) {
-		final Item item = Iterables.getOnlyElement(session.selectItem().add(Restrictions.eq("id", id)).forUpdate().list());
+		final Domain.Query<Item> itemQuery = session.selectItem();
+		final Item item = Iterables.getOnlyElement(
+				itemQuery.add(session.criteriaBuilder.equal(itemQuery.root.get(Item_.id), id)).forUpdate().list());
 		Log.debug("Loaded item "+ id +" for update, at timestamp "+ item.getUpdated().toString());
 		session.reload(item);
 		Log.debug("After reload, item "+ id +" has timestamp "+ item.getUpdated().toString());
@@ -431,9 +437,10 @@ public class CloudSpillServer extends AbstractServer {
 
 	private StringBuilder itemsSince(Domain domain, final long id) {
 		StringBuilder result = new StringBuilder();
-		for (Item item : domain.selectItem()
-				.add(Restrictions.gt("id", id))
-				.addOrder(Order.asc("id"))
+		final Domain.Query<Item> itemQuery = domain.selectItem();
+		for (Item item : itemQuery
+				.add(domain.criteriaBuilder.gt(itemQuery.root.get(Item_.id), id))
+				.addOrder(domain.criteriaBuilder.asc(itemQuery.root.get(Item_.id)))
 				.list()) {
 			result.append(item.serialise()).append("\n");
 		}
@@ -443,9 +450,11 @@ public class CloudSpillServer extends AbstractServer {
 	private StringBuilder itemsSince(Domain domain, final Instant instant) {
 		StringBuilder result = new StringBuilder();
 		Instant timestamp = instant;
-		for (Item item : domain.selectItem()
-				.add(Restrictions.ge("updated", instant))
-				.addOrder(Order.asc("updated"))
+		final Domain.Query<Item> itemQuery = domain.selectItem();
+		for (Item item : itemQuery
+				.add(domain.criteriaBuilder.greaterThanOrEqualTo(
+						itemQuery.root.get(Item_.updated), instant))
+				.addOrder(domain.criteriaBuilder.asc(itemQuery.root.get(Item_.updated)))
 				.limit(500) // large datasets make the Android client crash
 				.list()) {
 			result.append(item.serialise()).append("\n");
