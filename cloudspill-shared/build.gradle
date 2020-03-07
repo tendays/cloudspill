@@ -32,10 +32,13 @@ dependencies {
 
 // source: https://stackoverflow.com/questions/54218556/how-to-generate-jpa-metamodel-with-gradle-5-x
     annotationProcessor('org.hibernate:hibernate-jpamodelgen:5.1.0.Final')
+    annotationProcessor 'javax.xml.bind:jaxb-api:2.3.1'
+    annotationProcessor 'javax.annotation:javax.annotation-api:1.3.1'
 
     api 'org.hibernate.javax.persistence:hibernate-jpa-2.1-api:1.0.0.Final'
 
-    compile 'com.drewnoakes:metadata-extractor:2.11.0' // for exif data
+    implementation 'com.drewnoakes:metadata-extractor:2.12.0' // for exif data
+    implementation 'javax.annotation:javax.annotation-api:1.3.1'
 
     // Use JUnit test framework
     testImplementation 'junit:junit:4.12'
