@@ -144,7 +144,6 @@ public class Domain {
 
 			totalQuery.where(this.whereClause.stream().map(f -> f.apply(root)).toArray(Predicate[]::new));
 			return session.createQuery(totalQuery
-					.where(criteria.getRestriction())
 					.select(session.getCriteriaBuilder().count(root)))
 					.getSingleResult();
 		}
