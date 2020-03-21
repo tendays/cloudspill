@@ -30,7 +30,7 @@ public class GalleryListPage extends AbstractPage {
     protected HtmlFragment getBody(User user) {
         return HtmlFragment.concatenate(domain.selectGalleryPart().list()
                 .stream()
-                .map(gp -> tag("a", "href="+ quote(configuration.getPublicUrl() + gp.getUrl()), gp.buildTitle()))
+                .map(gp -> tag("a", " class='galleryLink' href="+ quote(configuration.getPublicUrl() + gp.getUrl()), gp.buildTitle()))
                 .toArray(HtmlFragment[]::new));
     }
 }
