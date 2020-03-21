@@ -1,7 +1,5 @@
 package org.gamboni.cloudspill.shared.query;
 
-import java.time.LocalDate;
-import java.util.Date;
 import java.util.Set;
 
 /**
@@ -19,4 +17,7 @@ public interface SearchCriteria {
     String getUser();
 
     int getOffset();
+
+    String getUrl();
+
 }

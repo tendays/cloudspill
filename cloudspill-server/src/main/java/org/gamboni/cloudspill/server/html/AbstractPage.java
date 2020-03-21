@@ -50,6 +50,10 @@ public abstract class AbstractPage {
     private final String css;
     protected final ServerConfiguration configuration;
 
+    protected AbstractPage(ServerConfiguration configuration) {
+        this(configuration, configuration.getCss());
+    }
+
     protected AbstractPage(ServerConfiguration configuration, String css) {
         this.configuration = configuration;
         this.css = css;

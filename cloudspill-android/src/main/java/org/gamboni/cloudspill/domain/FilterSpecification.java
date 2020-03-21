@@ -4,6 +4,7 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.support.annotation.NonNull;
 
+import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.query.SearchCriteria;
 
 import java.text.SimpleDateFormat;
@@ -120,6 +121,10 @@ public class FilterSpecification implements SearchCriteria, Parcelable {
 
     private String asString(String string) {
         return (string == null) ? NULL_STRING : string;
+    }
+
+    public String getUrl() {
+        return CloudSpillApi.getGalleryUrl(getTags(), getStringFrom(), getStringTo(), getOffset());
     }
 
     public String toString() {

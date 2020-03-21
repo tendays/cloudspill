@@ -43,6 +43,7 @@ import org.gamboni.cloudspill.domain.GalleryPart;
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.Item_;
 import org.gamboni.cloudspill.domain.User;
+import org.gamboni.cloudspill.server.html.GalleryListPage;
 import org.gamboni.cloudspill.server.html.GalleryPage;
 import org.gamboni.cloudspill.server.html.ImagePage;
 import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
@@ -188,8 +189,20 @@ public class CloudSpillServer extends AbstractServer {
 			return new GalleryPage(configuration, domain, criteria).getHtml(user);
 		}));
 
+		get("/gallery/", secured((req, res, domain, user) -> {
+			return new GalleryListPage(configuration, domain).getHtml(user);
+		}));
+
 		get("/gallery/:part", secured((req, res, domain, user) -> {
 			return new GalleryPage(configuration, domain, domain.get(GalleryPart.class, Long.parseLong(req.params("part")))).getHtml(user);
+		}));
+
+		get("/public/gallery/", (req, res) -> transacted(domain -> {
+			return new GalleryListPage(configuration, domain).getHtml(null);
+		}));
+
+		get("/public/gallery/:part", (req, res) -> transacted(domain -> {
+			return new GalleryPage(configuration, domain, domain.get(GalleryPart.class, Long.parseLong(req.params("part")))).getHtml(null);
 		}));
 
 		get("/public", (req, res) -> transacted(session -> {

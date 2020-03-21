@@ -35,6 +35,10 @@ public class ServerConfiguration {
 	public String getPublicUrl() {
 		return prop.getProperty("publicUrl");
 	}
+
+	public String getRepositoryName() {
+		return prop.getProperty("repositoryName");
+	}
 	
 	public String getCss() {
 		return prop.getProperty("css");

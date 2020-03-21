@@ -32,6 +32,10 @@ public class Domain {
 	public Query<Item> selectItem() {
 		return new Query<>(Item.class);
 	}
+
+	public Query<GalleryPart> selectGalleryPart() {
+		return new Query<>(GalleryPart.class);
+	}
 	
 	public Query<User> selectUser() {
 		return new Query<>(User.class);

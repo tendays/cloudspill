@@ -102,7 +102,7 @@ public class GalleryPart implements Java8SearchCriteria {
     }
 
     @Override @Transient public String getUrl() {
-        return "/gallery/"+ getId();
+        return "/public/gallery/"+ getId();
     }
 
     @Override

@@ -61,22 +61,22 @@ public abstract class CloudSpillApi {
         return "/item/" + item.getServerId() + ID_HTML_SUFFIX;
     }
 
-    public static String getGalleryUrl(SearchCriteria c) {
+    public static String getGalleryUrl(Set<String> tags, String stringFrom, String stringTo, int offset) {
         Set<String> otherTags = new HashSet<>();
         boolean isPublic = false;
-        for (String tag : c.getTags()) {
+        for (String tag : tags) {
             if (tag.equals("public")) {
                 isPublic = true;
             } else {
                 otherTags.add(tag);
             }
         }
-        String offsetQuery = (c.getOffset() == 0) ? "" : ("?offset="+ c.getOffset());
+        String offsetQuery = (offset == 0) ? "" : ("?offset="+ offset);
         String baseUrl = (isPublic) ? "/public" : "/";
-        if (otherTags.size() == 1 && c.getStringFrom() == null && c.getStringTo() == null) {
-            return baseUrl + "/tag/" + c.getTags().iterator().next() + offsetQuery;
-        } else if (otherTags.isEmpty() && c.getStringFrom() != null && c.getStringFrom().equals(c.getStringTo())) {
-            return baseUrl +"/day/"+ c.getStringFrom() + offsetQuery;
+        if (otherTags.size() == 1 && stringFrom == null && stringTo == null) {
+            return baseUrl + "/tag/" + otherTags.iterator().next() + offsetQuery;
+        } else if (otherTags.isEmpty() && stringFrom != null && stringFrom.equals(stringTo)) {
+            return baseUrl +"/day/"+ stringFrom + offsetQuery;
         } else {
             return baseUrl + offsetQuery; // TODO
         }

@@ -39,7 +39,7 @@ public class GalleryPage extends AbstractPage {
 
     @Override
     protected String getPageUrl(User user) {
-        return configuration.getPublicUrl() + getGalleryUrl(criteria);
+        return configuration.getPublicUrl() + criteria.getUrl();
     }
 
     @Override
@@ -47,7 +47,6 @@ public class GalleryPage extends AbstractPage {
         final Domain.Query<Item> itemQuery = domain.selectItem();
         itemQuery.addOrder(root -> domain.criteriaBuilder.desc(root.get(Item_.date)));
 
-        int counter=1;
         for (String tag : criteria.getTags()) {
             itemQuery.add(root -> {
                 // why isn't get(PluralAttribute) contravariant on root type?

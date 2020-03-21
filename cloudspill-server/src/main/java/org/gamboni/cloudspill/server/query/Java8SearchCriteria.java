@@ -47,6 +47,6 @@ public interface Java8SearchCriteria extends SearchCriteria {
     }
 
     default String getUrl() {
-        return CloudSpillApi.getGalleryUrl(this);
+        return CloudSpillApi.getGalleryUrl(getTags(), getStringFrom(), getStringTo(), getOffset());
     }
 }
