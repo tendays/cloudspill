@@ -55,7 +55,8 @@ public class ServerModule extends AbstractModule {
 		dataSource.setPassword("cloudspill");
 
 		Properties prop = new Properties();
-		prop.setProperty(AvailableSettings.URL, "jdbc:mysql://localhost:3306/cloudspill");
+		// https://stackoverflow.com/a/21207563
+		prop.setProperty(AvailableSettings.URL, "jdbc:mysql://localhost:3306/cloudspill?UseUnicode=true&amp;characterEncoding=utf8");
 		prop.setProperty(AvailableSettings.USER, "cloudspill");
 		prop.setProperty(AvailableSettings.PASS, "cloudspill");
 		prop.setProperty(AvailableSettings.SHOW_SQL, "true");
@@ -67,11 +68,6 @@ public class ServerModule extends AbstractModule {
 		prop.setProperty(AvailableSettings.C3P0_TIMEOUT, "1800");
 		prop.setProperty(AvailableSettings.C3P0_MAX_STATEMENTS, "50");
 		prop.setProperty(AvailableSettings.CONNECTION_PROVIDER, C3P0ConnectionProvider.class.getName());
-
-		// https://stackoverflow.com/questions/13063372/hibernate-mysql-how-to-set-the-encoding-utf-8-for-database-and-tables
-		prop.setProperty("hibernate.connection.useUnicode", "true");
-		prop.setProperty("hibernate.connection.CharSet", "utf8");
-		prop.setProperty("hibernate.connection.characterEncoding", "utf8");
 
 		PersistenceUnitInfo pui = new PersistenceUnitInfo() {
 			@Override
