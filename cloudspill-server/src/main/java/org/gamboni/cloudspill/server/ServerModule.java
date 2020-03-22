@@ -53,10 +53,10 @@ public class ServerModule extends AbstractModule {
 		dataSource.setUrl("jdbc:mysql://localhost:3306/cloudspill");
 		dataSource.setUser("cloudspill");
 		dataSource.setPassword("cloudspill");
+		dataSource.setCharacterEncoding("utf8");
 
 		Properties prop = new Properties();
-		// https://stackoverflow.com/a/21207563
-		prop.setProperty(AvailableSettings.URL, "jdbc:mysql://localhost:3306/cloudspill?UseUnicode=true&amp;characterEncoding=utf8");
+		prop.setProperty(AvailableSettings.URL, "jdbc:mysql://localhost:3306/cloudspill");
 		prop.setProperty(AvailableSettings.USER, "cloudspill");
 		prop.setProperty(AvailableSettings.PASS, "cloudspill");
 		prop.setProperty(AvailableSettings.SHOW_SQL, "true");
