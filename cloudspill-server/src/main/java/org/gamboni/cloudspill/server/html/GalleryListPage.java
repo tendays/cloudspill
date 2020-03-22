@@ -35,6 +35,7 @@ public class GalleryListPage extends AbstractPage {
         return HtmlFragment.concatenate(domain.selectGalleryPart().list()
                 .stream()
                 .map(gp -> {
+                    System.out.println("Loading "+ getPageUrl(user));
                     final List<Item> sample = gp.applyTo(domain.selectItem()).limit(1).list();
                     final String href = "href="+ quote(configuration.getPublicUrl() + gp.getUrl());
                     if (sample.isEmpty()) {
