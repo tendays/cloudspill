@@ -55,7 +55,7 @@ public class ServerModule extends AbstractModule {
 		dataSource.setPassword("cloudspill");
 		dataSource.setCharacterEncoding("utf8");
 		dataSource.setUseUnicode(true);
-		dataSource.setConnectionCollation("utf8"); // maybe add COLLATE utf8mb4_general_ci?
+		dataSource.setConnectionCollation("utf8mb4_general_ci"); //utf8"); // maybe add COLLATE utf8mb4_general_ci?
 
 
 		Properties prop = new Properties();
