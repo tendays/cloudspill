@@ -53,8 +53,8 @@ public class ServerModule extends AbstractModule {
 		dataSource.setUrl("jdbc:mysql://localhost:3306/cloudspill");
 		dataSource.setUser("cloudspill");
 		dataSource.setPassword("cloudspill");
-		/*dataSource.setCharacterEncoding("utf8");
-		dataSource.setUseUnicode(true);*/
+		dataSource.setCharacterEncoding("utf8");
+		dataSource.setUseUnicode(true);
 		dataSource.setConnectionCollation("utf8"); // maybe add COLLATE utf8mb4_general_ci?
 
 
