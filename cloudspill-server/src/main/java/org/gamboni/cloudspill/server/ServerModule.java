@@ -68,6 +68,11 @@ public class ServerModule extends AbstractModule {
 		prop.setProperty(AvailableSettings.C3P0_MAX_STATEMENTS, "50");
 		prop.setProperty(AvailableSettings.CONNECTION_PROVIDER, C3P0ConnectionProvider.class.getName());
 
+		// https://stackoverflow.com/questions/13063372/hibernate-mysql-how-to-set-the-encoding-utf-8-for-database-and-tables
+		prop.setProperty("hibernate.connection.useUnicode", "true");
+		prop.setProperty("hibernate.connection.CharSet", "utf8");
+		prop.setProperty("hibernate.connection.characterEncoding", "utf8");
+
 		PersistenceUnitInfo pui = new PersistenceUnitInfo() {
 			@Override
 			public String getPersistenceUnitName() {
@@ -165,14 +170,6 @@ public class ServerModule extends AbstractModule {
 
 		ImmutableMap<Object, Object> configuration = ImmutableMap.of(); // ?
 		return new EntityManagerFactoryBuilderImpl(new PersistenceUnitInfoDescriptor(pui), configuration).build();
-/*
-		return new Configuration()
-				.addPackage("org.gamboni.cloudspill.domain")
-			   .addProperties(prop)
-			   .addAnnotatedClass(Item.class)
-			   .addAnnotatedClass(User.class)
-				.addAnnotatedClass(GalleryPart.class)
-			   .buildSessionFactory(serviceRegistry);*/
 	}
 	
 	@Provides
