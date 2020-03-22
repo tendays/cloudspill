@@ -1,5 +1,7 @@
 package org.gamboni.cloudspill.server.html;
 
+import com.google.common.base.Stopwatch;
+
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.ServerConfiguration;
 
@@ -70,6 +72,7 @@ public abstract class AbstractPage {
     }
 
     public HtmlFragment getHtml(User user) {
+        Stopwatch stopwatch = Stopwatch.createStarted();
         return tag("html", "prefix=\"og: http://ogp.me/ns#\"",
                 tag("head",
                         tag("title", getTitle()),
@@ -81,8 +84,9 @@ public abstract class AbstractPage {
                                         quote(css))
                 ),
                         tag("body",
-                                tag("h1", "", getTitle()),
-                                getBody(user)));
+                                tag("h1", getTitle()),
+                                getBody(user)),
+                                tag("div", "class='debug'", "Page rendered in "+ stopwatch));
     }
 
 }

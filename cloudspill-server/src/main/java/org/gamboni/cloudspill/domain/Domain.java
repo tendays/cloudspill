@@ -142,6 +142,10 @@ public class Domain {
 			return this;
 		}
 
+		public CriteriaBuilder getCriteriaBuilder() {
+			return criteriaBuilder;
+		}
+
 		public long getTotalCount() {
 			final CriteriaQuery<Long> totalQuery = session.getCriteriaBuilder().createQuery(Long.class);
 			final Root<T> root = totalQuery.from(this.entityClass);

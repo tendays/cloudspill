@@ -1,6 +1,8 @@
 package org.gamboni.cloudspill.domain;
 
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
+import org.gamboni.cloudspill.shared.domain.JpaItem;
+import org.gamboni.cloudspill.shared.domain.JpaItem_;
 import org.gamboni.cloudspill.shared.query.SearchCriteria;
 
 import java.time.LocalDate;
@@ -14,6 +16,9 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Transient;
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.Order;
+import javax.persistence.criteria.Root;
 
 /**
  * @author tendays
@@ -103,6 +108,11 @@ public class GalleryPart implements Java8SearchCriteria {
 
     @Override @Transient public String getUrl() {
         return "/public/gallery/"+ getId();
+    }
+
+    /** Stored galleries sort from old to new. */
+    @Override @Transient public Order getOrder(CriteriaBuilder criteriaBuilder, Root<? extends JpaItem> root) {
+        return criteriaBuilder.asc(root.get(JpaItem_.date));
     }
 
     @Override

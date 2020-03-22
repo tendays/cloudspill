@@ -3,12 +3,24 @@ package org.gamboni.cloudspill.server.query;
 import com.google.common.base.CaseFormat;
 import com.google.common.collect.Streams;
 
+import org.gamboni.cloudspill.domain.Domain;
+import org.gamboni.cloudspill.domain.Item;
+import org.gamboni.cloudspill.domain.Item_;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
+import org.gamboni.cloudspill.shared.domain.JpaItem;
+import org.gamboni.cloudspill.shared.domain.JpaItem_;
 import org.gamboni.cloudspill.shared.query.SearchCriteria;
 
 import java.time.LocalDate;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.Expression;
+import javax.persistence.criteria.Order;
+import javax.persistence.criteria.Root;
+import javax.persistence.metamodel.SetAttribute;
 
 /** {@link SearchCriteria} extended with Java 8 features like java.time or default methods.
  *
@@ -48,5 +60,32 @@ public interface Java8SearchCriteria extends SearchCriteria {
 
     default String getUrl() {
         return CloudSpillApi.getGalleryUrl(getTags(), getStringFrom(), getStringTo(), getOffset());
+    }
+
+    default Order getOrder(CriteriaBuilder criteriaBuilder, Root<? extends JpaItem> root) {
+        return criteriaBuilder.desc(root.get(JpaItem_.date));
+    }
+
+    default <E extends JpaItem, T extends Domain.Query<E>> T applyTo(T itemQuery) {
+        CriteriaBuilder criteriaBuilder = itemQuery.getCriteriaBuilder();
+        itemQuery.addOrder(root -> getOrder(criteriaBuilder, root));
+
+        for (String tag : getTags()) {
+            itemQuery.add(root -> {
+                @SuppressWarnings("unchecked")// why isn't get(PluralAttribute) contravariant on root type?
+                Expression<Set<String>> tagPath = root.get(
+                        (SetAttribute<E, String>)(SetAttribute)JpaItem_.tags);
+                return criteriaBuilder.isMember(tag, tagPath);
+            });
+        }
+        if (getFrom() != null) {
+            itemQuery.add(root -> criteriaBuilder.greaterThanOrEqualTo(root.get(JpaItem_.date),
+                    getFrom().atStartOfDay()));
+        }
+        if (getTo() != null) {
+            itemQuery.add(root -> criteriaBuilder.lessThanOrEqualTo(root.get(JpaItem_.date),
+                    getTo().plusDays(1).atStartOfDay()));
+        }
+        return itemQuery;
     }
 }

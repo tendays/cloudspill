@@ -37,15 +37,25 @@ public abstract class CloudSpillApi {
     /** "Upload file" function: file type (ItemType) HTTP header */
     public static final String UPLOAD_TYPE_HEADER = "X-CloudSpill-Type";
 
-    public static String getThumbnailUrl(IsItem item) {
-        return "/thumbs/300/"+ item.getServerId() + accessKeyQueryString(item);
+    public enum Size {
+        GALLERY_THUMBNAIL(150),
+        IMAGE_THUMBNAIL(300);
+        public final int pixels;
+
+        Size(int pixels) {
+            this.pixels = pixels;
+        }
+    }
+
+    public static String getThumbnailUrl(IsItem item, Size size) {
+        return "/thumbs/"+ size.pixels +"/"+ item.getServerId() + accessKeyQueryString(item);
     }
 
     public static String getImageUrl(IsItem item) {
         return "/item/"+ item.getServerId() + accessKeyQueryString(item);
     }
 
-    public static String accessKeyQueryString(IsItem item) {
+    private static String accessKeyQueryString(IsItem item) {
         return "?key="+ item.getChecksum().replace("+", "%2B");
     }
 

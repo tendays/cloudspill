@@ -58,7 +58,7 @@ public class ImagePage extends AbstractPage {
 	}
 
 	public Optional<String> getThumbnailUrl() {
-		return Optional.of(configuration.getPublicUrl() + CloudSpillApi.getThumbnailUrl(item));
+		return Optional.of(configuration.getPublicUrl() + CloudSpillApi.getThumbnailUrl(item, CloudSpillApi.Size.IMAGE_THUMBNAIL));
 	}
 
 	public String getImageUrl() {

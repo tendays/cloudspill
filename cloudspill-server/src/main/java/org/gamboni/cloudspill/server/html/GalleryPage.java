@@ -2,18 +2,10 @@ package org.gamboni.cloudspill.server.html;
 
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.Item;
-import org.gamboni.cloudspill.domain.Item_;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.ServerConfiguration;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
-
-import java.util.Set;
-
-import javax.persistence.criteria.Expression;
-import javax.persistence.metamodel.SetAttribute;
-
-import static org.gamboni.cloudspill.shared.api.CloudSpillApi.getGalleryUrl;
 
 /**
  * @author tendays
@@ -44,25 +36,7 @@ public class GalleryPage extends AbstractPage {
 
     @Override
     protected HtmlFragment getBody(User user) {
-        final Domain.Query<Item> itemQuery = domain.selectItem();
-        itemQuery.addOrder(root -> domain.criteriaBuilder.desc(root.get(Item_.date)));
-
-        for (String tag : criteria.getTags()) {
-            itemQuery.add(root -> {
-                // why isn't get(PluralAttribute) contravariant on root type?
-                Expression<Set<String>> tagPath = root.get(
-                        (SetAttribute<Item, String>)(SetAttribute)Item_.tags);
-                return domain.criteriaBuilder.isMember(tag, tagPath);
-            });
-        }
-        if (criteria.getFrom() != null) {
-            itemQuery.add(root -> domain.criteriaBuilder.greaterThanOrEqualTo(root.get(Item_.date),
-                    criteria.getFrom().atStartOfDay()));
-        }
-        if (criteria.getTo() != null) {
-            itemQuery.add(root -> domain.criteriaBuilder.lessThanOrEqualTo(root.get(Item_.date),
-                    criteria.getTo().plusDays(1).atStartOfDay()));
-        }
+        final Domain.Query<Item> itemQuery = criteria.applyTo(domain.selectItem());
 
         int pageNumber = criteria.getOffset() / PAGE_SIZE;
         long totalCount = itemQuery.getTotalCount();
@@ -76,7 +50,8 @@ public class GalleryPage extends AbstractPage {
                                                 (user == null ?
                                                         CloudSpillApi.getPublicImagePageUrl(item) :
                                                         CloudSpillApi.getLoggedInImagePageUrl(item))),
-                                        unclosedTag("img class='thumb' src=" + quote(configuration.getPublicUrl() + CloudSpillApi.getThumbnailUrl(item))))
+                                        unclosedTag("img class='thumb' src=" +
+                                                quote(configuration.getPublicUrl() + CloudSpillApi.getThumbnailUrl(item, CloudSpillApi.Size.IMAGE_THUMBNAIL))))
                         ).toArray(HtmlFragment[]::new)),
                 pageLink(pageNumber + 1, ">", totalCount));
     }
