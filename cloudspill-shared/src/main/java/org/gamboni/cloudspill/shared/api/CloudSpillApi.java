@@ -4,6 +4,9 @@ import org.gamboni.cloudspill.shared.domain.IsItem;
 import org.gamboni.cloudspill.shared.domain.Items;
 import org.gamboni.cloudspill.shared.query.SearchCriteria;
 
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -30,8 +33,19 @@ public abstract class CloudSpillApi {
 
     /** PUT URL to upload a file */
     public static String upload(String user, String folder, String path) {
-        return "/item/"+ user +"/"+ folder +"/"+ path;
+        return "/item/"+ encodePathPart(user) +"/"+ encodePathPart(folder) +"/"+ encodePathPart(path);
     }
+
+    private static String encodePathPart(String text) {
+        /* See: https://www.talisman.org/~erlkonig/misc/lunatech%5Ewhat-every-webdev-must-know-about-url-encoding/ */
+        // We however do NOT encode slashes. For instance upload("user", "folder", "path1/path2") will correctly do /user/folder/path2/path2
+        // User and folder names are not allowed to contain slashes, as they must be usable in filesystem folder names
+        return text
+                .replace("%", "%25") // must be first
+                .replace(" ", "%20")
+                .replace("?", "%3F");
+    }
+
     /** "Upload file" function: file timestamp HTTP header */
     public static final String UPLOAD_TIMESTAMP_HEADER = "X-CloudSpill-Timestamp";
     /** "Upload file" function: file type (ItemType) HTTP header */
@@ -84,7 +98,7 @@ public abstract class CloudSpillApi {
         String offsetQuery = (offset == 0) ? "" : ("?offset="+ offset);
         String baseUrl = (isPublic) ? "/public" : "/";
         if (otherTags.size() == 1 && stringFrom == null && stringTo == null) {
-            return baseUrl + "/tag/" + otherTags.iterator().next() + offsetQuery;
+            return baseUrl + "/tag/" + encodePathPart(otherTags.iterator().next()) + offsetQuery;
         } else if (otherTags.isEmpty() && stringFrom != null && stringFrom.equals(stringTo)) {
             return baseUrl +"/day/"+ stringFrom + offsetQuery;
         } else {

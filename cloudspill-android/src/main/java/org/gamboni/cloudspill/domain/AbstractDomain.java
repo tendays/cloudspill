@@ -13,7 +13,6 @@ import org.gamboni.cloudspill.collect.ConcatList;
 
 import java.lang.ref.WeakReference;
 import java.util.AbstractList;
-import java.util.AbstractSet;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -21,7 +20,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /** Base class for database data model.
  *

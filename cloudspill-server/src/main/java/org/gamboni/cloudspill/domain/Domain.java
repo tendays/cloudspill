@@ -172,4 +172,8 @@ public class Domain {
 	public void flush() {
 		session.flush();
 	}
+
+	public EntityManager getEntityManager() {
+		return session;
+	}
 }

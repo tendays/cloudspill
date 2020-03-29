@@ -26,6 +26,7 @@ import java.security.MessageDigest;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.Set;
@@ -108,7 +109,7 @@ public class CloudSpillServer extends AbstractServer {
     public void run() {
     	
     	File rootFolder = configuration.getRepositoryPath();
-    	
+
     	/* Upgrade database before serving */
     	Log.info("Upgrading database, please wait");
     	try {

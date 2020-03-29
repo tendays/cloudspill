@@ -92,7 +92,8 @@ public class ImagePage extends AbstractPage {
 		String dateString = item.getDate()
 				.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm:ss"));
 		return (user == null ? tag("span class='date'", dateString) : tag("a class='date' href="+
-				quote(new ServerSearchCriteria(item.getDate().toLocalDate(), item.getDate().toLocalDate(), null, ImmutableSet.of(), 0).getUrl()),
+				quote(configuration.getPublicUrl() +
+						new ServerSearchCriteria(item.getDate().toLocalDate(), item.getDate().toLocalDate(), null, ImmutableSet.of(), 0).getUrl()),
 				dateString));
 	}
 	
