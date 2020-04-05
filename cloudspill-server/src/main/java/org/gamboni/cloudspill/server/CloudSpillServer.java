@@ -252,11 +252,16 @@ public class CloudSpillServer extends AbstractServer {
         ));
         
         /* Get list of items whose id is larger than the given one. */
-        get("item/since/:id", secured((req, res, domain, user) -> itemsSince(domain, Long.parseLong(req.params("id")))));
+        get("item/since/:id", secured((req, res, domain, user) -> {
+        	res.type("text/csv; charset=UTF-8"); // TODO factor this 
+        	return itemsSince(domain, Long.parseLong(req.params("id")));}));
         
         /* Get list of items updated at or later than the given timestamp. */
-        get("item/sinceDate/:date", secured((req, res, domain, user) -> itemsSince(domain,
-        		Instant.ofEpochMilli(Long.parseLong(req.params("date"))))));
+        get("item/sinceDate/:date", secured((req, res, domain, user) -> {
+			res.type("text/csv; charset=UTF-8");
+			return itemsSince(domain,
+					Instant.ofEpochMilli(Long.parseLong(req.params("date"))));
+		}));
         
         /* Add the tags specified in body to the given item. */
         put("/item/:id/tags", secured((req, res, session, user) -> {
