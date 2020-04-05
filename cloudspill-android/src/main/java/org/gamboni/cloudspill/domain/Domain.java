@@ -385,7 +385,12 @@ public class Domain extends AbstractDomain<Domain> {
         }
 
         public Item getItem() {
-            return selectItems().eq(ItemSchema.ID, this.get(TagSchema.ITEM)).detachedList().get(0);
+            final Long itemId = this.get(TagSchema.ITEM);
+            if (itemId == null) {
+                return null;
+            }
+            final List<Item> items = selectItems().eq(ItemSchema.ID, itemId).detachedList();
+            return items.get(0);
         }
     }
 
