@@ -215,8 +215,8 @@ public class ItemActivity extends AppCompatActivity implements HasDomain {
                                 @Override
                                 public void onClick(View v) {
                                     // TODO copy-pasted from share button in ItemFragment
-                                    String uri = SettingsActivity.getLastServerVersion(getBaseContext()).getPublicUrl() +"/item/"+ item.getServerId() +".cloudspill?key="+ item.get(
-                                            Domain.ItemSchema.CHECKSUM).replace("+", "%2B");
+                                    String uri = SettingsActivity.getLastServerVersion(getBaseContext()).getApi()
+                                            .getPublicImagePageUrl(item);
                                     Log.d(TAG, "Uri: "+ uri);
                                     Intent shareIntent = new Intent();
                                     shareIntent.setAction(Intent.ACTION_SEND);

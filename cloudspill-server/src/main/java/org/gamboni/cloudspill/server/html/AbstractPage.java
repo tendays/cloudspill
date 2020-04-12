@@ -4,6 +4,7 @@ import com.google.common.base.Stopwatch;
 
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.ServerConfiguration;
+import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 
 import java.util.Optional;
 
@@ -51,6 +52,7 @@ public abstract class AbstractPage {
 
     private final String css;
     protected final ServerConfiguration configuration;
+    protected final CloudSpillApi api;
 
     protected AbstractPage(ServerConfiguration configuration) {
         this(configuration, configuration.getCss());
@@ -59,6 +61,7 @@ public abstract class AbstractPage {
     protected AbstractPage(ServerConfiguration configuration, String css) {
         this.configuration = configuration;
         this.css = css;
+        this.api = new CloudSpillApi(configuration.getPublicUrl());
     }
 
     protected abstract String getTitle();

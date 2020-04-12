@@ -14,26 +14,39 @@ import java.util.stream.Collectors;
 /**
  * @author tendays
  */
-public abstract class CloudSpillApi {
-    /** Function used by clients to ensure connectivity is available and check API compatibility. */
-    public static final String PING = "/ping";
+public class CloudSpillApi {
     public static final String PING_PREAMBLE = "CloudSpill server.";
     /** Data version field in response */
     public static final String PING_DATA_VERSION = "Data-Version";
     /** Public url field in response */
     public static final String PING_PUBLIC_URL = "Url";
-
     /** "Create User" function: name of the user to create (POST parameter) */
     public static final String CREATE_USER_NAME = "name";
     /** "Create User" function: password of the user to create (POST parameter) */
     public static final String CREATE_USER_PASS = "pass";
-
     /** Suffix added to the id parameter to trigger downloading an html page instead of the raw image. */
     public static final String ID_HTML_SUFFIX = ".cloudspill";
 
+    private final String serverUrl;
+
+    public CloudSpillApi(String serverUrl) {
+        // make sure non-empty server urls end in a slash.
+        this.serverUrl = serverUrl + (serverUrl.isEmpty() || serverUrl.endsWith("/") ? "" : "/");
+    }
+
+    /** Function used by clients to ensure connectivity is available and check API compatibility. */
+    public String ping() {
+        return serverUrl + "ping";
+    }
+
+    /** "Upload file" function: file timestamp HTTP header */
+    public static final String UPLOAD_TIMESTAMP_HEADER = "X-CloudSpill-Timestamp";
+    /** "Upload file" function: file type (ItemType) HTTP header */
+    public static final String UPLOAD_TYPE_HEADER = "X-CloudSpill-Type";
+
     /** PUT URL to upload a file */
-    public static String upload(String user, String folder, String path) {
-        return "/item/"+ encodePathPart(user) +"/"+ encodePathPart(folder) +"/"+ encodePathPart(path);
+    public String upload(String user, String folder, String path) {
+        return serverUrl +"item/"+ encodePathPart(user) +"/"+ encodePathPart(folder) +"/"+ encodePathPart(path);
     }
 
     private static String encodePathPart(String text) {
@@ -46,10 +59,21 @@ public abstract class CloudSpillApi {
                 .replace("?", "%3F");
     }
 
-    /** "Upload file" function: file timestamp HTTP header */
-    public static final String UPLOAD_TIMESTAMP_HEADER = "X-CloudSpill-Timestamp";
-    /** "Upload file" function: file type (ItemType) HTTP header */
-    public static final String UPLOAD_TYPE_HEADER = "X-CloudSpill-Type";
+    public String getBaseUrl() {
+        return serverUrl;
+    }
+
+    public String getLoggedInThumbnailUrl(long serverId, Integer thumbnailSize) {
+        return serverUrl +"thumbs/"+ thumbnailSize +"/"+ serverId;
+    }
+
+    public String getItemsSinceUrl(Object millis) {
+        return serverUrl +"sinceDate/"+ millis;
+    }
+
+    public String getTagUrl(Object itemId) {
+        return serverUrl +"item"+ itemId +"/tags";
+    }
 
     public enum Size {
         GALLERY_THUMBNAIL(150),
@@ -61,31 +85,35 @@ public abstract class CloudSpillApi {
         }
     }
 
-    public static String getThumbnailUrl(IsItem item, Size size) {
-        return "/thumbs/"+ size.pixels +"/"+ item.getServerId() + accessKeyQueryString(item);
+    public String getThumbnailUrl(IsItem item, Size size) {
+        return getLoggedInThumbnailUrl(item.getServerId(), size.pixels) + accessKeyQueryString(item);
     }
 
-    public static String getImageUrl(IsItem item) {
-        return "/item/"+ item.getServerId() + accessKeyQueryString(item);
+    public String getImageUrl(IsItem item) {
+        return serverUrl +"/item/"+ item.getServerId() + accessKeyQueryString(item);
+    }
+
+    public String getLoggedInImageUrl(long serverId) {
+        return serverUrl +"/item/"+ serverId;
     }
 
     private static String accessKeyQueryString(IsItem item) {
         return "?key="+ item.getChecksum().replace("+", "%2B");
     }
 
-    public static String getPublicImagePageUrl(IsItem item) {
+    public String getPublicImagePageUrl(IsItem item) {
         if (Items.isPublic(item)) {
-            return "/public/item/" + item.getServerId() + ID_HTML_SUFFIX;
+            return serverUrl +"/public/item/" + item.getServerId() + ID_HTML_SUFFIX;
         } else {
-            return "/item/" + item.getServerId() + ID_HTML_SUFFIX + accessKeyQueryString(item);
+            return serverUrl +"/item/" + item.getServerId() + ID_HTML_SUFFIX + accessKeyQueryString(item);
         }
     }
 
-    public static String getLoggedInImagePageUrl(IsItem item) {
-        return "/item/" + item.getServerId() + ID_HTML_SUFFIX;
+    public String getLoggedInImagePageUrl(IsItem item) {
+        return serverUrl +"/item/" + item.getServerId() + ID_HTML_SUFFIX;
     }
 
-    public static String getGalleryUrl(Set<String> tags, String stringFrom, String stringTo, int offset) {
+    public String getGalleryUrl(Set<String> tags, String stringFrom, String stringTo, int offset) {
         Set<String> otherTags = new HashSet<>();
         boolean isPublic = false;
         for (String tag : tags) {
@@ -96,7 +124,7 @@ public abstract class CloudSpillApi {
             }
         }
         String offsetQuery = (offset == 0) ? "" : ("?offset="+ offset);
-        String baseUrl = (isPublic) ? "/public" : "/";
+        String baseUrl = serverUrl + (isPublic ? "/public" : "/");
         if (otherTags.size() == 1 && stringFrom == null && stringTo == null) {
             return baseUrl + "/tag/" + encodePathPart(otherTags.iterator().next()) + offsetQuery;
         } else if (otherTags.isEmpty() && stringFrom != null && stringFrom.equals(stringTo)) {

@@ -3,12 +3,34 @@
  */
 package org.gamboni.cloudspill.server;
 
-import static org.gamboni.cloudspill.shared.api.CloudSpillApi.ID_HTML_SUFFIX;
-import static org.gamboni.cloudspill.shared.util.Files.append;
-import static spark.Spark.before;
-import static spark.Spark.get;
-import static spark.Spark.post;
-import static spark.Spark.put;
+import com.google.common.base.Splitter;
+import com.google.common.collect.Iterables;
+import com.google.common.io.ByteStreams;
+import com.google.inject.Guice;
+import com.google.inject.Injector;
+
+import org.bytedeco.javacv.FFmpegFrameGrabber;
+import org.bytedeco.javacv.FrameGrabber;
+import org.bytedeco.javacv.Java2DFrameConverter;
+import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
+import org.gamboni.cloudspill.domain.GalleryPart;
+import org.gamboni.cloudspill.domain.ServerDomain;
+import org.gamboni.cloudspill.domain.Item;
+import org.gamboni.cloudspill.domain.Item_;
+import org.gamboni.cloudspill.domain.User;
+import org.gamboni.cloudspill.server.html.GalleryListPage;
+import org.gamboni.cloudspill.server.html.GalleryPage;
+import org.gamboni.cloudspill.server.html.HtmlFragment;
+import org.gamboni.cloudspill.server.html.ImagePage;
+import org.gamboni.cloudspill.server.query.ItemSet;
+import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
+import org.gamboni.cloudspill.server.query.LocalItemSet;
+import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
+import org.gamboni.cloudspill.shared.api.CloudSpillApi;
+import org.gamboni.cloudspill.shared.domain.ItemType;
+import org.gamboni.cloudspill.shared.util.ImageOrientationUtil;
+import org.gamboni.cloudspill.shared.util.Log;
+import org.mindrot.jbcrypt.BCrypt;
 
 import java.awt.Graphics2D;
 import java.awt.Image;
@@ -24,9 +46,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.ZoneOffset;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.Set;
@@ -35,38 +55,18 @@ import java.util.function.BiFunction;
 
 import javax.imageio.ImageIO;
 import javax.inject.Inject;
-
-import org.bytedeco.javacv.FFmpegFrameGrabber;
-import org.bytedeco.javacv.FrameGrabber;
-import org.bytedeco.javacv.Java2DFrameConverter;
-import org.gamboni.cloudspill.domain.Domain;
-import org.gamboni.cloudspill.domain.GalleryPart;
-import org.gamboni.cloudspill.domain.Item;
-import org.gamboni.cloudspill.domain.Item_;
-import org.gamboni.cloudspill.domain.User;
-import org.gamboni.cloudspill.server.html.GalleryListPage;
-import org.gamboni.cloudspill.server.html.GalleryPage;
-import org.gamboni.cloudspill.server.html.ImagePage;
-import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
-import org.gamboni.cloudspill.shared.query.SearchCriteria;
-import org.gamboni.cloudspill.shared.api.CloudSpillApi;
-import org.gamboni.cloudspill.shared.domain.ItemType;
-import org.gamboni.cloudspill.shared.util.ImageOrientationUtil;
-import org.gamboni.cloudspill.shared.util.Log;
-import org.hibernate.criterion.Order;
-import org.hibernate.criterion.Restrictions;
-import org.mindrot.jbcrypt.BCrypt;
-
-import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.io.ByteStreams;
-import com.google.inject.Guice;
-import com.google.inject.Injector;
+import javax.persistence.EntityManager;
 
 import spark.Request;
 import spark.Response;
 import spark.Route;
+
+import static org.gamboni.cloudspill.shared.api.CloudSpillApi.ID_HTML_SUFFIX;
+import static org.gamboni.cloudspill.shared.util.Files.append;
+import static spark.Spark.before;
+import static spark.Spark.get;
+import static spark.Spark.post;
+import static spark.Spark.put;
 
 /** Planned general API structure:
  * /public/* for stuff that does not require authentication
@@ -78,11 +78,10 @@ import spark.Route;
  *
  * @author tendays
  */
-public class CloudSpillServer extends AbstractServer {
+public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 
 	@Inject ServerConfiguration configuration;
-	@Inject ImagePage.Factory imagePages;
-	
+
 	/** This constants holds the version of the data stored in the database.
 	 * Each time new information is added to all items the number should be incremented.
 	 * It will cause clients to refresh their database with an /item/since/ call.
@@ -105,16 +104,39 @@ public class CloudSpillServer extends AbstractServer {
     }
     
     private final Semaphore heavyTask = new Semaphore(6, true);
-    
+
+
+	protected String ping() {
+		// WARN: currently the frontend requires precisely this syntax, spaces included
+		return CloudSpillApi.PING_PREAMBLE + "\n"
+				+ CloudSpillApi.PING_DATA_VERSION + ": "+ DATA_VERSION +"\n"
+				+ CloudSpillApi.PING_PUBLIC_URL + ": "+ configuration.getPublicUrl();
+	}
+
+	@Override
+	protected ItemSet doSearch(ServerDomain domain, Java8SearchCriteria<Item> criteria) {
+		return new LocalItemSet(criteria, domain);
+	}
+
+	@Override
+	protected ItemSet loadGallery(ServerDomain domain, long partId) {
+		return new LocalItemSet(domain.get(GalleryPart.class, partId), domain);
+	}
+
+	@Override
+	protected HtmlFragment galleryListPage(ServerDomain domain, User user) {
+		return new GalleryListPage(configuration, domain).getHtml(user);
+	}
+
     public void run() {
-    	
+		CloudSpillApi api = new CloudSpillApi("");
     	File rootFolder = configuration.getRepositoryPath();
 
     	/* Upgrade database before serving */
     	Log.info("Upgrading database, please wait");
     	try {
     	transacted(session -> {
-			final Domain.Query<Item> itemQuery = session.selectItem();
+			final ServerDomain.Query<Item> itemQuery = session.selectItem();
 			for (Item item : itemQuery.add(root -> session.criteriaBuilder.isNull(
 					root.get(Item_.checksum))).list()) {
     			File file = item.getFile(rootFolder);
@@ -147,11 +169,8 @@ public class CloudSpillServer extends AbstractServer {
     	/* Thumbnail construction is memory intensive... */
     	// TODO make this configurable
     	//threadPool(6);
-    	
-    	/* Access logging */
-    	before((req, res) -> {
-    		Log.info(req.ip() +" "+ req.requestMethod() +" "+ req.uri());
-    	});
+
+		setupRoutes(configuration);
     	
 		SecuredBody createUser = (req, res, session, user) -> {
 			User u = new User();
@@ -171,107 +190,9 @@ public class CloudSpillServer extends AbstractServer {
 				configuration.allowAnonymousUserCreation() ?
 						(req, res) -> transacted(session -> createUser.handle(req, res, session, /* user */null))
 						: secured(createUser));
-
-    	get(CloudSpillApi.PING, secured((req, res, session, user) ->
-    		// WARN: currently the frontend requires precisely this syntax, spaces included
-				CloudSpillApi.PING_PREAMBLE + "\n"
-    		+ CloudSpillApi.PING_DATA_VERSION + ": "+ DATA_VERSION +"\n"
-    		+ CloudSpillApi.PING_PUBLIC_URL + ": "+ configuration.getPublicUrl()));
-
-		get("/tag/:tag", secured((req, res, domain, user) -> {
-			ServerSearchCriteria criteria = new ServerSearchCriteria(null, null, null, ImmutableSet.of(req.params("tag")),
-					Integer.parseInt(req.queryParamOrDefault("offset", "0")));
-			return new GalleryPage(configuration, domain, criteria).getHtml(user);
-		}));
-
-		get("/day/:day", secured((req, res, domain, user) -> {
-			LocalDate day = LocalDate.parse(req.params("day"));
-			ServerSearchCriteria criteria = new ServerSearchCriteria(day, day, null, ImmutableSet.of(), Integer.parseInt(req.queryParamOrDefault("offset", "0")));
-			return new GalleryPage(configuration, domain, criteria).getHtml(user);
-		}));
-
-		get("/gallery/", secured((req, res, domain, user) -> {
-			return new GalleryListPage(configuration, domain).getHtml(user);
-		}));
-
-		get("/gallery/:part", secured((req, res, domain, user) -> {
-			return new GalleryPage(configuration, domain, domain.get(GalleryPart.class, Long.parseLong(req.params("part")))).getHtml(user);
-		}));
-
-		get("/public/gallery/", (req, res) -> transacted(domain -> {
-			return new GalleryListPage(configuration, domain).getHtml(null);
-		}));
-
-		get("/public/gallery/:part", (req, res) -> transacted(domain -> {
-			return new GalleryPage(configuration, domain, domain.get(GalleryPart.class, Long.parseLong(req.params("part")))).getHtml(null);
-		}));
-
-		get("/public", (req, res) -> transacted(session -> {
-			ServerSearchCriteria criteria = new ServerSearchCriteria(null, null, null, ImmutableSet.of("public"), Integer.parseInt(req.queryParamOrDefault("offset", "0")));
-			return new GalleryPage(configuration, session, criteria).getHtml(null);
-		}));
-
-		/* Download a file */
-		get("/item/:id", securedItem(rootFolder, (req, res, session, user, item) -> {
-			if (req.params("id").endsWith(ID_HTML_SUFFIX)) {
-				return imagePages.create(item).getHtml(user);
-			} else {
-				download(rootFolder, res, session, item);
-				return String.valueOf(res.status());
-			}
-		}));
-
-		/* Download a public file */
-		get("/public/item/:id", (req, res) -> transacted(session -> {
-			String idParam = req.params("id");
-			if (idParam.endsWith(ID_HTML_SUFFIX)) {
-				idParam = idParam.substring(0, idParam.length() - ID_HTML_SUFFIX.length());
-			}
-			final long id = Long.parseLong(idParam);
-			final Item item = session.get(Item.class, id);
-
-			if (item == null) {
-				return notFound(res, id);
-			} else if (!item.isPublic()) {
-				return forbidden(res, false);
-			}
-
-			if (req.params("id").endsWith(ID_HTML_SUFFIX)) {
-				return imagePages.create(item).getHtml(null);
-			} else {
-				download(rootFolder, res, session, item);
-				return String.valueOf(res.status());
-			}
-		}));
-
-
-        
-        /* Download a thumbnail */
-        get("/thumbs/:size/:id", securedItem(rootFolder, (req, res, session, user, item) -> 
-        	thumbnail(rootFolder, res, session, item, Integer.parseInt(req.params("size")))
-        ));
-        
-        /* Get list of items whose id is larger than the given one. */
-        get("item/since/:id", secured((req, res, domain, user) -> {
-        	res.type("text/csv; charset=UTF-8"); // TODO factor this 
-        	return itemsSince(domain, Long.parseLong(req.params("id")));}));
-        
-        /* Get list of items updated at or later than the given timestamp. */
-        get("item/sinceDate/:date", secured((req, res, domain, user) -> {
-			res.type("text/csv; charset=UTF-8");
-			return itemsSince(domain,
-					Instant.ofEpochMilli(Long.parseLong(req.params("date"))));
-		}));
-        
-        /* Add the tags specified in body to the given item. */
-        put("/item/:id/tags", secured((req, res, session, user) -> {
-        	Log.debug("Tag query for item "+ req.params("id") +": '"+ req.body() +"'");
-        	putTags(session, Long.parseLong(req.params("id")), req.body());
-        	return true;
-        }));
         
         /* Upload a file */
-        put(CloudSpillApi.upload(":user", ":folder", "*"), secured((req, res, session, user) -> {
+        put(api.upload(":user", ":folder", "*"), secured((req, res, session, user) -> {
         	
         	/*if (req.bodyAsBytes() == null) {
         		Log.warn("Missing body");
@@ -305,7 +226,7 @@ public class CloudSpillServer extends AbstractServer {
         	String finalNormalisedPath = normalisedPath;
         	
         	/* First see if the path already exists. */
-			final Domain.Query<Item> itemQuery = session.selectItem();
+			final ServerDomain.Query<Item> itemQuery = session.selectItem();
 			List<Item> existing = itemQuery
         		.add(root -> session.criteriaBuilder.equal(root.get(Item_.user), username))
         		.add(root -> session.criteriaBuilder.equal(root.get(Item_.folder), folder))
@@ -385,7 +306,7 @@ public class CloudSpillServer extends AbstractServer {
      * <p>
      * NOTE: anybody can change tags of anybody's item.
      */
-	private void putTags(Domain session, long id, String tags) {
+	protected void putTags(ServerDomain session, long id, String tags) {
 		final Item item = itemForUpdate(session, id);
 
 		final Set<String> existingTags = item.getTags();
@@ -398,8 +319,8 @@ public class CloudSpillServer extends AbstractServer {
 		});
 	}
 
-	private Item itemForUpdate(Domain session, long id) {
-		final Domain.Query<Item> itemQuery = session.selectItem();
+	private Item itemForUpdate(ServerDomain session, long id) {
+		final ServerDomain.Query<Item> itemQuery = session.selectItem();
 		final Item item = Iterables.getOnlyElement(
 				itemQuery.add(root -> session.criteriaBuilder.equal(root.get(Item_.id), id)).forUpdate().list());
 		Log.debug("Loaded item "+ id +" for update, at timestamp "+ item.getUpdated().toString());
@@ -408,24 +329,9 @@ public class CloudSpillServer extends AbstractServer {
 		return item;
 	}
 
-	/**
-	 * Download the file corresponding to the item with the given id, optionally
-	 * after having checked an access key.
-	 * 
-	 * @param rootFolder
-	 *            root repository
-	 * @param res
-	 *            HTTP Response used to set Forbidden status if needed
-	 * @param session
-	 *            Database connection
-	 * @param item
-	 *            The item to retrieve
-	 * @throws IOException
-	 * @throws FileNotFoundException
-	 */
-	private void download(File rootFolder, Response res, Domain session, final Item item)
-			throws IOException, FileNotFoundException {
-		File file = item.getFile(rootFolder);
+	protected void download(Response res, ServerDomain session, final Item item)
+			throws IOException {
+		File file = item.getFile(configuration.getRepositoryPath());
 		res.header("Content-Type", "image/jpeg");
 		res.header("Content-Length", String.valueOf(file.length()));
 		try (FileInputStream stream = new FileInputStream(file)) {
@@ -433,9 +339,9 @@ public class CloudSpillServer extends AbstractServer {
 		}
 	}
 
-	private Object thumbnail(File rootFolder, Response res, Domain session, final Item item, int size)
+	protected Object thumbnail(Response res, ServerDomain session, final Item item, int size)
 			throws InterruptedException, IOException {
-		File file = item.getFile(rootFolder);
+		File file = item.getFile(configuration.getRepositoryPath());
 		
 		if (!file.exists()) {
 			return gone(res, item.getId(), file);
@@ -455,22 +361,10 @@ public class CloudSpillServer extends AbstractServer {
 		return true;
 	}
 
-	private StringBuilder itemsSince(Domain domain, final long id) {
-		StringBuilder result = new StringBuilder();
-		final Domain.Query<Item> itemQuery = domain.selectItem();
-		for (Item item : itemQuery
-				.add(root -> domain.criteriaBuilder.gt(root.get(Item_.id), id))
-				.addOrder(root -> domain.criteriaBuilder.asc(root.get(Item_.id)))
-				.list()) {
-			result.append(item.serialise()).append("\n");
-		}
-		return result;
-	}
-
-	private StringBuilder itemsSince(Domain domain, final Instant instant) {
+	private StringBuilder itemsSince(ServerDomain domain, final Instant instant) {
 		StringBuilder result = new StringBuilder();
 		Instant timestamp = instant;
-		final Domain.Query<Item> itemQuery = domain.selectItem();
+		final ServerDomain.Query<Item> itemQuery = domain.selectItem();
 		for (Item item : itemQuery
 				.add(root -> domain.criteriaBuilder.greaterThanOrEqualTo(
 						root.get(Item_.updated), instant))
@@ -570,11 +464,7 @@ public class CloudSpillServer extends AbstractServer {
 		return renderedImage;
 	}
 	
-	protected interface SecuredItemBody {
-    	Object handle(Request request, Response response, Domain session, User user, Item item) throws Exception;
-    }
-	
-	private Route securedItem(File rootFolder, SecuredItemBody task) {
+	protected Route securedItem(SecuredItemBody task) {
 		return (req, res) -> transacted(session -> {
 			// Work around what looks like Whatsapp bug: even though url encodes correctly + as %2B,
 			// It is sent as raw + in the test query to construct thumbnail and reaches us as a space,
@@ -614,5 +504,10 @@ public class CloudSpillServer extends AbstractServer {
 
 			return task.handle(req, res, session, user, item);
 		});
+	}
+
+	@Override
+	protected ServerDomain createDomain(EntityManager e) {
+		return new ServerDomain(e);
 	}
 }

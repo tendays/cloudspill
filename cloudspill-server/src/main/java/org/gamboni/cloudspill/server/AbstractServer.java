@@ -5,19 +5,17 @@ import java.util.Base64;
 import java.util.List;
 
 import javax.inject.Inject;
+import javax.persistence.Entity;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.EntityTransaction;
 import javax.servlet.http.HttpServletResponse;
 
-import org.gamboni.cloudspill.domain.Domain;
+import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
+import org.gamboni.cloudspill.domain.ServerDomain;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.domain.User_;
 import org.gamboni.cloudspill.shared.util.Log;
-import org.hibernate.Session;
-import org.hibernate.SessionFactory;
-import org.hibernate.Transaction;
-import org.hibernate.criterion.Restrictions;
 import org.mindrot.jbcrypt.BCrypt;
 
 import com.google.common.collect.Iterables;
@@ -26,17 +24,17 @@ import spark.Request;
 import spark.Response;
 import spark.Route;
 
-public class AbstractServer {
+public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 
 	@Inject
 	EntityManagerFactory sessionFactory;
 
-	protected interface TransactionBody<R> {
-	    	R run(Domain s) throws Exception;
+	protected interface TransactionBody<S extends CloudSpillEntityManagerDomain, R> {
+	    	R run(S s) throws Exception;
 	    }
 
-	protected interface SecuredBody {
-	    	Object handle(Request request, Response response, Domain session, User user) throws Exception;
+	protected interface SecuredBody<S extends CloudSpillEntityManagerDomain> {
+	    	Object handle(Request request, Response response, S session, User user) throws Exception;
 	    }
 
 	protected static final <T> T requireNotNull(T value) {
@@ -47,7 +45,7 @@ public class AbstractServer {
 		}
 	}
 
-	protected Route secured(SecuredBody task) {
+	protected Route secured(SecuredBody<S> task) {
 		return (req, res) -> transacted(session -> {
 			final User user = authenticate(req, res, session);
 			if (user == null) {
@@ -58,15 +56,15 @@ public class AbstractServer {
 		});
 	}
 
-	protected User authenticate(Request req, Response res, Domain session) {
+	protected User authenticate(Request req, Response res, S session) {
 		return authenticate(req, res, session, true);
 	}
 	
-	protected User optionalAuthenticate(Request req, Response res, Domain session) {
+	protected User optionalAuthenticate(Request req, Response res, S session) {
 		return authenticate(req, res, session, false);
 	}
 
-	private User authenticate(Request req, Response res, Domain session, boolean required) {
+	private User authenticate(Request req, Response res, S session, boolean required) {
 		final String authHeader = req.headers("Authorization");
 		final User user;
 		if (authHeader == null) {
@@ -87,7 +85,7 @@ public class AbstractServer {
 			}
 			String username = credentials.substring(0, colon);
 			String password = credentials.substring(colon+1);
-            final Domain.Query<User> userQuery = session.selectUser();
+            final ServerDomain.Query<User> userQuery = session.selectUser();
             final List<User> users = userQuery.add(root ->
                     session.criteriaBuilder.equal(root.get(User_.name), username))
                     .list();
@@ -150,14 +148,16 @@ public class AbstractServer {
 		return "Forbidden";
 	}
 
-	protected <R> R transacted(TransactionBody<R> task) throws Exception {
+	protected abstract S createDomain(EntityManager e);
+
+	protected <R> R transacted(TransactionBody<S, R> task) throws Exception {
 		EntityManager session = null;
 		EntityTransaction tx = null;
 		try {
 			session = sessionFactory.createEntityManager();
 			tx = session.getTransaction();
 			tx.begin();
-			R result = task.run(new Domain(session));
+			R result = task.run(createDomain(session));
 			tx.commit();
 			tx = null;
 			final String resultString = result.toString();

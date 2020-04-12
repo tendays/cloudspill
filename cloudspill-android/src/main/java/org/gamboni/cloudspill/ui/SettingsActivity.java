@@ -122,7 +122,7 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
     public static void setLastServerVersion(Context context, ServerInfo serverInfo) {
         getSharedPreferences(context).edit()
                 .putInt(LAST_SERVER_VERSION_KEY, serverInfo.getVersion())
-                .putString(LAST_SERVER_URL_KEY, serverInfo.getPublicUrl())
+                .putString(LAST_SERVER_URL_KEY, serverInfo.getApi().getBaseUrl())
                 .apply();
     }
 

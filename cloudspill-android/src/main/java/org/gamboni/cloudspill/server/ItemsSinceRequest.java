@@ -11,6 +11,7 @@ import com.android.volley.VolleyError;
 import com.android.volley.toolbox.HttpHeaderParser;
 
 import org.gamboni.cloudspill.domain.Domain;
+import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.ui.SettingsActivity;
 
 import java.io.BufferedReader;
@@ -34,8 +35,8 @@ public class ItemsSinceRequest extends AuthenticatingRequest<ItemsSinceRequest.R
         Long getLatestUpdate();
     }
 
-    public ItemsSinceRequest(Context context, String url, Domain domain, long millis, Response.Listener<Result> listener, Response.ErrorListener errorListener) {
-        super(context, Method.GET, url +"/item/sinceDate/"+ millis, listener, errorListener);
+    public ItemsSinceRequest(Context context, CloudSpillApi api, Domain domain, long millis, Response.Listener<Result> listener, Response.ErrorListener errorListener) {
+        super(context, Method.GET, api.getItemsSinceUrl(millis), listener, errorListener);
         this.domain = domain;
         setRetryPolicy(new DefaultRetryPolicy(/*timeout*/30_000, /*retries*/3, /*backoff multiplier*/2));
     }

@@ -1,6 +1,7 @@
 package org.gamboni.cloudspill.domain;
 
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
+import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.domain.JpaItem;
 import org.gamboni.cloudspill.shared.domain.JpaItem_;
 import org.gamboni.cloudspill.shared.query.SearchCriteria;
@@ -24,7 +25,7 @@ import javax.persistence.criteria.Root;
  * @author tendays
  */
 @Entity
-public class GalleryPart implements Java8SearchCriteria {
+public class GalleryPart implements Java8SearchCriteria<Item> {
     long id;
     String user;
     Set<String> tags;
@@ -106,8 +107,8 @@ public class GalleryPart implements Java8SearchCriteria {
         this.title = title;
     }
 
-    @Override @Transient public String getUrl() {
-        return "/public/gallery/"+ getId();
+    @Override @Transient public String getUrl(CloudSpillApi api) {
+        return api.getBaseUrl() + "/public/gallery/"+ getId();
     }
 
     /** Stored galleries sort from old to new. */
@@ -116,18 +117,18 @@ public class GalleryPart implements Java8SearchCriteria {
     }
 
     @Override
-    public Java8SearchCriteria atOffset(int newOffset) {
+    public Java8SearchCriteria<Item> atOffset(int newOffset) {
         return new AtOffset(newOffset);
     }
 
-    private class AtOffset implements Java8SearchCriteria {
+    private class AtOffset implements Java8SearchCriteria<Item> {
         final int offset;
         AtOffset(int offset) {
             this.offset = offset;
         }
 
         @Override
-        public Java8SearchCriteria atOffset(int newOffset) {
+        public Java8SearchCriteria<Item> atOffset(int newOffset) {
             return new AtOffset(newOffset);
         }
 
@@ -162,8 +163,8 @@ public class GalleryPart implements Java8SearchCriteria {
         }
 
         @Override
-        public String getUrl() {
-            return GalleryPart.this.getUrl() + "?offset="+ getOffset();
+        public String getUrl(CloudSpillApi api) {
+            return GalleryPart.this.getUrl(api) + "?offset="+ getOffset();
         }
     }
 }

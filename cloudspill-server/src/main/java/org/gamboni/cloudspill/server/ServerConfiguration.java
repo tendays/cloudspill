@@ -12,11 +12,13 @@ import java.util.Properties;
 
 import com.google.common.base.Charsets;
 
+import org.gamboni.cloudspill.shared.api.SharedConfiguration;
+
 /**
  * @author tendays
  *
  */
-public class ServerConfiguration {
+public class ServerConfiguration implements SharedConfiguration {
 	Properties prop;
 	
 	public ServerConfiguration(String path) {
@@ -36,14 +38,14 @@ public class ServerConfiguration {
 		return prop.getProperty("publicUrl");
 	}
 
-	public String getRepositoryName() {
-		return prop.getProperty("repositoryName");
-	}
-	
 	public String getCss() {
 		return prop.getProperty("css");
 	}
-	
+
+	public String getRepositoryName() {
+		return prop.getProperty("repositoryName");
+	}
+
 	public boolean allowAnonymousUserCreation() {
 		// TODO this should actually be a command line option so it has less chance to stick
 		String value = prop.getProperty("allowAnonymousUserCreation");

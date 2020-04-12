@@ -123,8 +123,8 @@ public class FilterSpecification implements SearchCriteria, Parcelable {
         return (string == null) ? NULL_STRING : string;
     }
 
-    public String getUrl() {
-        return CloudSpillApi.getGalleryUrl(getTags(), getStringFrom(), getStringTo(), getOffset());
+    public String getUrl(CloudSpillApi api) {
+        return api.getGalleryUrl(getTags(), getStringFrom(), getStringTo(), getOffset());
     }
 
     public String toString() {

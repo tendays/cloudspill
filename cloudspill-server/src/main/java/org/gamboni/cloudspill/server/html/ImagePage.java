@@ -16,9 +16,6 @@ import org.gamboni.cloudspill.shared.domain.ItemType;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableSet;
-import com.google.inject.Inject;
-
-import static org.gamboni.cloudspill.shared.api.CloudSpillApi.getGalleryUrl;
 
 /**
  * @author tendays
@@ -27,42 +24,30 @@ import static org.gamboni.cloudspill.shared.api.CloudSpillApi.getGalleryUrl;
 public class ImagePage extends AbstractPage {
 	private final Item item;
 	
-	private ImagePage(ServerConfiguration configuration, Item item) {
+	public ImagePage(ServerConfiguration configuration, Item item) {
 		super(configuration, configuration.getCss());
 
 		this.item = item;
 	}
 	
-	public static class Factory {
-		private final ServerConfiguration configuration;
-		@Inject
-		public Factory(ServerConfiguration configuration) {
-			this.configuration = configuration;
-		}
-		
-		public ImagePage create(Item item) {
-			return new ImagePage(configuration, item);
-		}
-	}
-
 	public String getTitle() {
 		return item.getUser() +"/"+ item.getFolder() +"/"+ item.getPath();
 	}
 
 	public String getPageUrl(User user) {
 		if (user == null) {
-			return configuration.getPublicUrl() + CloudSpillApi.getPublicImagePageUrl(this.item);
+			return api.getPublicImagePageUrl(this.item);
 		} else {
-			return configuration.getPublicUrl() + CloudSpillApi.getLoggedInImagePageUrl(this.item);
+			return api.getLoggedInImagePageUrl(this.item);
 		}
 	}
 
 	public Optional<String> getThumbnailUrl() {
-		return Optional.of(configuration.getPublicUrl() + CloudSpillApi.getThumbnailUrl(item, CloudSpillApi.Size.IMAGE_THUMBNAIL));
+		return Optional.of(api.getThumbnailUrl(item, CloudSpillApi.Size.IMAGE_THUMBNAIL));
 	}
 
 	public String getImageUrl() {
-		return configuration.getPublicUrl() + CloudSpillApi.getImageUrl(item);
+		return api.getImageUrl(item);
 	}
 
 	public HtmlFragment getBody(User user) {
@@ -81,8 +66,8 @@ public class ImagePage extends AbstractPage {
 		if (user == null) {
 			return tag("span class='tag'", tag);
 		} else {
-			return tag("a class='tag' href="+ quote(configuration.getPublicUrl() +
-					new ServerSearchCriteria(null, null, null, ImmutableSet.of(tag), 0).getUrl()),
+			return tag("a class='tag' href="+ quote(
+					ServerSearchCriteria.ALL.withTag(tag).getUrl(api)),
 					tag);
 		}
 	}
@@ -92,8 +77,7 @@ public class ImagePage extends AbstractPage {
 		String dateString = item.getDate()
 				.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm:ss"));
 		return (user == null ? tag("span class='date'", dateString) : tag("a class='date' href="+
-				quote(configuration.getPublicUrl() +
-						new ServerSearchCriteria(item.getDate().toLocalDate(), item.getDate().toLocalDate(), null, ImmutableSet.of(), 0).getUrl()),
+				quote(ServerSearchCriteria.ALL.at(item.getDate().toLocalDate()).getUrl(api)),
 				dateString));
 	}
 	

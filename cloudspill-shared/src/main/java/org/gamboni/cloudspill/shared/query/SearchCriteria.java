@@ -1,5 +1,7 @@
 package org.gamboni.cloudspill.shared.query;
 
+import org.gamboni.cloudspill.shared.api.CloudSpillApi;
+
 import java.util.Set;
 
 /**
@@ -18,6 +20,6 @@ public interface SearchCriteria {
 
     int getOffset();
 
-    String getUrl();
+    String getUrl(CloudSpillApi api);
 
 }

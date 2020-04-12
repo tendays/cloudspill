@@ -7,12 +7,12 @@ package org.gamboni.cloudspill.shared.api;
 public class ServerInfo {
     private final boolean online;
     private final int version;
-    private final String publicUrl;
+    private final CloudSpillApi api;
 
     private ServerInfo(boolean online, int version, String publicUrl) {
         this.online = online;
         this.version = version;
-        this.publicUrl = publicUrl;
+        this.api = new CloudSpillApi(publicUrl);
     }
 
     public static ServerInfo online(int version, String publicUrl) {
@@ -34,8 +34,8 @@ public class ServerInfo {
         return this.version;
     }
 
-    public String getPublicUrl() {
-        return publicUrl;
+    public CloudSpillApi getApi() {
+        return api;
     }
 
     /** Whether this version is strictly more recent than the given one. */

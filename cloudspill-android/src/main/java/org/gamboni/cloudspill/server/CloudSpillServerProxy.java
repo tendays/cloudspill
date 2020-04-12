@@ -30,7 +30,7 @@ public class CloudSpillServerProxy {
 
     private static final String TAG = "CloudSpillServer";
 
-    private final String url;
+    private final CloudSpillApi api;
     private final String user;
     private final RequestQueue queue;
     private final Context context;
@@ -42,7 +42,7 @@ public class CloudSpillServerProxy {
         this.context = context;
         this.domain = domain;
         this.user = SettingsActivity.getUser(context);
-        this.url = url;
+        this.api = new CloudSpillApi(url);
         this.queue = Volley.newRequestQueue(context);
     }
 
@@ -94,7 +94,7 @@ public class CloudSpillServerProxy {
             listener.updateMessage(StatusReport.Severity.ERROR, "No connection to server");
         }
         synchronized (urlMonitor) {
-            verifiedUrl = (server == null) ? null : server.url;
+            verifiedUrl = (server == null) ? null : server.api.getBaseUrl();
         }
         return server;
     }
@@ -113,8 +113,8 @@ public class CloudSpillServerProxy {
 
     /** Check availability of the server represented by this proxy, <em>even if it was checked previously</em>. */
     public boolean recheckLink() {
-        Log.d(TAG, "Checking server availability at "+ url);
-        ConnectivityTestRequest request = new ConnectivityTestRequest(context, url);
+        Log.d(TAG, "Checking server availability at "+ api.getBaseUrl());
+        ConnectivityTestRequest request = new ConnectivityTestRequest(context, api);
         queue.add(request);
         this.serverInfo = request.getResponse();
         if (serverInfo.isOnline()) {
@@ -134,7 +134,7 @@ public class CloudSpillServerProxy {
         try {
             new AuthenticatingConnection(context,
                 AuthenticatingConnection.RequestMethod.PUT,
-                url +"/item/"+ user +"/" + folder +"/"+ path)
+                api.upload(user, folder, path))
             .setHeader(AuthenticatingConnection.RequestHeader.TIMESTAMP, Long.toString(date.getTime()))
             .setHeader(AuthenticatingConnection.RequestHeader.TYPE, type.name())
             // Using chunked transfer to prevent caching at server side :(
@@ -181,7 +181,7 @@ public class CloudSpillServerProxy {
 
     public void upload(String folder, String path, Date date, ItemType type, byte[] body, Response.Listener<Long> listener, Response.ErrorListener onError) {
         Log.d(TAG, "Uploading "+ body.length +" bytes");
-        queue.add(new FileUploadRequest(context, url + CloudSpillApi.upload(user, folder, path),
+        queue.add(new FileUploadRequest(context, api.upload(user, folder, path),
                 date,
                 type,
                 body,
@@ -197,7 +197,7 @@ public class CloudSpillServerProxy {
         Log.d(TAG, "Streaming item#"+ serverId);
         try {
             new AuthenticatingConnection(context, AuthenticatingConnection.RequestMethod.GET,
-                    url + "/item/" + serverId)
+                    api.getLoggedInImageUrl(serverId))
                     .connect(new AuthenticatingConnection.Session() {
                         @Override
                         public void run(AuthenticatingConnection.Connected connected) throws IOException {
@@ -211,7 +211,7 @@ public class CloudSpillServerProxy {
 
     public void downloadThumb(long serverId, int thumbSize, Response.Listener<byte[]> listener, Response.ErrorListener onError) {
         Log.d(TAG, "Downloading thumb#"+ serverId);
-        queue.add(new MediaDownloadRequest(context, url, serverId, listener, onError, thumbSize));
+        queue.add(new MediaDownloadRequest(context, api, serverId, listener, onError, thumbSize));
     }
 
     /** Get information about the server. This method may only be called after {@link #checkLink} or {@link #recheckLink}
@@ -225,11 +225,11 @@ public class CloudSpillServerProxy {
     }
 
     public void itemsSince(long millis, Response.Listener<ItemsSinceRequest.Result> listener, Response.ErrorListener errorListener) {
-        queue.add(new ItemsSinceRequest(context, url, domain, millis, listener, errorListener));
+        queue.add(new ItemsSinceRequest(context, api, domain, millis, listener, errorListener));
     }
 
     public void tag(Domain.Tag tag, boolean create, Response.Listener<Void> listener, Response.ErrorListener errorListener) {
-        queue.add(new TagRequest(context, url, tag.getItem().getServerId(), tag.get(Domain.TagSchema.TAG),
+        queue.add(new TagRequest(context, api, tag.getItem().getServerId(), tag.get(Domain.TagSchema.TAG),
                 create,
                 listener, errorListener));
     }

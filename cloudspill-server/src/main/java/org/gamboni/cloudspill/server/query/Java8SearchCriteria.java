@@ -3,9 +3,7 @@ package org.gamboni.cloudspill.server.query;
 import com.google.common.base.CaseFormat;
 import com.google.common.collect.Streams;
 
-import org.gamboni.cloudspill.domain.Domain;
-import org.gamboni.cloudspill.domain.Item;
-import org.gamboni.cloudspill.domain.Item_;
+import org.gamboni.cloudspill.domain.ServerDomain;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.domain.JpaItem;
 import org.gamboni.cloudspill.shared.domain.JpaItem_;
@@ -26,7 +24,7 @@ import javax.persistence.metamodel.SetAttribute;
  *
  * @author tendays
  */
-public interface Java8SearchCriteria extends SearchCriteria {
+public interface Java8SearchCriteria<T extends JpaItem> extends SearchCriteria {
     LocalDate getFrom();
 
     LocalDate getTo();
@@ -41,7 +39,7 @@ public interface Java8SearchCriteria extends SearchCriteria {
         return (getTo() == null) ? null : getTo().toString();
     }
 
-    Java8SearchCriteria atOffset(int newOffset);
+    Java8SearchCriteria<T> atOffset(int newOffset);
 
     default String buildTitle() {
         Stream<String> day = (getFrom() != null && getFrom().equals(getTo())) ?
@@ -58,15 +56,15 @@ public interface Java8SearchCriteria extends SearchCriteria {
         return "";
     }
 
-    default String getUrl() {
-        return CloudSpillApi.getGalleryUrl(getTags(), getStringFrom(), getStringTo(), getOffset());
+    default String getUrl(CloudSpillApi api) {
+        return api.getGalleryUrl(getTags(), getStringFrom(), getStringTo(), getOffset());
     }
 
     default Order getOrder(CriteriaBuilder criteriaBuilder, Root<? extends JpaItem> root) {
         return criteriaBuilder.desc(root.get(JpaItem_.date));
     }
 
-    default <E extends JpaItem, T extends Domain.Query<E>> T applyTo(T itemQuery) {
+    default <Q extends ServerDomain.Query<T>> Q applyTo(Q itemQuery) {
         CriteriaBuilder criteriaBuilder = itemQuery.getCriteriaBuilder();
         itemQuery.addOrder(root -> getOrder(criteriaBuilder, root));
 
@@ -74,7 +72,7 @@ public interface Java8SearchCriteria extends SearchCriteria {
             itemQuery.add(root -> {
                 @SuppressWarnings("unchecked")// why isn't get(PluralAttribute) contravariant on root type?
                 Expression<Set<String>> tagPath = root.get(
-                        (SetAttribute<E, String>)(SetAttribute)JpaItem_.tags);
+                        (SetAttribute<T, String>)(SetAttribute)JpaItem_.tags);
                 return criteriaBuilder.isMember(tag, tagPath);
             });
         }

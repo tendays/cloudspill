@@ -1,6 +1,6 @@
 package org.gamboni.cloudspill.server.html;
 
-import org.gamboni.cloudspill.domain.Domain;
+import org.gamboni.cloudspill.domain.ServerDomain;
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.ServerConfiguration;
@@ -13,9 +13,9 @@ import java.util.List;
  */
 public class GalleryListPage extends AbstractPage {
 
-    private final Domain domain;
+    private final ServerDomain domain;
 
-    public GalleryListPage(ServerConfiguration configuration, Domain domain) {
+    public GalleryListPage(ServerConfiguration configuration, ServerDomain domain) {
         super(configuration);
         this.domain = domain;
     }
@@ -44,8 +44,8 @@ public class GalleryListPage extends AbstractPage {
                     } else {
                         return tag("a", href,
                                 tag("span", gp.buildTitle()),
-                                unclosedTag("img class='galleryLink' src="+ quote(configuration.getPublicUrl() +
-                                                CloudSpillApi.getThumbnailUrl(sample.get(0), CloudSpillApi.Size.GALLERY_THUMBNAIL)))
+                                unclosedTag("img class='galleryLink' src="+ quote(
+                                                api.getThumbnailUrl(sample.get(0), CloudSpillApi.Size.GALLERY_THUMBNAIL)))
                                 );
                     }
                 })

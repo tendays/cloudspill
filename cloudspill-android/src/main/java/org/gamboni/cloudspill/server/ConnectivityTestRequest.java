@@ -52,8 +52,8 @@ public class ConnectivityTestRequest extends StringBasedAuthenticatingRequest<St
         }
     }
 
-    public ConnectivityTestRequest(Context context, final String url) {
-        this(context, url + CloudSpillApi.PING, new Listener());
+    public ConnectivityTestRequest(Context context, final CloudSpillApi api) {
+        this(context, api.ping(), new Listener());
     }
 
     private ConnectivityTestRequest(Context context, String pingUrl, Listener listener) {

@@ -129,8 +129,8 @@ public class ItemFragment extends DialogFragment {
                 .setNeutralButton(R.string.share, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        String uri = SettingsActivity.getLastServerVersion(getActivity()).getPublicUrl() +
-                                CloudSpillApi.getPublicImagePageUrl(item);
+                        String uri = SettingsActivity.getLastServerVersion(getActivity()).getApi()
+                                .getPublicImagePageUrl(item);
                         Log.d(TAG, "Uri: "+ uri);
                         Intent shareIntent = new Intent();
                         shareIntent.setAction(Intent.ACTION_SEND);
