@@ -361,23 +361,6 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 		return true;
 	}
 
-	private StringBuilder itemsSince(ServerDomain domain, final Instant instant) {
-		StringBuilder result = new StringBuilder();
-		Instant timestamp = instant;
-		final ServerDomain.Query<Item> itemQuery = domain.selectItem();
-		for (Item item : itemQuery
-				.add(root -> domain.criteriaBuilder.greaterThanOrEqualTo(
-						root.get(Item_.updated), instant))
-				.addOrder(root -> domain.criteriaBuilder.asc(root.get(Item_.updated)))
-				.limit(500) // large datasets make the Android client crash
-				.list()) {
-			result.append(item.serialise()).append("\n");
-			timestamp = item.getUpdated();
-		}
-		result.append("Timestamp:").append(timestamp.toEpochMilli()).append('\n');
-		return result;
-	}
-    
     private BufferedImage createVideoThumbnail(File file, int size) throws IOException {
     	try (FFmpegFrameGrabber g = new FFmpegFrameGrabber(file)) {
 			g.start();

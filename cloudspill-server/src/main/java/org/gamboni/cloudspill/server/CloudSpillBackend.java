@@ -122,13 +122,15 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
         /* Get list of items whose id is larger than the given one. */
         get("item/since/:id", secured((req, res, domain, user) -> {
-            return dump(res, domain, ServerSearchCriteria.ALL.withIdAtLeast(Long.parseLong(req.params("id"))));
+            return dump(res, domain, ServerSearchCriteria.ALL.withIdAtLeast(Long.parseLong(req.params("id"))),
+                    DumpFormat.NO_TIMESTAMP);
         }));
 
         /* Get list of items updated at or later than the given timestamp. */
         get(api.getItemsSinceUrl(":date"), secured((req, res, domain, user) -> {
             return dump(res, domain,
-                    ServerSearchCriteria.ALL.modifiedSince(Instant.ofEpochMilli(Long.parseLong(req.params("date")))));
+                    ServerSearchCriteria.ALL.modifiedSince(Instant.ofEpochMilli(Long.parseLong(req.params("date")))),
+                DumpFormat.WITH_TIMESTAMP);
         }));
 
         /* Add the tags specified in body to the given item. */
@@ -141,16 +143,35 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
     protected abstract void putTags(D session, long id, String body);
 
-    private String dump(Response res, D domain, Java8SearchCriteria<Item> searchCriteria) {
+    private enum DumpFormat {
+        NO_TIMESTAMP {
+            @Override
+            String dumpTimestamp(Instant timestamp) {
+                return "";
+            }
+        },
+        WITH_TIMESTAMP {
+            @Override
+            String dumpTimestamp(Instant timestamp) {
+                return "Timestamp:"+ timestamp.toEpochMilli() +'\n';
+            }
+        };
+
+        abstract String dumpTimestamp(Instant timestamp);
+    }
+
+    private String dump(Response res, D domain, Java8SearchCriteria<Item> searchCriteria, DumpFormat dumpFormat) {
         ItemSet set = doSearch(domain, searchCriteria);
         res.type("text/csv; charset=UTF-8");
 
         StringBuilder result = new StringBuilder();
+        Instant timestamp = Instant.EPOCH;
         for (Item item : set.getAllItems()) {
             result.append(item.serialise()).append("\n");
+            timestamp = item.getUpdated();
         }
+        result.append(dumpFormat.dumpTimestamp(timestamp));
         return result.toString();
-
     }
 
     protected abstract Object thumbnail(Response res, D session, Item item, int size) throws InterruptedException, IOException;
