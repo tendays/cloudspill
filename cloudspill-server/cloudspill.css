@@ -88,3 +88,9 @@ h1 {
     text-decoration: none;
     display: inline-block;
 }
+
+.debug {
+    clear: both;
+    font-family: monospace;
+    color: darkgray;
+}

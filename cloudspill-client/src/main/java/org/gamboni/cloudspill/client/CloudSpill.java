@@ -41,7 +41,8 @@ public class CloudSpill {
 		try {
 			if (optionParser.consume("ping")) {
 				optionParser.assertFinished();
-				final URLConnection connection = config.openConnection(CloudSpillApi.PING);
+				CloudSpillApi api = config.getServerApi();
+				final URLConnection connection = config.openConnection(api.ping());
 
 				final ServerInfo serverInfo = new PingResponseHandler() {
 					protected void warn(String message) {
@@ -50,12 +51,14 @@ public class CloudSpill {
 				}.parse(CharStreams.toString(new InputStreamReader(connection.getInputStream())));
 
 				if (serverInfo.isOnline()) {
-					System.out.println("Connection successful. Data version " + serverInfo.getVersion() + ", public URL " + serverInfo.getPublicUrl());
+					System.out.println("Connection successful. Data version " + serverInfo.getVersion() + ", public URL " +
+							api.getBaseUrl());
 				} else {
 					System.err.println("Connection failed");
 					System.exit(1);
 				}
 			} else if (optionParser.consume("upload")) {
+				CloudSpillApi api = config.getServerApi();
 				String folder = config.require(config.folder, "Uploading requires a folder name");
 
 				while (optionParser.hasNext()) {
@@ -93,7 +96,7 @@ public class CloudSpill {
 
 						try (final FileInputStream fileInput = new FileInputStream(path)) {
 
-							final HttpURLConnection connection = config.openConnection(CloudSpillApi.upload(config.require(config.user, "User parameter not set"),
+							final HttpURLConnection connection = config.openConnection(api.upload(config.require(config.user, "User parameter not set"),
 									folder,
 									unprefix(path, "./", "/")));
 							connection.setDoOutput(true);

@@ -5,6 +5,8 @@ package org.gamboni.cloudspill.client;
 
 import com.google.common.collect.ImmutableList;
 
+import org.gamboni.cloudspill.shared.api.CloudSpillApi;
+
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -76,6 +78,7 @@ public class CloudSpillClientOptions {
         return result;
     }
 
+    @SuppressWarnings("unchecked")
     <T> Optional<T> get(Key<T> key) {
         return Optional.ofNullable((T)values.get(key));
     }
@@ -84,12 +87,13 @@ public class CloudSpillClientOptions {
         return this.get(key).orElseThrow(() -> new IllegalArgumentException(errorMessage));
     }
 
+    public CloudSpillApi getServerApi() {
+        return new CloudSpillApi(this.require(server, "Server url not set"));
+    }
 
-    public HttpURLConnection openConnection(String relativeUrl) {
+    public HttpURLConnection openConnection(String url) {
         try {
-            URLConnection connection = new URL(this.require(server, "Server url not set")
-                    + relativeUrl
-            ).openConnection();
+            URLConnection connection = new URL(url).openConnection();
 
             // include authentication header if both user and password specified
             get(user).ifPresent(givenUser ->

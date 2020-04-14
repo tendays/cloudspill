@@ -12,20 +12,17 @@ import com.google.inject.Injector;
 import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.FrameGrabber;
 import org.bytedeco.javacv.Java2DFrameConverter;
-import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
 import org.gamboni.cloudspill.domain.GalleryPart;
 import org.gamboni.cloudspill.domain.ServerDomain;
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.Item_;
 import org.gamboni.cloudspill.domain.User;
+import org.gamboni.cloudspill.server.config.ServerConfiguration;
 import org.gamboni.cloudspill.server.html.GalleryListPage;
-import org.gamboni.cloudspill.server.html.GalleryPage;
 import org.gamboni.cloudspill.server.html.HtmlFragment;
-import org.gamboni.cloudspill.server.html.ImagePage;
 import org.gamboni.cloudspill.server.query.ItemSet;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.server.query.LocalItemSet;
-import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.shared.util.ImageOrientationUtil;
@@ -39,12 +36,12 @@ import java.awt.image.BufferedImage;
 import java.awt.image.ImageObserver;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Base64;
@@ -80,21 +77,23 @@ import static spark.Spark.put;
  */
 public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 
-	@Inject ServerConfiguration configuration;
-
 	/** This constants holds the version of the data stored in the database.
 	 * Each time new information is added to all items the number should be incremented.
 	 * It will cause clients to refresh their database with an /item/since/ call.
 	 */
 	private static final int DATA_VERSION = 1;
-	
+
+	@Inject	ServerConfiguration configuration;
+
+	private final Semaphore heavyTask = new Semaphore(6, true);
+
     public static void main(String[] args) {
     	if (args.length != 1) {
     		Log.error("Usage: CloudSpillServer configPath");
     		System.exit(1);
     	}
     	Injector injector = Guice.createInjector(new ServerModule(args[0]));
-    	
+
     	try {
     		injector.getInstance(CloudSpillServer.class).run();
     	} catch (Throwable t) {
@@ -102,34 +101,8 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
     		System.exit(1);
     	}
     }
-    
-    private final Semaphore heavyTask = new Semaphore(6, true);
-
-
-	protected String ping() {
-		// WARN: currently the frontend requires precisely this syntax, spaces included
-		return CloudSpillApi.PING_PREAMBLE + "\n"
-				+ CloudSpillApi.PING_DATA_VERSION + ": "+ DATA_VERSION +"\n"
-				+ CloudSpillApi.PING_PUBLIC_URL + ": "+ configuration.getPublicUrl();
-	}
-
-	@Override
-	protected ItemSet doSearch(ServerDomain domain, Java8SearchCriteria<Item> criteria) {
-		return new LocalItemSet(criteria, domain);
-	}
-
-	@Override
-	protected ItemSet loadGallery(ServerDomain domain, long partId) {
-		return new LocalItemSet(domain.get(GalleryPart.class, partId), domain);
-	}
-
-	@Override
-	protected HtmlFragment galleryListPage(ServerDomain domain, User user) {
-		return new GalleryListPage(configuration, domain).getHtml(user);
-	}
 
     public void run() {
-		CloudSpillApi api = new CloudSpillApi("");
     	File rootFolder = configuration.getRepositoryPath();
 
     	/* Upgrade database before serving */
@@ -140,7 +113,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 			for (Item item : itemQuery.add(root -> session.criteriaBuilder.isNull(
 					root.get(Item_.checksum))).list()) {
     			File file = item.getFile(rootFolder);
-    			final MessageDigest md5 = MessageDigest.getInstance("MD5");
+    			final MessageDigest md5 = getMessageDigest();
 				try (InputStream in = new FileInputStream(file)) {
 					
 				    byte[] buf = new byte[8192];
@@ -190,60 +163,44 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 				configuration.allowAnonymousUserCreation() ?
 						(req, res) -> transacted(session -> createUser.handle(req, res, session, /* user */null))
 						: secured(createUser));
-        
-        /* Upload a file */
-        put(api.upload(":user", ":folder", "*"), secured((req, res, session, user) -> {
-        	
-        	/*if (req.bodyAsBytes() == null) {
-        		Log.warn("Missing body");
-        		res.status(400);
-        		return null;
-        	}*/
-        	
-        	String username = req.params("user");
-        	String folder = req.params("folder");
-        	if (!user.getName().equals(username)) {
-        		Log.error("User "+ user.getName() +" attempted to upload to folder of user "+ username);
-        		return forbidden(res, false);
-        	}
-			String path = req.splat()[0];
-			Log.debug("user is "+ username +", folder is "+ folder +" and path is "+ path);
-        	
-			// Normalise given path
-        	File folderPath = append(append(rootFolder, username), folder);
-			File requestedTarget = append(folderPath, path);
-        	
-        	if (requestedTarget == null) {
-        		res.status(400);
-        		return null;
-        	}
-        	
-        	// Path to put into the database
-        	String normalisedPath = requestedTarget.getPath().substring(folderPath.getCanonicalPath().length());
-        	if (normalisedPath.startsWith("/")) {
-        		normalisedPath = normalisedPath.substring(1);
-			}
-        	String finalNormalisedPath = normalisedPath;
-        	
-        	/* First see if the path already exists. */
-			final ServerDomain.Query<Item> itemQuery = session.selectItem();
-			List<Item> existing = itemQuery
-        		.add(root -> session.criteriaBuilder.equal(root.get(Item_.user), username))
-        		.add(root -> session.criteriaBuilder.equal(root.get(Item_.folder), folder))
-        		.add(root -> session.criteriaBuilder.equal(root.get(Item_.path), finalNormalisedPath))
-        		.list();
-        	
-			switch (existing.size()) {
+    }
+
+    protected Long upload(Request req, Response res, ServerDomain session, User user, String folder, String path) throws IOException {
+		// Normalise given path
+		File folderPath = append(append(configuration.getRepositoryPath(), user.getName()), folder);
+		File requestedTarget = append(folderPath, path);
+
+		if (requestedTarget == null) {
+			res.status(400);
+			return null;
+		}
+
+		// Path to put into the database
+		String normalisedPath = requestedTarget.getPath().substring(folderPath.getCanonicalPath().length());
+		if (normalisedPath.startsWith("/")) {
+			normalisedPath = normalisedPath.substring(1);
+		}
+		String finalNormalisedPath = normalisedPath;
+
+		/* First see if the path already exists. */
+		final ServerDomain.Query<Item> itemQuery = session.selectItem();
+		List<Item> existing = itemQuery
+				.add(root -> session.criteriaBuilder.equal(root.get(Item_.user), user.getName()))
+				.add(root -> session.criteriaBuilder.equal(root.get(Item_.folder), folder))
+				.add(root -> session.criteriaBuilder.equal(root.get(Item_.path), finalNormalisedPath))
+				.list();
+
+		switch (existing.size()) {
 			case 0:
 				Item item = new Item();
 				item.setFolder(folder);
 				item.setPath(normalisedPath);
-				item.setUser(username);
+				item.setUser(user.getName());
 				final String timestampHeader = req.headers(CloudSpillApi.UPLOAD_TIMESTAMP_HEADER);
 				if (timestampHeader != null) {
 					item.setDate(Instant.ofEpochMilli(Long.valueOf(timestampHeader))
-						.atOffset(ZoneOffset.UTC)
-						.toLocalDateTime());
+							.atOffset(ZoneOffset.UTC)
+							.toLocalDateTime());
 				}
 				final String typeHeader = req.headers(CloudSpillApi.UPLOAD_TYPE_HEADER);
 				if (typeHeader != null) {
@@ -256,27 +213,27 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 				}
 				//session.persist(item);
 				// TODO checksum update below fails if we do this: session.flush(); // flush before writing to disk
-				
-				
+
+
 				requestedTarget.getParentFile().mkdirs();
 				// TODO return 40x error in case content-length is missing or invalid
 				/*long contentLength = Long.parseLong(req.headers("Content-Length")); */
-				final MessageDigest md5 = MessageDigest.getInstance("MD5");
+				final MessageDigest md5 = getMessageDigest();
 				Log.debug("Writing bytes to " + requestedTarget);
 				try (InputStream in = req.raw().getInputStream();
-						FileOutputStream out = new FileOutputStream(requestedTarget)) {
-					
-				    byte[] buf = new byte[8192];
-				    long copied = 0;
-				    while (true) {
-				      int len = in.read(buf);
-				      if (len == -1) {
-				        break;
-				      }
-				      md5.update(buf, 0, len);
-				      out.write(buf, 0, len);
-				      copied += len;
-				    }
+					 FileOutputStream out = new FileOutputStream(requestedTarget)) {
+
+					byte[] buf = new byte[8192];
+					long copied = 0;
+					while (true) {
+						int len = in.read(buf);
+						if (len == -1) {
+							break;
+						}
+						md5.update(buf, 0, len);
+						out.write(buf, 0, len);
+						copied += len;
+					}
 
 					Log.debug("Wrote "+ copied +" bytes to "+ requestedTarget);
 /*					if (copied != contentLength) {
@@ -285,9 +242,9 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 				}
 				item.setChecksum(
 						new String(Base64.getEncoder().encode(md5.digest()), StandardCharsets.ISO_8859_1));
-				
+
 				session.persist(item);
-				
+
 				Log.debug("Returning id "+ item.getId());
 				return item.getId();
 
@@ -298,14 +255,40 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 				res.status(500);
 				Log.warn("Collision detected: " + existing);
 				return null;
-			}
-        }));
-    }
+		}
+	}
 
-    /** Add the given comma-separated tags to the specified object. If a tag starts with '-' then it is removed instead.
-     * <p>
-     * NOTE: anybody can change tags of anybody's item.
-     */
+	private MessageDigest getMessageDigest() {
+    	try {
+			return MessageDigest.getInstance("MD5");
+		} catch (NoSuchAlgorithmException e) {
+    		throw new RuntimeException(e);
+		}
+	}
+
+
+	protected String ping() {
+		// WARN: currently the frontend requires precisely this syntax, spaces included
+		return CloudSpillApi.PING_PREAMBLE + "\n"
+				+ CloudSpillApi.PING_DATA_VERSION + ": "+ DATA_VERSION +"\n"
+				+ CloudSpillApi.PING_PUBLIC_URL + ": "+ configuration.getPublicUrl();
+	}
+
+	@Override
+	protected ItemSet doSearch(ServerDomain domain, Java8SearchCriteria<Item> criteria) {
+		return new LocalItemSet(criteria, domain);
+	}
+
+	@Override
+	protected ItemSet loadGallery(ServerDomain domain, long partId) {
+		return new LocalItemSet(domain.get(GalleryPart.class, partId), domain);
+	}
+
+	@Override
+	protected HtmlFragment galleryListPage(ServerDomain domain, User user) {
+		return new GalleryListPage(configuration, domain).getHtml(user);
+	}
+
 	protected void putTags(ServerDomain session, long id, String tags) {
 		final Item item = itemForUpdate(session, id);
 

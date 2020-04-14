@@ -1,7 +1,8 @@
 package org.gamboni.cloudspill.server.html;
 
 import org.gamboni.cloudspill.domain.User;
-import org.gamboni.cloudspill.server.ServerConfiguration;
+import org.gamboni.cloudspill.server.config.BackendConfiguration;
+import org.gamboni.cloudspill.server.config.ServerConfiguration;
 import org.gamboni.cloudspill.server.query.ItemSet;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 
@@ -14,7 +15,7 @@ public class GalleryPage extends AbstractPage {
     private static final int PAGE_SIZE = 60;
     private final ItemSet set;
 
-    public GalleryPage(ServerConfiguration configuration, ItemSet set) {
+    public GalleryPage(BackendConfiguration configuration, ItemSet set) {
         super(configuration, configuration.getCss());
 
         this.set = set;

@@ -2,9 +2,9 @@ package org.gamboni.cloudspill.server;
 
 import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
 import org.gamboni.cloudspill.domain.Item;
-import org.gamboni.cloudspill.domain.Item_;
-import org.gamboni.cloudspill.domain.ServerDomain;
 import org.gamboni.cloudspill.domain.User;
+import org.gamboni.cloudspill.server.config.BackendConfiguration;
+import org.gamboni.cloudspill.server.config.ServerConfiguration;
 import org.gamboni.cloudspill.server.html.GalleryPage;
 import org.gamboni.cloudspill.server.html.HtmlFragment;
 import org.gamboni.cloudspill.server.html.ImagePage;
@@ -33,7 +33,7 @@ import static spark.Spark.put;
  * @author tendays
  */
 public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain> extends AbstractServer<D> {
-    protected final void setupRoutes(ServerConfiguration configuration) {
+    protected final void setupRoutes(BackendConfiguration configuration) {
         CloudSpillApi api = new CloudSpillApi("");
 
         /* Access logging */
@@ -139,8 +139,33 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             putTags(session, Long.parseLong(req.params("id")), req.body());
             return true;
         }));
+
+        /* Upload a file */
+        put(api.upload(":user", ":folder", "*"), secured((req, res, session, user) -> {
+        	/*if (req.bodyAsBytes() == null) {
+        		Log.warn("Missing body");
+        		res.status(400);
+        		return null;
+        	}*/
+
+            String username = req.params("user");
+            String folder = req.params("folder");
+            if (!user.getName().equals(username)) {
+                Log.error("User "+ user.getName() +" attempted to upload to folder of user "+ username);
+                return forbidden(res, false);
+            }
+            String path = req.splat()[0];
+            Log.debug("user is "+ username +", folder is "+ folder +" and path is "+ path);
+            return upload(req, res, session, user, folder, path);
+        }));
     }
 
+    protected abstract Long upload(Request req, Response res, D session, User user, String folder, String path) throws IOException;
+
+    /** Add the given comma-separated tags to the specified object. If a tag starts with '-' then it is removed instead.
+     * <p>
+     * NOTE: anybody can change tags of anybody's item.
+     */
     protected abstract void putTags(D session, long id, String body);
 
     private enum DumpFormat {

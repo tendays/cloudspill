@@ -9,13 +9,13 @@ import java.util.stream.Collectors;
 
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.User;
-import org.gamboni.cloudspill.server.ServerConfiguration;
+import org.gamboni.cloudspill.server.config.BackendConfiguration;
+import org.gamboni.cloudspill.server.config.ServerConfiguration;
 import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.domain.ItemType;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.ImmutableSet;
 
 /**
  * @author tendays
@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableSet;
 public class ImagePage extends AbstractPage {
 	private final Item item;
 	
-	public ImagePage(ServerConfiguration configuration, Item item) {
+	public ImagePage(BackendConfiguration configuration, Item item) {
 		super(configuration, configuration.getCss());
 
 		this.item = item;
@@ -76,7 +76,7 @@ public class ImagePage extends AbstractPage {
 		if (item.getDate() == null) { return HtmlFragment.EMPTY; }
 		String dateString = item.getDate()
 				.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm:ss"));
-		return (user == null ? tag("span class='date'", dateString) : tag("a class='date' href="+
+		return (user == null ? tag("span","class='date'", dateString) : tag("a", "class='date' href="+
 				quote(ServerSearchCriteria.ALL.at(item.getDate().toLocalDate()).getUrl(api)),
 				dateString));
 	}
