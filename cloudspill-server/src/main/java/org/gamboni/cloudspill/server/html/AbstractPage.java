@@ -89,8 +89,8 @@ public abstract class AbstractPage {
                 ),
                         tag("body",
                                 tag("h1", getTitle()),
-                                getBody(user)),
-                                tag("div", "class='debug'", "Page rendered in "+ stopwatch));
+                                getBody(user),
+                                tag("div", "class='debug'", "Page rendered in "+ stopwatch)));
     }
 
 }
