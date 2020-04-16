@@ -1,5 +1,8 @@
 package org.gamboni.cloudspill.server.query;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 
@@ -32,4 +35,50 @@ public interface ItemSet {
     String getUrl(CloudSpillApi api);
 
     List<Item> getAllItems();
+
+    /** Return a singleton ItemSet, containing a single already known Item */
+    static ItemSet of(Item item) {
+        return new ItemSet() {
+            @Override
+            public String getTitle() {
+                return item.getUser() +"/"+ item.getFolder() +"/"+ item.getPath();
+            }
+
+            @Override
+            public String getDescription() {
+                return item.getDescription();
+            }
+
+            @Override
+            public int getOffset() {
+                return 0;
+            }
+
+            @Override
+            public ItemSet atOffset(int newOffset) {
+                Preconditions.checkArgument(newOffset == 0);
+                return this;
+            }
+
+            @Override
+            public long itemCount() {
+                return 1;
+            }
+
+            @Override
+            public List<Item> getSlice(int limit) {
+                return (limit == 0) ? ImmutableList.of() : getAllItems();
+            }
+
+            @Override
+            public String getUrl(CloudSpillApi api) {
+                return api.getPublicImagePageUrl(item);
+            }
+
+            @Override
+            public List<Item> getAllItems() {
+                return ImmutableList.of(item);
+            }
+        };
+    }
 }

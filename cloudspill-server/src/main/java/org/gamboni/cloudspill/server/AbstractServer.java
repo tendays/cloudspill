@@ -5,7 +5,6 @@ import java.util.Base64;
 import java.util.List;
 
 import javax.inject.Inject;
-import javax.persistence.Entity;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.EntityTransaction;
@@ -15,8 +14,8 @@ import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
 import org.gamboni.cloudspill.domain.ServerDomain;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.domain.User_;
+import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.util.Log;
-import org.mindrot.jbcrypt.BCrypt;
 
 import com.google.common.collect.Iterables;
 
@@ -34,7 +33,7 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 	    }
 
 	protected interface SecuredBody<S extends CloudSpillEntityManagerDomain> {
-	    	Object handle(Request request, Response response, S session, User user) throws Exception;
+	    	Object handle(Request request, Response response, S session, ItemCredentials.UserPassword user) throws Exception;
 	    }
 
 	protected static final <T> T requireNotNull(T value) {
@@ -46,42 +45,40 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 	}
 
 	protected Route secured(SecuredBody<S> task) {
-		return (req, res) -> transacted(session -> {
-			final User user = authenticate(req, res, session);
-			if (user == null) {
-				return String.valueOf(res.status());
-			} else {
-				return task.handle(req, res, session, user);
-			}
-		});
+		return (req, res) ->
+				transacted(session ->
+						authenticate(req, session)
+								.get(res, user -> task.handle(req, res, session, user)));
 	}
 
-	protected User authenticate(Request req, Response res, S session) {
-		return authenticate(req, res, session, true);
+	protected OrHttpError<ItemCredentials.UserPassword> authenticate(Request req, S session) {
+		return authenticate(req, session, true);
 	}
 	
-	protected User optionalAuthenticate(Request req, Response res, S session) {
-		return authenticate(req, res, session, false);
+	protected OrHttpError<ItemCredentials.UserPassword> optionalAuthenticate(Request req, S session) {
+		return authenticate(req, session, false);
 	}
 
-	private User authenticate(Request req, Response res, S session, boolean required) {
+	private OrHttpError<ItemCredentials.UserPassword> authenticate(Request req, S session, boolean required) {
 		final String authHeader = req.headers("Authorization");
-		final User user;
 		if (authHeader == null) {
 			if (required) {
-				Log.error("Missing Authorization header");
-				unauthorized(res);
+				return new OrHttpError<>(res -> {
+					Log.error("Missing Authorization header");
+					return unauthorized(res);
+				});
+			} else {
+				return new OrHttpError<>((ItemCredentials.UserPassword)null);
 			}
-			return null;
-			// Other option: user = null; // anonymous
 		} else if (authHeader.startsWith("Basic ")) {
 			final String token = authHeader.substring("Basic ".length()).trim();
 			final String credentials = new String(Base64.getDecoder().decode(token));
 			int colon = credentials.indexOf(':');
 			if (colon == -1) {
-				Log.error("Invalid Authorization header");
-				badRequest(res);
-				return null;
+				return new OrHttpError<>(res -> {
+					Log.error("Invalid Authorization header");
+					return badRequest(res);
+				});
 			}
 			String username = credentials.substring(0, colon);
 			String password = credentials.substring(colon+1);
@@ -90,40 +87,35 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
                     session.criteriaBuilder.equal(root.get(User_.name), username))
                     .list();
 			if (users.isEmpty()) {
-				Log.error("Unknown user "+ username);
-				forbidden(res, true);
-				return null;
+				return new OrHttpError<>(res -> {
+					Log.error("Unknown user " + username);
+					return forbidden(res, true);
+				});
 			}
-			user = Iterables.getOnlyElement(users);
-			final String queryHash = BCrypt.hashpw(password, user.getSalt());
-			if (!queryHash.equals(user.getPass())) {
-				Log.error("Invalid credentials for user "+ username);
-				forbidden(res, true);
-				return null;
-			} else {
-				Log.info("User "+ username +" authenticated");
-			}
+			User user = Iterables.getOnlyElement(users);
+			user.verifyPassword(password);
+			return new OrHttpError<>(new ItemCredentials.UserPassword(user, password));
 		} else {
-			Log.error("Unsupported Authorization scheme");
-			badRequest(res);
-			return null;
+			return new OrHttpError<>(res -> {
+				Log.error("Unsupported Authorization scheme");
+				return badRequest(res);
+			});
 		}
-		return user;
 	}
 
-	protected Object notFound(Response res, long item) {
+	protected String notFound(Response res, long item) {
 		Log.error("Not found: item "+ item);
 		res.status(HttpServletResponse.SC_NOT_FOUND);
 		return "Not Found";
 	}
 
-	protected Object gone(Response res, long item, File file) {
+	protected String gone(Response res, long item, File file) {
 		Log.error("Gone: "+ file +" for item "+ item);
 		res.status(HttpServletResponse.SC_GONE);
 		return "Gone";
 	}
 
-	private Object badRequest(Response res) {
+	private String badRequest(Response res) {
 		res.status(HttpServletResponse.SC_BAD_REQUEST);
 		return "Bad Request";
 	}
@@ -136,6 +128,11 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 
 	private void loginPrompt(Response res) {
 		res.header("WWW-Authenticate", "Basic realm=\"CloudSpill\"");
+	}
+
+	protected String internalServerError(Response res) {
+		res.status(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+		return "Internal Error";
 	}
 
 	protected String forbidden(Response res, boolean loginPrompt) {

@@ -2,14 +2,9 @@ package org.gamboni.cloudspill.shared.api;
 
 import org.gamboni.cloudspill.shared.domain.IsItem;
 import org.gamboni.cloudspill.shared.domain.Items;
-import org.gamboni.cloudspill.shared.query.SearchCriteria;
 
-import java.io.IOException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * @author tendays
@@ -30,8 +25,8 @@ public class CloudSpillApi {
     private final String serverUrl;
 
     public CloudSpillApi(String serverUrl) {
-        // make sure non-empty server urls end in a slash.
-        this.serverUrl = serverUrl + (serverUrl.isEmpty() || serverUrl.endsWith("/") ? "" : "/");
+        // make sure server urls end in a slash.
+        this.serverUrl = serverUrl + (serverUrl.endsWith("/") ? "" : "/");
     }
 
     /** Function used by clients to ensure connectivity is available and check API compatibility. */
@@ -63,10 +58,6 @@ public class CloudSpillApi {
         return serverUrl;
     }
 
-    public String getLoggedInThumbnailUrl(long serverId, Integer thumbnailSize) {
-        return serverUrl +"thumbs/"+ thumbnailSize +"/"+ serverId;
-    }
-
     public String getItemsSinceUrl(Object millis) {
         return serverUrl +"sinceDate/"+ millis;
     }
@@ -76,6 +67,7 @@ public class CloudSpillApi {
     }
 
     public enum Size {
+        PHONE_THUMBNAIL(90),
         GALLERY_THUMBNAIL(150),
         IMAGE_THUMBNAIL(300);
         public final int pixels;
@@ -85,32 +77,32 @@ public class CloudSpillApi {
         }
     }
 
+    private static ItemCredentials credentialsForItem(IsItem item) {
+        return Items.isPublic(item) ? new ItemCredentials.PublicAccess() : new ItemCredentials.ItemKey(item.getChecksum());
+    }
+
     public String getThumbnailUrl(IsItem item, Size size) {
-        return getLoggedInThumbnailUrl(item.getServerId(), size.pixels) + accessKeyQueryString(item);
+        return getThumbnailUrl(item.getServerId(), credentialsForItem(item), size);
+    }
+
+    public String getThumbnailUrl(long id, ItemCredentials credentials, Object pixels) {
+        return serverUrl + credentials.getUrlPrefix() +"thumbs/"+ pixels +"/"+ id + credentials.getQueryString();
+    }
+
+    public String getImageUrl(long id, ItemCredentials credentials) {
+        return serverUrl + credentials.getUrlPrefix() + "item/"+ id + credentials.getQueryString();
     }
 
     public String getImageUrl(IsItem item) {
-        return serverUrl +"/item/"+ item.getServerId() + accessKeyQueryString(item);
-    }
-
-    public String getLoggedInImageUrl(long serverId) {
-        return serverUrl +"/item/"+ serverId;
-    }
-
-    private static String accessKeyQueryString(IsItem item) {
-        return "?key="+ item.getChecksum().replace("+", "%2B");
+        return getImageUrl(item.getServerId(), credentialsForItem(item));
     }
 
     public String getPublicImagePageUrl(IsItem item) {
-        if (Items.isPublic(item)) {
-            return serverUrl +"/public/item/" + item.getServerId() + ID_HTML_SUFFIX;
-        } else {
-            return serverUrl +"/item/" + item.getServerId() + ID_HTML_SUFFIX + accessKeyQueryString(item);
-        }
+        return getImagePageUrl(item.getServerId(), credentialsForItem(item));
     }
 
-    public String getLoggedInImagePageUrl(IsItem item) {
-        return serverUrl +"/item/" + item.getServerId() + ID_HTML_SUFFIX;
+    public String getImagePageUrl(long serverId, ItemCredentials credentials) {
+        return serverUrl + credentials.getUrlPrefix() + "item/"+ serverId + ID_HTML_SUFFIX + credentials.getQueryString();
     }
 
     public String getGalleryUrl(Set<String> tags, String stringFrom, String stringTo, int offset) {

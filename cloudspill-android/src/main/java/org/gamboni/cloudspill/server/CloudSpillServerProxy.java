@@ -9,6 +9,7 @@ import com.android.volley.VolleyError;
 import com.android.volley.toolbox.Volley;
 
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
+import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.api.ServerInfo;
 import org.gamboni.cloudspill.message.StatusReport;
 import org.gamboni.cloudspill.shared.domain.ItemType;
@@ -197,7 +198,7 @@ public class CloudSpillServerProxy {
         Log.d(TAG, "Streaming item#"+ serverId);
         try {
             new AuthenticatingConnection(context, AuthenticatingConnection.RequestMethod.GET,
-                    api.getLoggedInImageUrl(serverId))
+                    api.getImageUrl(serverId, new ItemCredentials.UserPassword()))
                     .connect(new AuthenticatingConnection.Session() {
                         @Override
                         public void run(AuthenticatingConnection.Connected connected) throws IOException {
@@ -209,7 +210,7 @@ public class CloudSpillServerProxy {
         }
     }
 
-    public void downloadThumb(long serverId, int thumbSize, Response.Listener<byte[]> listener, Response.ErrorListener onError) {
+    public void downloadThumb(long serverId, CloudSpillApi.Size thumbSize, Response.Listener<byte[]> listener, Response.ErrorListener onError) {
         Log.d(TAG, "Downloading thumb#"+ serverId);
         queue.add(new MediaDownloadRequest(context, api, serverId, listener, onError, thumbSize));
     }

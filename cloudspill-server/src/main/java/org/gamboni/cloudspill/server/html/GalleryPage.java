@@ -5,6 +5,7 @@ import org.gamboni.cloudspill.server.config.BackendConfiguration;
 import org.gamboni.cloudspill.server.config.ServerConfiguration;
 import org.gamboni.cloudspill.server.query.ItemSet;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
+import org.gamboni.cloudspill.shared.api.ItemCredentials;
 
 /**
  * @author tendays
@@ -27,12 +28,12 @@ public class GalleryPage extends AbstractPage {
     }
 
     @Override
-    protected String getPageUrl(User user) {
+    protected String getPageUrl() {
         return set.getUrl(api);
     }
 
     @Override
-    protected HtmlFragment getBody(User user) {
+    protected HtmlFragment getBody(ItemCredentials.AuthenticationStatus authStatus) {
         int pageNumber = set.getOffset() / PAGE_SIZE;
         long totalCount = set.itemCount();
         return HtmlFragment.concatenate(
@@ -41,9 +42,7 @@ public class GalleryPage extends AbstractPage {
                 HtmlFragment.concatenate(
                         set.getSlice(PAGE_SIZE).stream().map(item ->
                                 tag("a", "href=" + quote(
-                                                (user == null ?
-                                                        api.getPublicImagePageUrl(item) :
-                                                        api.getLoggedInImagePageUrl(item))),
+                                                        api.getImagePageUrl(item.getServerId(), authStatus.credentialsFor(item))),
                                         unclosedTag("img class='thumb' src=" +
                                                 quote(api.getThumbnailUrl(item, CloudSpillApi.Size.IMAGE_THUMBNAIL))))
                         ).toArray(HtmlFragment[]::new)),

@@ -15,7 +15,7 @@ import java.util.Properties;
  */
 public abstract class BackendConfiguration implements SharedConfiguration {
 
-    Properties prop;
+    protected final Properties prop;
 
     protected BackendConfiguration(String path) {
         try (Reader reader = new InputStreamReader(new FileInputStream(path), Charsets.UTF_8)) {

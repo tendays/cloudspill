@@ -2,9 +2,7 @@ package org.gamboni.cloudspill.server;
 
 import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
 import org.gamboni.cloudspill.domain.Item;
-import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
-import org.gamboni.cloudspill.server.config.ServerConfiguration;
 import org.gamboni.cloudspill.server.html.GalleryPage;
 import org.gamboni.cloudspill.server.html.HtmlFragment;
 import org.gamboni.cloudspill.server.html.ImagePage;
@@ -12,6 +10,8 @@ import org.gamboni.cloudspill.server.query.ItemSet;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
+import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.domain.IsUser;
 import org.gamboni.cloudspill.shared.util.Log;
 
 import java.io.IOException;
@@ -43,13 +43,13 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
         get(api.ping(), secured((req, res, session, user) -> ping()));
 
-        get("/tag/:tag", secured((req, res, domain, user) ->
+        get("/tag/:tag", secured((req, res, domain, credentials) ->
         {
             final ServerSearchCriteria searchCriteria = ServerSearchCriteria.ALL
                     .withTag(req.params("tag"))
                     .atOffset(Integer.parseInt(req.queryParamOrDefault("offset", "0")));
 
-            return new GalleryPage(configuration, doSearch(domain, searchCriteria)).getHtml(user);
+            return new GalleryPage(configuration, doSearch(domain, searchCriteria)).getHtml(credentials);
         }));
 
         get("/day/:day", secured((req, res, domain, user) -> {
@@ -61,7 +61,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             return new GalleryPage(configuration, doSearch(domain, searchCriteria)).getHtml(user);
         }));
 
-        get("/gallery/", secured((req, res, domain, user) -> galleryListPage(domain, user)));
+        get("/gallery/", secured((req, res, domain, credentials) -> galleryListPage(domain, credentials)));
 
         get("/gallery/:part", secured((req, res, domain, user) -> {
             return new GalleryPage(configuration, loadGallery(domain, Long.parseLong(req.params("part")))).getHtml(user);
@@ -83,53 +83,30 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         }));
 
         /* Download a file */
-        get("/item/:id", securedItem((req, res, session, user, item) -> {
-            if (req.params("id").endsWith(ID_HTML_SUFFIX)) {
-                return new ImagePage(configuration, item).getHtml(user);
-            } else {
-                download(res, session, item);
-                return String.valueOf(res.status());
-            }
+        get("/item/:id", securedItem(ItemCredentials.AuthenticationStatus.LOGGED_IN, (req, res, session, credentials, item) -> {
+            return itemPage(configuration, req, res, session, credentials, item);
         }));
 
         /* Download a public file */
-        get("/public/item/:id", (req, res) -> transacted(session -> {
-            String idParam = req.params("id");
-            if (idParam.endsWith(ID_HTML_SUFFIX)) {
-                idParam = idParam.substring(0, idParam.length() - ID_HTML_SUFFIX.length());
-            }
-            final long id = Long.parseLong(idParam);
-            final Item item = session.get(Item.class, id);
-
-            if (item == null) {
-                return notFound(res, id);
-            } else if (!item.isPublic()) {
-                return forbidden(res, false);
-            }
-
-            if (req.params("id").endsWith(ID_HTML_SUFFIX)) {
-                return new ImagePage(configuration, item).getHtml(null);
-            } else {
-                download(res, session, item);
-                return String.valueOf(res.status());
-            }
+        get("/public/item/:id", securedItem(ItemCredentials.AuthenticationStatus.ANONYMOUS, (req, res, session, credentials, item) -> {
+                return itemPage(configuration, req, res, session, credentials, item);
         }));
 
         /* Download a thumbnail */
-        get("/thumbs/:size/:id", securedItem((req, res, session, user, item) ->
+        get("/thumbs/:size/:id", securedItem(ItemCredentials.AuthenticationStatus.LOGGED_IN, (req, res, session, user, item) ->
                 thumbnail(res, session, item, Integer.parseInt(req.params("size")))
         ));
 
         /* Get list of items whose id is larger than the given one. */
         get("item/since/:id", secured((req, res, domain, user) -> {
-            return dump(res, domain, ServerSearchCriteria.ALL.withIdAtLeast(Long.parseLong(req.params("id"))),
+            return dump(res, doSearch(domain, ServerSearchCriteria.ALL.withIdAtLeast(Long.parseLong(req.params("id")))),
                     DumpFormat.NO_TIMESTAMP);
         }));
 
         /* Get list of items updated at or later than the given timestamp. */
         get(api.getItemsSinceUrl(":date"), secured((req, res, domain, user) -> {
-            return dump(res, domain,
-                    ServerSearchCriteria.ALL.modifiedSince(Instant.ofEpochMilli(Long.parseLong(req.params("date")))),
+            return dump(res, doSearch(domain,
+                    ServerSearchCriteria.ALL.modifiedSince(Instant.ofEpochMilli(Long.parseLong(req.params("date"))))),
                 DumpFormat.WITH_TIMESTAMP);
         }));
 
@@ -141,13 +118,13 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         }));
 
         /* Upload a file */
-        put(api.upload(":user", ":folder", "*"), secured((req, res, session, user) -> {
+        put(api.upload(":user", ":folder", "*"), secured((req, res, session, credentials) -> {
         	/*if (req.bodyAsBytes() == null) {
         		Log.warn("Missing body");
         		res.status(400);
         		return null;
         	}*/
-
+            IsUser user = credentials.user;
             String username = req.params("user");
             String folder = req.params("folder");
             if (!user.getName().equals(username)) {
@@ -156,11 +133,63 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             }
             String path = req.splat()[0];
             Log.debug("user is "+ username +", folder is "+ folder +" and path is "+ path);
-            return upload(req, res, session, user, folder, path);
+            return upload(req, res, session, credentials, folder, path);
         }));
     }
 
-    protected abstract Long upload(Request req, Response res, D session, User user, String folder, String path) throws IOException;
+    private Object itemPage(BackendConfiguration configuration, Request req, Response res, D session, ItemCredentials credentials, Item item) throws IOException {
+        final String acceptHeader = req.headers("Accept");
+        if (req.params("id").endsWith(ID_HTML_SUFFIX)) {
+            return new ImagePage(configuration, item).getHtml(credentials);
+        } else if (acceptHeader != null && acceptHeader.equals("text/csv")) {
+            return dump(res, ItemSet.of(item), DumpFormat.NO_TIMESTAMP);
+        } else {
+            download(res, session, credentials, item);
+            return String.valueOf(res.status());
+        }
+    }
+
+    /** Work around what looks like Whatsapp bug: even though url encodes correctly + as %2B,
+     * It is sent as raw + in the test query to construct thumbnail and reaches us as a space,
+     * so we tolerate that and map spaces back to pluses, as spaces are anyway not allowed in
+     * b64
+     */
+    private String restorePluses(String optionalKey) {
+        return (optionalKey == null) ? null : optionalKey.replace(' ', '+');
+    }
+
+    private String dropHtmlSuffix(String idParam) {
+        return idParam.endsWith(ID_HTML_SUFFIX) ?
+            idParam.substring(0, idParam.length() - ID_HTML_SUFFIX.length()) :
+                idParam;
+    }
+
+    protected Route securedItem(ItemCredentials.AuthenticationStatus authStatus, SecuredItemBody<D> task) {
+        return (req, res) -> transacted(session -> {
+            String key = restorePluses(req.queryParams("key"));
+            String idParam = dropHtmlSuffix(req.params("id"));
+            OrHttpError<? extends ItemCredentials> credentialsOrError;
+            if (key != null) {
+                credentialsOrError = new OrHttpError<>(new ItemCredentials.ItemKey(key));
+            } else if (authStatus == ItemCredentials.AuthenticationStatus.ANONYMOUS) {
+                credentialsOrError = new OrHttpError<>(new ItemCredentials.PublicAccess());
+            } else {
+                credentialsOrError = authenticate(req, session);
+            }
+
+            return credentialsOrError.get(res, credentials -> {
+            /* Either we have a key, or user must be authenticated. */
+            final long id = Long.parseLong(idParam);
+            return loadItem(session, id, credentials)
+                    .get(res, item -> task.handle(req, res, session, credentials, item));
+            });
+        });
+    }
+
+    /** Acquire the item with the given id. */
+    protected abstract OrHttpError<Item> loadItem(D session, long id, ItemCredentials credentials);
+
+    protected abstract Long upload(Request req, Response res, D session, ItemCredentials.UserPassword user, String folder, String path) throws IOException;
 
     /** Add the given comma-separated tags to the specified object. If a tag starts with '-' then it is removed instead.
      * <p>
@@ -185,8 +214,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         abstract String dumpTimestamp(Instant timestamp);
     }
 
-    private String dump(Response res, D domain, Java8SearchCriteria<Item> searchCriteria, DumpFormat dumpFormat) {
-        ItemSet set = doSearch(domain, searchCriteria);
+    private String dump(Response res, ItemSet set, DumpFormat dumpFormat) {
         res.type("text/csv; charset=UTF-8");
 
         StringBuilder result = new StringBuilder();
@@ -209,11 +237,12 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
      *            HTTP Response used to set Forbidden status if needed
      * @param session
      *            Database connection
+     * @param credentials current user credentials (permissions have already been checked so this can be ignored)
      * @param item
      *            The item to retrieve
      * @throws IOException
      */
-    protected abstract void download(Response res, D session, Item item) throws IOException;
+    protected abstract void download(Response res, D session, ItemCredentials credentials, Item item) throws IOException;
 
     protected abstract String ping();
 
@@ -221,12 +250,9 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
     protected abstract ItemSet loadGallery(D session, long partId);
 
-    protected abstract HtmlFragment galleryListPage(D domain, User user);
+    protected abstract HtmlFragment galleryListPage(D domain, ItemCredentials credentials);
 
     protected interface SecuredItemBody<D extends CloudSpillEntityManagerDomain> {
-        Object handle(Request request, Response response, D session, User user, Item item) throws Exception;
+        Object handle(Request request, Response response, D session, ItemCredentials credentials, Item item) throws Exception;
     }
-
-    protected abstract Route securedItem(SecuredItemBody<D> task);
-
 }

@@ -24,6 +24,7 @@ import org.gamboni.cloudspill.server.query.ItemSet;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.server.query.LocalItemSet;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
+import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.shared.util.ImageOrientationUtil;
 import org.gamboni.cloudspill.shared.util.Log;
@@ -56,9 +57,7 @@ import javax.persistence.EntityManager;
 
 import spark.Request;
 import spark.Response;
-import spark.Route;
 
-import static org.gamboni.cloudspill.shared.api.CloudSpillApi.ID_HTML_SUFFIX;
 import static org.gamboni.cloudspill.shared.util.Files.append;
 import static spark.Spark.before;
 import static spark.Spark.get;
@@ -145,7 +144,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 
 		setupRoutes(configuration);
     	
-		SecuredBody createUser = (req, res, session, user) -> {
+		SecuredBody<ServerDomain> createUser = (req, res, session, user) -> {
 			User u = new User();
 			u.setName(requireNotNull(req.params(CloudSpillApi.CREATE_USER_NAME)));
 
@@ -165,9 +164,23 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 						: secured(createUser));
     }
 
-    protected Long upload(Request req, Response res, ServerDomain session, User user, String folder, String path) throws IOException {
+	@Override
+	protected OrHttpError<Item> loadItem(ServerDomain session, long id, ItemCredentials credentials) {
+		Item item = session.get(Item.class, id);
+		// NOTE: even if user is authenticated, refuse incorrect keys
+		if (item == null) {
+			return new OrHttpError<>(res -> notFound(res, id));
+		} else if (!credentials.verify(item)) {
+			return new OrHttpError<>(res -> forbidden(res, false));
+		} else {
+			return new OrHttpError<>(item);
+		}
+	}
+
+	@Override
+	protected Long upload(Request req, Response res, ServerDomain session, ItemCredentials.UserPassword credentials, String folder, String path) throws IOException {
 		// Normalise given path
-		File folderPath = append(append(configuration.getRepositoryPath(), user.getName()), folder);
+		File folderPath = append(append(configuration.getRepositoryPath(), credentials.user.getName()), folder);
 		File requestedTarget = append(folderPath, path);
 
 		if (requestedTarget == null) {
@@ -185,7 +198,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 		/* First see if the path already exists. */
 		final ServerDomain.Query<Item> itemQuery = session.selectItem();
 		List<Item> existing = itemQuery
-				.add(root -> session.criteriaBuilder.equal(root.get(Item_.user), user.getName()))
+				.add(root -> session.criteriaBuilder.equal(root.get(Item_.user), credentials.user.getName()))
 				.add(root -> session.criteriaBuilder.equal(root.get(Item_.folder), folder))
 				.add(root -> session.criteriaBuilder.equal(root.get(Item_.path), finalNormalisedPath))
 				.list();
@@ -195,7 +208,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 				Item item = new Item();
 				item.setFolder(folder);
 				item.setPath(normalisedPath);
-				item.setUser(user.getName());
+				item.setUser(credentials.user.getName());
 				final String timestampHeader = req.headers(CloudSpillApi.UPLOAD_TIMESTAMP_HEADER);
 				if (timestampHeader != null) {
 					item.setDate(Instant.ofEpochMilli(Long.valueOf(timestampHeader))
@@ -285,8 +298,8 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	}
 
 	@Override
-	protected HtmlFragment galleryListPage(ServerDomain domain, User user) {
-		return new GalleryListPage(configuration, domain).getHtml(user);
+	protected HtmlFragment galleryListPage(ServerDomain domain, ItemCredentials credentials) {
+		return new GalleryListPage(configuration, domain).getHtml(credentials);
 	}
 
 	protected void putTags(ServerDomain session, long id, String tags) {
@@ -312,10 +325,10 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 		return item;
 	}
 
-	protected void download(Response res, ServerDomain session, final Item item)
+	protected void download(Response res, ServerDomain session, ItemCredentials credentials, final Item item)
 			throws IOException {
 		File file = item.getFile(configuration.getRepositoryPath());
-		res.header("Content-Type", "image/jpeg");
+		res.header("Content-Type", item.getType().asMime());
 		res.header("Content-Length", String.valueOf(file.length()));
 		try (FileInputStream stream = new FileInputStream(file)) {
 			ByteStreams.copy(stream, res.raw().getOutputStream());
@@ -430,47 +443,6 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 		return renderedImage;
 	}
 	
-	protected Route securedItem(SecuredItemBody task) {
-		return (req, res) -> transacted(session -> {
-			// Work around what looks like Whatsapp bug: even though url encodes correctly + as %2B,
-			// It is sent as raw + in the test query to construct thumbnail and reaches us as a space,
-			// so we tolerate that and map spaces back to pluses, as spaces are anyway not allowed in
-			// b64
-			String key = req.queryParams("key");
-			if (key != null) { key = key.replace(' ', '+'); }
-			
-			String idParam = req.params("id");
-			if (idParam != null && idParam.endsWith(ID_HTML_SUFFIX)) {
-				idParam = idParam.substring(0, idParam.length() - ID_HTML_SUFFIX.length());
-			}
-			
-			/* Either we have a key, or user is authenticated. */
-			final long id = Long.parseLong(idParam);
-			final Item item = session.get(Item.class, id);
-			
-			if (item == null) {
-				return notFound(res, id);
-			}
-			
-			// NOTE: even if user is authenticated, refuse incorrect keys
-			if (key != null && !key.equals(item.getChecksum())) {
-				Log.warn("Bad key value. Expected "+ item.getChecksum() +", got "+ key);
-				return forbidden(res, false);
-			}
-
-			User user;
-			if (key == null) {
-				user = authenticate(req, res, session);
-				if (user == null) {
-					return String.valueOf(res.status());
-				}
-			} else {
-				user = optionalAuthenticate(req, res, session);
-			}
-
-			return task.handle(req, res, session, user, item);
-		});
-	}
 
 	@Override
 	protected ServerDomain createDomain(EntityManager e) {

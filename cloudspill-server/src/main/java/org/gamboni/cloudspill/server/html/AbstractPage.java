@@ -6,6 +6,7 @@ import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
 import org.gamboni.cloudspill.server.config.ServerConfiguration;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
+import org.gamboni.cloudspill.shared.api.ItemCredentials;
 
 import java.util.Optional;
 
@@ -67,29 +68,29 @@ public abstract class AbstractPage {
 
     protected abstract String getTitle();
 
-    protected abstract String getPageUrl(User user);
+    protected abstract String getPageUrl();
 
-    protected abstract HtmlFragment getBody(User user);
+    protected abstract HtmlFragment getBody(ItemCredentials.AuthenticationStatus authStatus);
 
     protected Optional<String> getThumbnailUrl() {
         return Optional.empty();
     }
 
-    public HtmlFragment getHtml(User user) {
+    public HtmlFragment getHtml(ItemCredentials user) {
         Stopwatch stopwatch = Stopwatch.createStarted();
         return tag("html", "prefix=\"og: http://ogp.me/ns#\"",
                 tag("head",
                         tag("title", getTitle()),
                                 meta("og:title", getTitle()),
                                 meta("og:type", "article"),
-                                meta("og:url", getPageUrl(user)),
+                                meta("og:url", getPageUrl()),
                                 getThumbnailUrl().map(url -> meta("og:image", url)).orElse(HtmlFragment.EMPTY),
                                 slashedTag("link rel=\"stylesheet\" type=\"text/css\" href=" +
                                         quote(css))
                 ),
                         tag("body",
                                 tag("h1", getTitle()),
-                                getBody(user),
+                                getBody(user.getAuthStatus()),
                                 tag("div", "class='debug'", "Page rendered in "+ stopwatch)));
     }
 

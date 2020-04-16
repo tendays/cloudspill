@@ -9,5 +9,8 @@ public class ForwarderConfiguration extends BackendConfiguration {
         super(path);
     }
 
+    public String getRemoteServer() {
+        return prop.getProperty("remoteServer");
+    }
 
 }

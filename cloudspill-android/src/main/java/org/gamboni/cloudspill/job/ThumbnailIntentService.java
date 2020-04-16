@@ -21,6 +21,7 @@ import org.gamboni.cloudspill.domain.AbstractDomain;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.EvaluatedFilter;
 import org.gamboni.cloudspill.domain.FilterSpecification;
+import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.file.DiskLruCache;
 import org.gamboni.cloudspill.file.FileBuilder;
@@ -53,7 +54,6 @@ public class ThumbnailIntentService extends IntentService {
     public static final String POSITION_PARAM = "position";
     public static final String ITEM_ID_PARAM = "itemId";
     private static final String TAG = "CloudSpill.Thumbnails";
-    private static final int THUMB_SIZE = 90;
     private static final int DISK_CACHE_SIZE = 1024 * 1024 * 10; // 10MB
     /** This disk cache key stores the size of the data record in bytes. */
     private static final int DISK_CACHE_SIZE_KEY = 0;
@@ -383,7 +383,7 @@ public class ThumbnailIntentService extends IntentService {
                 Log.d(TAG, "Creating thumbnail for local "+ item.getType().name().toLowerCase());
                 if (item.getType() == ItemType.IMAGE) {
                     // Thumbnails are 90dp wide. Convert that to the pixel equivalent:
-                    final float smallPx = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, THUMB_SIZE, getResources().getDisplayMetrics());
+                    final float smallPx = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, CloudSpillApi.Size.PHONE_THUMBNAIL.pixels, getResources().getDisplayMetrics());
 
                     // TODO set sample size to avoid OOM
                     Bitmap bitmap = BitmapFactory.decodeStream(file.read());
@@ -439,7 +439,7 @@ public class ThumbnailIntentService extends IntentService {
                 publishStatus(getCallbacks(key), DownloadStatus.OFFLINE);
             } else { // online
                 publishStatus(peekCallbacks(key), DownloadStatus.DOWNLOADING);
-                server.downloadThumb(item.getServerId(), THUMB_SIZE, new Response.Listener<byte[]>() {
+                server.downloadThumb(item.getServerId(), CloudSpillApi.Size.PHONE_THUMBNAIL, new Response.Listener<byte[]>() {
                     @Override
                     public void onResponse(byte[] response) {
                         final Bitmap bitmap = BitmapFactory.decodeByteArray(response, 0, response.length);

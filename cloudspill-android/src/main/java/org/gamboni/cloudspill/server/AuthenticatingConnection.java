@@ -3,6 +3,9 @@ package org.gamboni.cloudspill.server;
 import android.content.Context;
 import android.util.Base64;
 
+import org.gamboni.cloudspill.shared.api.Base64Encoder;
+import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.domain.ClientUser;
 import org.gamboni.cloudspill.ui.SettingsActivity;
 
 import java.io.IOException;
@@ -75,8 +78,13 @@ public class AuthenticatingConnection {
             connection = (HttpURLConnection) new URL(url).openConnection();
             connection.setRequestMethod(this.method.name());
             // include authentication header
-            final String credentials = SettingsActivity.getUser(context) + ":" + SettingsActivity.getPassword(context);
-            connection.setRequestProperty("Authorization", "Basic "+ Base64.encodeToString(credentials.getBytes(), Base64.NO_WRAP));
+            new ItemCredentials.UserPassword(new ClientUser(SettingsActivity.getUser(context)), SettingsActivity.getPassword(context))
+                    .setHeaders(connection, new Base64Encoder() {
+                        @Override
+                        public String encode(byte[] string) {
+                            return Base64.encodeToString(string, Base64.NO_WRAP);
+                        }
+                    });
             for (Map.Entry<RequestHeader, String> entry : this.headers.entrySet()) {
                 connection.setRequestProperty(entry.getKey().httpHeader, entry.getValue());
             }

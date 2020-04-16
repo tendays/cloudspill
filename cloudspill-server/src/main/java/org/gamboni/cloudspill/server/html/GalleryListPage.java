@@ -5,6 +5,7 @@ import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.config.ServerConfiguration;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
+import org.gamboni.cloudspill.shared.api.ItemCredentials;
 
 import java.util.List;
 
@@ -28,12 +29,12 @@ public class GalleryListPage extends AbstractPage {
     }
 
     @Override
-    protected String getPageUrl(User user) {
-        return configuration.getPublicUrl() + "/public/gallery/";
+    protected String getPageUrl() {
+        return configuration.getPublicUrl() + "public/gallery/";
     }
 
     @Override
-    protected HtmlFragment getBody(User user) {
+    protected HtmlFragment getBody(ItemCredentials.AuthenticationStatus authStatus) {
         return HtmlFragment.concatenate(domain.selectGalleryPart().list()
                 .stream()
                 .map(gp -> {
