@@ -27,7 +27,7 @@ public class MediaDownloadRequest extends AuthenticatingRequest<byte[]> {
         if (thumbnailSize == null) { // full image
             return api.getImageUrl(serverId, new ItemCredentials.UserPassword());
         } else { // thumbnail
-            return api.getThumbnailUrl(serverId, new ItemCredentials.UserPassword(), thumbnailSize.pixels);
+            return api.getThumbnailUrl(serverId, new ItemCredentials.UserPassword(), thumbnailSize);
         }
     }
 

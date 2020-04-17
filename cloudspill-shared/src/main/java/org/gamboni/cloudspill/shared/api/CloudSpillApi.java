@@ -75,6 +75,9 @@ public class CloudSpillApi {
         Size(int pixels) {
             this.pixels = pixels;
         }
+        public String toString() {
+            return String.valueOf(pixels);
+        }
     }
 
     private static ItemCredentials credentialsForItem(IsItem item) {
