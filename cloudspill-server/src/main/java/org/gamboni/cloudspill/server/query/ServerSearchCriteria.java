@@ -97,7 +97,7 @@ public class ServerSearchCriteria implements Java8SearchCriteria<BackendItem> {
     public <E extends BackendItem, Q extends ServerDomain.Query<E>> Q applyTo(Q itemQuery) {
         CriteriaBuilder criteriaBuilder = itemQuery.getCriteriaBuilder();
         if (minId != null) {
-            itemQuery.add(root -> criteriaBuilder.gt(root.get(BackendItem_.id), minId));
+            itemQuery.add(root -> criteriaBuilder.gt(root.get("id"), minId));
         }
         if (minModDate != null) {
             itemQuery.add(root -> criteriaBuilder.greaterThanOrEqualTo(root.get(BackendItem_.updated), minModDate));

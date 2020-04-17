@@ -12,9 +12,6 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
 import javax.persistence.MappedSuperclass;
 import javax.persistence.Transient;
 import javax.persistence.Version;
@@ -25,16 +22,13 @@ import javax.persistence.Version;
 @MappedSuperclass
 public abstract class BackendItem extends JpaItem {
 
+    /* https://stackoverflow.com/questions/29943132/overriding-id-defined-in-a-mappedsuperclass-with-jpa
+     * says it is impossible to specify that BackendItem has an id called "id" then specify the generation
+     * strategy in a subclass. Item (for locally-created items) has a generation strategy but RemoteItem
+     * does not, as it's the remote server that provides ids.
+     */
     protected long id;
     Instant updated;
-
-    @Id
-    public long getId() {
-        return id;
-    }
-    public void setId(long id) {
-        this.id = id;
-    }
 
     @Transient
     public Long getServerId() {
