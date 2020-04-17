@@ -217,7 +217,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
     private String dump(Response res, ItemSet set, DumpFormat dumpFormat) {
         res.type("text/csv; charset=UTF-8");
 
-        StringBuilder result = new StringBuilder();
+        StringBuilder result = new StringBuilder(Item.csvHeader() + "\n");
         Instant timestamp = Instant.EPOCH;
         for (Item item : set.getAllItems()) {
             result.append(item.serialise()).append("\n");

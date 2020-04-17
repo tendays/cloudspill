@@ -1,5 +1,6 @@
 package org.gamboni.cloudspill.server;
 
+import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CharStreams;
 import com.google.inject.Guice;
@@ -18,12 +19,16 @@ import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.util.Log;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.LineNumberReader;
+import java.io.Reader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 
 import javax.inject.Inject;
 import javax.persistence.EntityManager;
@@ -74,7 +79,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
                 URLConnection connection = new URL(remoteApi.getImageUrl(id, credentials)).openConnection();
                 credentials.setHeaders(connection, Base64.getEncoder()::encodeToString);
                 connection.setRequestProperty("Accept", "text/csv");
-                try (LineNumberReader r = new LineNumberReader(new InputStreamReader(connection.getInputStream()))) {
+                try (Reader r = new InputStreamReader(connection.getInputStream())) {
                     final int responseCode = ((HttpURLConnection) connection).getResponseCode();
                     if (responseCode < 200 || responseCode >= 300) {
                         return new OrHttpError<>(res -> {
@@ -88,28 +93,54 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
                             }
                         });
                     }
-                    final Csv.Extractor<Item> extractor = Item.deserialise(r.readLine());
-                    Item remote = extractor.deserialise(new Item(), r.readLine());
-                    try {
-                        /* This may fail in case there's another request for the same item at the same time. */
-                        transacted(nestedSession -> {
-                            nestedSession.persist(remote);
-                            return null;
-                        });
-                    } catch (Exception e) {
-                        Log.warn("Failed saving remote entity locally", e);
-                    }
-                    return new OrHttpError<>(remote);
+                    return deserialiseStream(r).flatMap(remoteList -> {
+                        switch (remoteList.size()) {
+                            case 0:
+                                Log.warn("Remote returned empty list to single-item query (should return 404 instead!)");
+                                return notFound(id);
+                            case 1:
+                                final Item remote = Iterables.getOnlyElement(remoteList);
+                                try {
+                                    /* This may fail in case there's another request for the same item at the same time. */
+                                    transacted(nestedSession -> {
+                                        nestedSession.persist(remote);
+                                        return null;
+                                    });
+                                } catch (Exception e) {
+                                    Log.warn("Failed saving remote entity locally", e);
+                                }
+                                return new OrHttpError<>(remote);
+                            default:
+                                Log.warn("Remote returned "+ remoteList.size() +" elements to single-item query");
+                                return internalServerError();
+                        }
+                    });
                 }
             } catch (IOException e) {
                 e.printStackTrace();
-                return new OrHttpError<>(res -> internalServerError(res));
+                return internalServerError();
             }
         } else if (!credentials.verify(item)) {
-            return new OrHttpError<>(res -> forbidden(res, false));
+            return forbidden(false);
         } else {
             return new OrHttpError<>(item);
         }
+    }
+
+    private OrHttpError<List<Item>> deserialiseStream(Reader reader) throws IOException {
+        LineNumberReader lineReader = new LineNumberReader(reader);
+        String headerLine = lineReader.readLine();
+        if (headerLine == null) {
+            Log.warn("Missing header line from remote server");
+            return internalServerError();
+        }
+        final Csv.Extractor<Item> extractor = Item.deserialise(headerLine);
+        String line;
+        List<Item> result = new ArrayList<>();
+        while ((line = lineReader.readLine()) != null) {
+            result.add(extractor.deserialise(new Item(), line));
+        }
+        return new OrHttpError<>(result);
     }
 
     @Override
@@ -161,6 +192,6 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
 
     @Override
     protected ForwarderDomain createDomain(EntityManager e) {
-        throw new UnsupportedOperationException();
+        return new ForwarderDomain(e);
     }
 }

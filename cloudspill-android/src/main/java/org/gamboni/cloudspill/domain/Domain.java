@@ -7,6 +7,7 @@ import android.net.Uri;
 import android.util.Log;
 
 import org.gamboni.cloudspill.file.FileBuilder;
+import org.gamboni.cloudspill.shared.api.Csv;
 import org.gamboni.cloudspill.shared.domain.IsItem;
 import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.shared.util.Splitter;
@@ -26,7 +27,7 @@ import java.util.Set;
 public class Domain extends AbstractDomain<Domain> {
 
     // If you change the database schema, you must increment the database version.
-    private static final int DATABASE_VERSION = 8;
+    private static final int DATABASE_VERSION = 9;
     private static final String DATABASE_NAME = "CloudSpill.db";
 
     private static final ItemSchema itemSchema = new ItemSchema();
@@ -52,6 +53,8 @@ public class Domain extends AbstractDomain<Domain> {
 
         public static final Column<String> CHECKSUM = string("CHECKSUM", 8);
 
+        public static final Column<String> DESCRIPTION = string("DESCRIPTION", 9);
+
         @Override
         public int since() {
             return 1;
@@ -64,7 +67,7 @@ public class Domain extends AbstractDomain<Domain> {
 
         @Override
         public List<? extends Column<?>> columns() {
-            return list(ID, SERVER_ID, USER, FOLDER, PATH, LATEST_ACCESS, DATE, TYPE, CHECKSUM);
+            return list(ID, SERVER_ID, USER, FOLDER, PATH, LATEST_ACCESS, DATE, TYPE, CHECKSUM, DESCRIPTION);
         }
 
         @Override
@@ -170,6 +173,58 @@ public class Domain extends AbstractDomain<Domain> {
         return Collections.unmodifiableList(Arrays.asList(columns));
     }
 
+    private static Csv.Setter<Item> longSetter(final Column<Long> column) {
+        return new Csv.Setter<Item>() {
+            @Override
+            public void set(Item item, String value) {
+                item.set(column, Long.parseLong(value));
+            }
+        };
+    }
+
+    private static Csv.Setter<Item> stringSetter(final Column<String> column) {
+        return new Csv.Setter<Item>() {
+            @Override
+            public void set(Item item, String value) {
+                item.set(column, value);
+            }
+        };
+    }
+
+    private static Csv.Setter<Item> dateSetter(final Column<Date> column) {
+        return new Csv.Setter<Item>() {
+            @Override
+            public void set(Item item, String value) {
+                item.set(column, toDate(Long.parseLong(value))); // TODO this is supposed to be UTC - check!
+            }
+        };
+    }
+
+    private static final Csv.Setter<Item> TYPE_SETTER = new Csv.Setter<Item>() {
+        @Override
+        public void set(Item item, String value) {
+            item.set(ItemSchema.TYPE, ItemType.valueOfOptional(value));
+        }
+    };
+
+    private static final Csv.Setter<Item> TAGS_SETTER = new Csv.Setter<Item>() {
+        @Override
+        public void set(Item item, String value) {
+            new Splitter(value, ',').allRemainingTo(item.getTagList());
+        }
+    };
+
+    public static final Csv<Item> ITEM_CSV = new Csv.Impl<Item>()
+            .add("id", null, longSetter(ItemSchema.SERVER_ID))
+            .add("user", null, stringSetter(ItemSchema.USER))
+            .add("folder", null, stringSetter(ItemSchema.FOLDER))
+            .add("path", null, stringSetter(ItemSchema.PATH))
+            .add("date", null, dateSetter(ItemSchema.DATE))
+            .add("type", null, TYPE_SETTER)
+            .add("tags", null, TAGS_SETTER)
+            .add("checksum", null, stringSetter(ItemSchema.CHECKSUM))
+            .add("description", null, stringSetter(ItemSchema.DESCRIPTION));
+
     public class Item extends Entity implements IsItem {
 
         @Override
@@ -180,19 +235,6 @@ public class Domain extends AbstractDomain<Domain> {
         private TrackingList<String, Tag> tags;
 
         public Item() {}
-
-        /** Construct an Item from its serialized form as constructed by the server. */
-        public Item(String serialisedForm) {
-            Splitter splitter = new Splitter(serialisedForm, ';');
-            set(ItemSchema.SERVER_ID, splitter.getLong());
-            set(ItemSchema.USER, splitter.getString());
-            set(ItemSchema.FOLDER, splitter.getString());
-            set(ItemSchema.PATH, splitter.getString());
-            set(ItemSchema.DATE, toDate(splitter.getLong())); // TODO this is supposed to be UTC - check!
-            set(ItemSchema.TYPE, ItemType.valueOfOptional(splitter.getString()));
-            new Splitter(splitter.getString(), ',').allRemainingTo(getTagList());
-            set(ItemSchema.CHECKSUM, splitter.getString());
-        }
 
         private Boolean local = null;
         public boolean isLocal() {

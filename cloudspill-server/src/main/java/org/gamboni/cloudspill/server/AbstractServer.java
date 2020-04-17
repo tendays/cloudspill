@@ -109,6 +109,10 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 		return "Not Found";
 	}
 
+	protected <T> OrHttpError<T> notFound(long item) {
+		return new OrHttpError<>(res -> notFound(res, item));
+	}
+
 	protected String gone(Response res, long item, File file) {
 		Log.error("Gone: "+ file +" for item "+ item);
 		res.status(HttpServletResponse.SC_GONE);
@@ -135,6 +139,10 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 		return "Internal Error";
 	}
 
+	protected <T> OrHttpError<T> internalServerError() {
+		return new OrHttpError<>(res -> internalServerError(res));
+	}
+
 	protected String forbidden(Response res, boolean loginPrompt) {
 		if (loginPrompt) {
 			return unauthorized(res);
@@ -143,6 +151,10 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 		}
 		res.status(HttpServletResponse.SC_FORBIDDEN);
 		return "Forbidden";
+	}
+
+	protected <T> OrHttpError<T> forbidden(boolean loginPrompt) {
+		return new OrHttpError<>(res -> forbidden(res, loginPrompt));
 	}
 
 	protected abstract S createDomain(EntityManager e);

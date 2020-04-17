@@ -2,6 +2,8 @@ package org.gamboni.cloudspill.server;
 
 import com.google.common.base.Preconditions;
 
+import java.util.function.Function;
+
 import spark.Response;
 
 /**
@@ -29,6 +31,21 @@ public class OrHttpError<T> {
         }
     }
 
+    public <U> OrHttpError<U> flatMap(Function<T, OrHttpError<U>> function) {
+        if (error != null) {
+            return (OrHttpError<U>)this;
+        } else {
+            return function.apply(item);
+        }
+    }
+
+    public <U> OrHttpError<U> map(Function<T, U> function) {
+        if (error != null) {
+            return (OrHttpError<U>)this;
+        } else {
+            return new OrHttpError<>(function.apply(item));
+        }
+    }
 
     public interface HttpError {
         String emit(Response res);

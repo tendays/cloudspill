@@ -12,6 +12,7 @@ import com.android.volley.toolbox.HttpHeaderParser;
 
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
+import org.gamboni.cloudspill.shared.api.Csv;
 import org.gamboni.cloudspill.ui.SettingsActivity;
 
 import java.io.BufferedReader;
@@ -55,6 +56,7 @@ public class ItemsSinceRequest extends AuthenticatingRequest<ItemsSinceRequest.R
     }
 
     private static class ResponseStream implements Result, Iterator<Domain.Item> {
+        private final Csv.Extractor<Domain.Item> extractor;
         Domain domain;
         BufferedReader in;
         String nextLine = null;
@@ -65,6 +67,12 @@ public class ItemsSinceRequest extends AuthenticatingRequest<ItemsSinceRequest.R
             this.in = in;
 
             readLine();
+            if (nextLine != null) {
+                this.extractor = Domain.ITEM_CSV.extractor(nextLine);
+                readLine();
+            } else {
+                this.extractor = null;
+            }
         }
 
         private void readLine() {
@@ -86,7 +94,8 @@ public class ItemsSinceRequest extends AuthenticatingRequest<ItemsSinceRequest.R
 
         @Override
         public Domain.Item next() {
-            Domain.Item result = domain.new Item(nextLine);
+            Domain.Item result = domain.new Item();
+            extractor.deserialise(result, nextLine);
             readLine();
             if (!hasNext() && nextLine.startsWith("Timestamp:")) {
                 latestUpdate = Long.parseLong(nextLine.substring("Timestamp:".length()));
