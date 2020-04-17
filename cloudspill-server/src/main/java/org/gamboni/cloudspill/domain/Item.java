@@ -31,9 +31,11 @@ import com.google.common.collect.ImmutableSet;
 @Entity
 public class Item extends BackendItem {
 	
-	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	public long getId() {
-		return super.getId();
+		return this.id;
+	}
+	public void setId(long id) {
+		this.id = id;
 	}
 }

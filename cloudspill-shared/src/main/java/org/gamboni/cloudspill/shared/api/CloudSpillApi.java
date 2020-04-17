@@ -119,7 +119,7 @@ public class CloudSpillApi {
             }
         }
         String offsetQuery = (offset == 0) ? "" : ("?offset="+ offset);
-        String baseUrl = serverUrl + (isPublic ? "/public" : "/");
+        String baseUrl = serverUrl + (isPublic ? "public" : "");
         if (otherTags.size() == 1 && stringFrom == null && stringTo == null) {
             return baseUrl + "/tag/" + encodePathPart(otherTags.iterator().next()) + offsetQuery;
         } else if (otherTags.isEmpty() && stringFrom != null && stringFrom.equals(stringTo)) {

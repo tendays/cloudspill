@@ -121,7 +121,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 				      md5.update(buf, 0, len);
 				    }
 				} catch (IOException e) {
-					Log.warn("Error reading "+ file +" for item "+ item.getId(), e);
+					Log.warn("Error reading "+ file +" for item "+ item.getServerId(), e);
 					continue;
 				}
 				item.setChecksum(
@@ -339,7 +339,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 		File file = item.getFile(configuration.getRepositoryPath());
 		
 		if (!file.exists()) {
-			return gone(res, item.getId(), file);
+			return gone(res, item.getServerId(), file);
 		}
 		
 		res.header("Content-Type", "image/jpeg");

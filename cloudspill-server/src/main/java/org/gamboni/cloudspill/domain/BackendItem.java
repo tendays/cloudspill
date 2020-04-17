@@ -25,21 +25,20 @@ import javax.persistence.Version;
 @MappedSuperclass
 public abstract class BackendItem extends JpaItem {
 
-    long id;
+    protected long id;
     Instant updated;
 
     @Id
     public long getId() {
         return id;
     }
+    public void setId(long id) {
+        this.id = id;
+    }
 
     @Transient
     public Long getServerId() {
         return id;
-    }
-
-    public void setId(long id) {
-        this.id = id;
     }
 
     @Version
@@ -51,7 +50,7 @@ public abstract class BackendItem extends JpaItem {
     }
 
     protected static final Csv<BackendItem> CSV = new Csv.Impl<BackendItem>()
-            .add("id", i -> String.valueOf(i.getId()), (i, id) -> i.setId(Long.parseLong(id)))
+            .add("id", i -> String.valueOf(i.id), (i, id) -> i.id = Long.parseLong(id))
             .add("user", BackendItem::getUser, BackendItem::setUser)
             .add("folder", BackendItem::getFolder, BackendItem::setFolder)
             .add("path", BackendItem::getPath, BackendItem::setPath)
