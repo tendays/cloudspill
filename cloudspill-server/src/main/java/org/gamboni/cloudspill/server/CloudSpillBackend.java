@@ -68,18 +68,18 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         }));
 
         get("/public/gallery/", (req, res) -> transacted(domain -> {
-            return galleryListPage(domain, null);
+            return galleryListPage(domain, new ItemCredentials.PublicAccess());
         }));
 
         get("/public/gallery/:part", (req, res) -> transacted(domain -> {
-            return new GalleryPage(configuration, loadGallery(domain, Long.parseLong(req.params("part")))).getHtml(null);
+            return new GalleryPage(configuration, loadGallery(domain, Long.parseLong(req.params("part")))).getHtml(new ItemCredentials.PublicAccess());
         }));
 
         get("/public", (req, res) -> transacted(session -> {
             ServerSearchCriteria criteria = ServerSearchCriteria.ALL
                     .withTag("public")
                     .atOffset(Integer.parseInt(req.queryParamOrDefault("offset", "0")));
-            return new GalleryPage(configuration, doSearch(session, criteria)).getHtml(null);
+            return new GalleryPage(configuration, doSearch(session, criteria)).getHtml(new ItemCredentials.PublicAccess());
         }));
 
         /* Download a file */

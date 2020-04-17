@@ -6,6 +6,8 @@ package org.gamboni.cloudspill.client;
 import com.google.common.collect.ImmutableList;
 
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
+import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.domain.ClientUser;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -98,8 +100,8 @@ public class CloudSpillClientOptions {
             // include authentication header if both user and password specified
             get(user).ifPresent(givenUser ->
                     get(password).ifPresent(givenPassword -> {
-                        final String credentials = givenUser + ":" + givenPassword;
-                        connection.setRequestProperty("Authorization", "Basic " + Base64.getEncoder().encodeToString(credentials.getBytes()));
+                        new ItemCredentials.UserPassword(new ClientUser(givenUser), givenPassword)
+                                .setHeaders(connection, Base64.getEncoder()::encodeToString);
                     }));
 
             return (HttpURLConnection) connection;

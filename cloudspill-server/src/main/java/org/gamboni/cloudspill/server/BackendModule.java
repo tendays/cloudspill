@@ -36,8 +36,10 @@ abstract class BackendModule extends AbstractModule {
 
     @Override
     protected void configure() {
-        bind(CloudSpillServer.class).asEagerSingleton();
+        bind(getServerClass()).asEagerSingleton();
     }
+
+    protected abstract Class<? extends AbstractServer> getServerClass();
 
     @Provides
     public EntityManagerFactory sessionFactory() {

@@ -40,6 +40,11 @@ public class ServerModule extends BackendModule {
 	}
 
     @Override
+    protected Class<? extends AbstractServer> getServerClass() {
+        return CloudSpillServer.class;
+    }
+
+    @Override
     protected List<Class<?>> getManagedClasses() {
         return ImmutableList.of(
                 User.class,

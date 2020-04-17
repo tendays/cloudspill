@@ -27,6 +27,11 @@ public class ForwarderModule extends BackendModule {
     }
 
     @Override
+    protected Class<? extends AbstractServer> getServerClass() {
+        return CloudSpillForwarder.class;
+    }
+
+    @Override
     protected List<Class<?>> getManagedClasses() {
         return ImmutableList.of(
                 User.class,

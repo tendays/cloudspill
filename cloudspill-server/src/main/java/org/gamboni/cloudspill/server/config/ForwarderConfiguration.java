@@ -1,5 +1,7 @@
 package org.gamboni.cloudspill.server.config;
 
+import com.google.common.base.Preconditions;
+
 /**
  * @author tendays
  */
@@ -10,7 +12,7 @@ public class ForwarderConfiguration extends BackendConfiguration {
     }
 
     public String getRemoteServer() {
-        return prop.getProperty("remoteServer");
+        return Preconditions.checkNotNull(prop.getProperty("remoteServer"), "Missing mandatory property 'remoteServer'");
     }
 
 }
