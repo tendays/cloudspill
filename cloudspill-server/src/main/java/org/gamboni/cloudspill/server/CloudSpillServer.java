@@ -21,9 +21,8 @@ import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.config.ServerConfiguration;
 import org.gamboni.cloudspill.server.html.GalleryListPage;
 import org.gamboni.cloudspill.server.html.HtmlFragment;
-import org.gamboni.cloudspill.server.query.ItemSet;
+import org.gamboni.cloudspill.server.query.ItemQueryLoader;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
-import org.gamboni.cloudspill.server.query.LocalItemSet;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.domain.ItemType;
@@ -286,13 +285,13 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	}
 
 	@Override
-	protected ItemSet doSearch(ServerDomain domain, Java8SearchCriteria<BackendItem> criteria) {
-		return new LocalItemSet(criteria, domain);
+	protected ItemQueryLoader getQueryLoader(ServerDomain session, ItemCredentials credentials) {
+		return null;
 	}
 
 	@Override
-	protected ItemSet loadGallery(ServerDomain domain, long partId) {
-		return new LocalItemSet(domain.get(GalleryPart.class, partId), domain);
+	protected Java8SearchCriteria<BackendItem> loadGallery(ServerDomain session, long partId) {
+		return session.get(GalleryPart.class, partId);
 	}
 
 	@Override

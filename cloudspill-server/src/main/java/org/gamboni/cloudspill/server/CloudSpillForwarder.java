@@ -11,16 +11,16 @@ import org.gamboni.cloudspill.domain.ForwarderDomain;
 import org.gamboni.cloudspill.domain.RemoteItem;
 import org.gamboni.cloudspill.server.config.ForwarderConfiguration;
 import org.gamboni.cloudspill.server.html.HtmlFragment;
+import org.gamboni.cloudspill.server.query.ItemQueryLoader;
 import org.gamboni.cloudspill.server.query.ItemSet;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
-import org.gamboni.cloudspill.shared.api.Base64Encoder;
+import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.Csv;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.util.Log;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.LineNumberReader;
 import java.io.Reader;
@@ -76,25 +76,8 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
         RemoteItem item = session.get(RemoteItem.class, id);
         if (item == null) {
             // item not found locally, try from remote server
-            try {
-                URLConnection connection = new URL(remoteApi.getImageUrl(id, credentials)).openConnection();
-                credentials.setHeaders(connection, Base64.getEncoder()::encodeToString);
-                connection.setRequestProperty("Accept", "text/csv");
-                try (Reader r = new InputStreamReader(connection.getInputStream())) {
-                    final int responseCode = ((HttpURLConnection) connection).getResponseCode();
-                    if (responseCode < 200 || responseCode >= 300) {
-                        return new OrHttpError<>(res -> {
-                            try {
-                                String responseString = CharStreams.toString(r);
-                                res.status(responseCode);
-                                return "Remote Server answered: " + responseString;
-                            } catch (IOException e) {
-                                res.status(HttpServletResponse.SC_GATEWAY_TIMEOUT);
-                                return "Error communicating with remote server";
-                            }
-                        });
-                    }
-                    return deserialiseStream(r).flatMap(remoteList -> {
+            return deserialiseStream(remoteApi.getImageUrl(id, credentials), credentials)
+                    .flatMap(remoteList -> {
                         switch (remoteList.size()) {
                             case 0:
                                 Log.warn("Remote returned empty list to single-item query (should return 404 instead!)");
@@ -112,15 +95,10 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
                                 }
                                 return new OrHttpError<>(remote);
                             default:
-                                Log.warn("Remote returned "+ remoteList.size() +" elements to single-item query");
+                                Log.warn("Remote returned " + remoteList.size() + " elements to single-item query");
                                 return internalServerError();
                         }
                     });
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-                return internalServerError();
-            }
         } else if (!credentials.verify(item)) {
             return forbidden(false);
         } else {
@@ -128,20 +106,53 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
         }
     }
 
-    private OrHttpError<List<RemoteItem>> deserialiseStream(Reader reader) throws IOException {
-        LineNumberReader lineReader = new LineNumberReader(reader);
-        String headerLine = lineReader.readLine();
-        if (headerLine == null) {
-            Log.warn("Missing header line from remote server");
-            return internalServerError();
+    private OrHttpError<List<RemoteItem>> deserialiseStream(String url, ItemCredentials credentials) {
+        try {
+            final URLConnection connection = new URL(url).openConnection();
+            credentials.setHeaders(connection, Base64.getEncoder()::encodeToString);
+            connection.setRequestProperty("Accept", "text/csv");
+            try (Reader reader = new InputStreamReader(connection.getInputStream())) {
+                final int responseCode = ((HttpURLConnection) connection).getResponseCode();
+                if (responseCode < 200 || responseCode >= 300) {
+                    return new OrHttpError<>(res -> {
+                        try {
+                            String responseString = CharStreams.toString(reader);
+                            res.status(responseCode);
+                            return "Remote Server answered: " + responseString;
+                        } catch (IOException e) {
+                            return gatewayTimeout(res);
+                        }
+                    });
+                }
+
+                LineNumberReader lineReader = new LineNumberReader(reader);
+                String headerLine = lineReader.readLine();
+                if (headerLine == null) {
+                    Log.warn("Missing header line from remote server");
+                    return internalServerError();
+                }
+                final Csv.Extractor<BackendItem> extractor = RemoteItem.deserialise(headerLine);
+                String line;
+                List<RemoteItem> result = new ArrayList<>();
+                while ((line = lineReader.readLine()) != null) {
+                    result.add(extractor.deserialise(new RemoteItem(), line));
+                }
+                return new OrHttpError<>(result);
+            }
+        } catch (IOException e) {
+            Log.warn("Error communicating with remote server", e);
+            return gatewayTimeout();
         }
-        final Csv.Extractor<BackendItem> extractor = RemoteItem.deserialise(headerLine);
-        String line;
-        List<RemoteItem> result = new ArrayList<>();
-        while ((line = lineReader.readLine()) != null) {
-            result.add(extractor.deserialise(new RemoteItem(), line));
-        }
-        return new OrHttpError<>(result);
+
+    }
+
+    private OrHttpError<List<RemoteItem>> gatewayTimeout() {
+        return new OrHttpError<>(res ->  gatewayTimeout(res));
+    }
+
+    private String gatewayTimeout(Response res) {
+        res.status(HttpServletResponse.SC_GATEWAY_TIMEOUT);
+        return "Error communicating with remote server";
     }
 
     @Override
@@ -177,12 +188,25 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
-    protected ItemSet doSearch(ForwarderDomain session, Java8SearchCriteria<BackendItem> criteria) {
-        throw new UnsupportedOperationException();
+    protected ItemQueryLoader getQueryLoader(ForwarderDomain session, ItemCredentials credentials) {
+        return new ItemQueryLoader() {
+            @Override
+            public OrHttpError<ItemSet> load(Java8SearchCriteria<BackendItem> criteria) {
+                return deserialiseStream(criteria.getUrl(remoteApi), credentials)
+                        .map(rows -> new ItemSet(rows.size() + criteria.getOffset(), rows));
+            }
+
+            @Override
+            public OrHttpError<ItemSet> load(Java8SearchCriteria<BackendItem> criteria, int limit) {
+                return deserialiseStream(criteria.getUrl(remoteApi), credentials)
+                        .map(rows -> new ItemSet(rows.size() + criteria.getOffset(),
+                                (rows.size() > limit) ? rows.subList(0, limit) : rows));
+            }
+        };
     }
 
     @Override
-    protected ItemSet loadGallery(ForwarderDomain session, long partId) {
+    protected Java8SearchCriteria<BackendItem> loadGallery(ForwarderDomain session, long partId) {
         throw new UnsupportedOperationException();
     }
 

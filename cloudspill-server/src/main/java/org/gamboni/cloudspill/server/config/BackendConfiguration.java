@@ -5,6 +5,7 @@ import com.google.common.base.Preconditions;
 
 import org.gamboni.cloudspill.shared.api.SharedConfiguration;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -25,6 +26,10 @@ public abstract class BackendConfiguration implements SharedConfiguration {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public File getRepositoryPath() {
+        return new File(requireProperty("repositoryPath"));
     }
 
     public String getPublicUrl() {

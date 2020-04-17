@@ -6,6 +6,7 @@ import org.gamboni.cloudspill.server.config.BackendConfiguration;
 import org.gamboni.cloudspill.server.html.GalleryPage;
 import org.gamboni.cloudspill.server.html.HtmlFragment;
 import org.gamboni.cloudspill.server.html.ImagePage;
+import org.gamboni.cloudspill.server.query.ItemQueryLoader;
 import org.gamboni.cloudspill.server.query.ItemSet;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
@@ -45,26 +46,26 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
         get("/tag/:tag", secured((req, res, domain, credentials) ->
         {
-            final ServerSearchCriteria searchCriteria = ServerSearchCriteria.ALL
-                    .withTag(req.params("tag"))
-                    .atOffset(Integer.parseInt(req.queryParamOrDefault("offset", "0")));
 
-            return new GalleryPage(configuration, doSearch(domain, searchCriteria)).getHtml(credentials);
+            return galleryPage(configuration, req, res, domain, credentials,
+                    ServerSearchCriteria.ALL
+                    .withTag(req.params("tag"))
+                    .atOffset(Integer.parseInt(req.queryParamOrDefault("offset", "0"))));
         }));
 
-        get("/day/:day", secured((req, res, domain, user) -> {
+        get("/day/:day", secured((req, res, domain, credentials) -> {
             LocalDate day = LocalDate.parse(req.params("day"));
-            final ServerSearchCriteria searchCriteria = ServerSearchCriteria.ALL
-                    .at(day)
-                    .atOffset(Integer.parseInt(req.queryParamOrDefault("offset", "0")));
 
-            return new GalleryPage(configuration, doSearch(domain, searchCriteria)).getHtml(user);
+            return galleryPage(configuration, req, res, domain, credentials,
+                    ServerSearchCriteria.ALL
+                    .at(day)
+                    .atOffset(Integer.parseInt(req.queryParamOrDefault("offset", "0"))));
         }));
 
         get("/gallery/", secured((req, res, domain, credentials) -> galleryListPage(domain, credentials)));
 
-        get("/gallery/:part", secured((req, res, domain, user) -> {
-            return new GalleryPage(configuration, loadGallery(domain, Long.parseLong(req.params("part")))).getHtml(user);
+        get("/gallery/:part", secured((req, res, domain, credentials) -> {
+            return galleryPage(configuration, req, res, domain, credentials, loadGallery(domain, Long.parseLong(req.params("part"))));
         }));
 
         get("/public/gallery/", (req, res) -> transacted(domain -> {
@@ -72,14 +73,17 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         }));
 
         get("/public/gallery/:part", (req, res) -> transacted(domain -> {
-            return new GalleryPage(configuration, loadGallery(domain, Long.parseLong(req.params("part")))).getHtml(new ItemCredentials.PublicAccess());
+            return galleryPage(configuration, req, res, domain,
+                    new ItemCredentials.PublicAccess(),
+                    loadGallery(domain, Long.parseLong(req.params("part"))));
         }));
 
         get("/public", (req, res) -> transacted(session -> {
-            ServerSearchCriteria criteria = ServerSearchCriteria.ALL
-                    .withTag("public")
-                    .atOffset(Integer.parseInt(req.queryParamOrDefault("offset", "0")));
-            return new GalleryPage(configuration, doSearch(session, criteria)).getHtml(new ItemCredentials.PublicAccess());
+            return galleryPage(configuration, req, res, session,
+                    new ItemCredentials.PublicAccess(),
+                    ServerSearchCriteria.ALL
+                            .withTag("public")
+                            .atOffset(Integer.parseInt(req.queryParamOrDefault("offset", "0"))));
         }));
 
         /* Download a file */
@@ -98,15 +102,16 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         ));
 
         /* Get list of items whose id is larger than the given one. */
-        get("item/since/:id", secured((req, res, domain, user) -> {
-            return dump(res, doSearch(domain, ServerSearchCriteria.ALL.withIdAtLeast(Long.parseLong(req.params("id")))),
+        get("item/since/:id", secured((req, res, domain, credentials) -> {
+            return dump(res, domain, ServerSearchCriteria.ALL.withIdAtLeast(Long.parseLong(req.params("id"))), credentials,
                     DumpFormat.NO_TIMESTAMP);
         }));
 
         /* Get list of items updated at or later than the given timestamp. */
-        get(api.getItemsSinceUrl(":date"), secured((req, res, domain, user) -> {
-            return dump(res, doSearch(domain,
-                    ServerSearchCriteria.ALL.modifiedSince(Instant.ofEpochMilli(Long.parseLong(req.params("date"))))),
+        get(api.getItemsSinceUrl(":date"), secured((req, res, domain, credentials) -> {
+            return dump(res, domain,
+                    ServerSearchCriteria.ALL.modifiedSince(Instant.ofEpochMilli(Long.parseLong(req.params("date")))),
+                    credentials,
                 DumpFormat.WITH_TIMESTAMP);
         }));
 
@@ -135,6 +140,18 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             Log.debug("user is "+ username +", folder is "+ folder +" and path is "+ path);
             return upload(req, res, session, credentials, folder, path);
         }));
+    }
+
+    private Object galleryPage(BackendConfiguration configuration, Request req, Response res, D domain, ItemCredentials credentials, Java8SearchCriteria<BackendItem> searchCriteria) throws Exception {
+        final String acceptHeader = req.headers("Accept");
+        return getQueryLoader(domain, credentials).load(searchCriteria, GalleryPage.PAGE_SIZE).get(res, itemSet -> {
+
+            if (acceptHeader != null && acceptHeader.equals("text/csv")) {
+                return dump(res, itemSet, DumpFormat.NO_TIMESTAMP);
+            } else {
+                return new GalleryPage(configuration, searchCriteria, itemSet).getHtml(credentials);
+            }
+        });
     }
 
     private Object itemPage(BackendConfiguration configuration, Request req, Response res, D session, ItemCredentials credentials, BackendItem item) throws IOException {
@@ -214,12 +231,16 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         abstract String dumpTimestamp(Instant timestamp);
     }
 
-    private String dump(Response res, ItemSet set, DumpFormat dumpFormat) {
+    private OrHttpError<String> dump(Response res, D domain, ServerSearchCriteria criteria, ItemCredentials credentials, DumpFormat dumpFormat) {
+        return getQueryLoader(domain, credentials).load(criteria).map(set -> dump(res, set, dumpFormat));
+    }
+
+    private String dump(Response res, ItemSet itemSet, DumpFormat dumpFormat) {
         res.type("text/csv; charset=UTF-8");
 
         StringBuilder result = new StringBuilder(BackendItem.csvHeader() + "\n");
         Instant timestamp = Instant.EPOCH;
-        for (BackendItem item : set.getAllItems()) {
+        for (BackendItem item : itemSet.rows) {
             result.append(item.serialise()).append("\n");
             timestamp = item.getUpdated();
         }
@@ -246,9 +267,10 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
     protected abstract String ping();
 
-    protected abstract ItemSet doSearch(D session, Java8SearchCriteria<BackendItem> criteria);
+    /** @param credentials current user credentials (permissions have already been checked so this can be ignored) */
+    protected abstract ItemQueryLoader getQueryLoader(D session, ItemCredentials credentials);
 
-    protected abstract ItemSet loadGallery(D session, long partId);
+    protected abstract Java8SearchCriteria<BackendItem> loadGallery(D session, long partId);
 
     protected abstract HtmlFragment galleryListPage(D domain, ItemCredentials credentials);
 

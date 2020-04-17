@@ -15,10 +15,6 @@ public class ServerConfiguration extends BackendConfiguration {
 		super(path);
 	}
 
-	public File getRepositoryPath() {
-		return new File(requireProperty("repositoryPath"));
-	}
-
 	public String getRepositoryName() {
 		return requireProperty("repositoryName");
 	}
