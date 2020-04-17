@@ -13,6 +13,7 @@ import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.FrameGrabber;
 import org.bytedeco.javacv.Java2DFrameConverter;
 import org.gamboni.cloudspill.domain.BackendItem;
+import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
 import org.gamboni.cloudspill.domain.GalleryPart;
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.Item_;
@@ -22,6 +23,7 @@ import org.gamboni.cloudspill.server.config.ServerConfiguration;
 import org.gamboni.cloudspill.server.html.GalleryListPage;
 import org.gamboni.cloudspill.server.html.HtmlFragment;
 import org.gamboni.cloudspill.server.query.ItemQueryLoader;
+import org.gamboni.cloudspill.server.query.ItemSet;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
@@ -286,7 +288,23 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 
 	@Override
 	protected ItemQueryLoader getQueryLoader(ServerDomain session, ItemCredentials credentials) {
-		return null;
+		return new ItemQueryLoader() {
+			@Override
+			public OrHttpError<ItemSet> load(Java8SearchCriteria<BackendItem> criteria) {
+				final CloudSpillEntityManagerDomain.Query<Item> query = criteria.applyTo(session.selectItem());
+				return new OrHttpError<>(new ItemSet(
+						query.getTotalCount(),
+						query.list()));
+			}
+
+			@Override
+			public OrHttpError<ItemSet> load(Java8SearchCriteria<BackendItem> criteria, int limit) {
+				final CloudSpillEntityManagerDomain.Query<Item> query = criteria.applyTo(session.selectItem());
+				return new OrHttpError<>(new ItemSet(
+						query.getTotalCount(),
+						query.limit(limit).list()));
+			}
+		};
 	}
 
 	@Override
