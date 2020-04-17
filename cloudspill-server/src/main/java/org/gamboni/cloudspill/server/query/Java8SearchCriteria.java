@@ -64,7 +64,7 @@ public interface Java8SearchCriteria<T extends JpaItem> extends SearchCriteria {
         return criteriaBuilder.desc(root.get(JpaItem_.date));
     }
 
-    default <Q extends ServerDomain.Query<T>> Q applyTo(Q itemQuery) {
+    default <E extends T, Q extends ServerDomain.Query<E>> Q applyTo(Q itemQuery) {
         CriteriaBuilder criteriaBuilder = itemQuery.getCriteriaBuilder();
         itemQuery.addOrder(root -> getOrder(criteriaBuilder, root));
 
@@ -72,7 +72,7 @@ public interface Java8SearchCriteria<T extends JpaItem> extends SearchCriteria {
             itemQuery.add(root -> {
                 @SuppressWarnings("unchecked")// why isn't get(PluralAttribute) contravariant on root type?
                 Expression<Set<String>> tagPath = root.get(
-                        (SetAttribute<T, String>)(SetAttribute)JpaItem_.tags);
+                        (SetAttribute<E, String>)(SetAttribute)JpaItem_.tags);
                 return criteriaBuilder.isMember(tag, tagPath);
             });
         }

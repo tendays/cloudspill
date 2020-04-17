@@ -25,14 +25,14 @@ import javax.persistence.criteria.Root;
  * @author tendays
  */
 @Entity
-public class GalleryPart implements Java8SearchCriteria<Item> {
-    long id;
-    String user;
-    Set<String> tags;
-    LocalDate from;
-    LocalDate to;
-    String description;
-    String title;
+public class GalleryPart implements Java8SearchCriteria<BackendItem> {
+    private long id;
+    private String user;
+    private Set<String> tags;
+    private LocalDate from;
+    private LocalDate to;
+    private String description;
+    private String title;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -117,18 +117,18 @@ public class GalleryPart implements Java8SearchCriteria<Item> {
     }
 
     @Override
-    public Java8SearchCriteria<Item> atOffset(int newOffset) {
+    public Java8SearchCriteria<BackendItem> atOffset(int newOffset) {
         return new AtOffset(newOffset);
     }
 
-    private class AtOffset implements Java8SearchCriteria<Item> {
+    private class AtOffset implements Java8SearchCriteria<BackendItem> {
         final int offset;
         AtOffset(int offset) {
             this.offset = offset;
         }
 
         @Override
-        public Java8SearchCriteria<Item> atOffset(int newOffset) {
+        public Java8SearchCriteria<BackendItem> atOffset(int newOffset) {
             return new AtOffset(newOffset);
         }
 

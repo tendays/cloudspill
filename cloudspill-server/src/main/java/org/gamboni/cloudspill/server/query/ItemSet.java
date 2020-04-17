@@ -3,6 +3,7 @@ package org.gamboni.cloudspill.server.query;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
+import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 
@@ -29,15 +30,15 @@ public interface ItemSet {
      * @param limit limit to how many items to retrieve.
      * @return a List containing at most {@code limit} items.
      */
-    List<Item> getSlice(int limit);
+    List<? extends BackendItem> getSlice(int limit);
 
     /** Get an URL allowing to load this item set through the given API */
     String getUrl(CloudSpillApi api);
 
-    List<Item> getAllItems();
+    List<? extends BackendItem> getAllItems();
 
     /** Return a singleton ItemSet, containing a single already known Item */
-    static ItemSet of(Item item) {
+    static ItemSet of(BackendItem item) {
         return new ItemSet() {
             @Override
             public String getTitle() {
@@ -66,7 +67,7 @@ public interface ItemSet {
             }
 
             @Override
-            public List<Item> getSlice(int limit) {
+            public List<? extends BackendItem> getSlice(int limit) {
                 return (limit == 0) ? ImmutableList.of() : getAllItems();
             }
 
@@ -76,7 +77,7 @@ public interface ItemSet {
             }
 
             @Override
-            public List<Item> getAllItems() {
+            public List<? extends BackendItem> getAllItems() {
                 return ImmutableList.of(item);
             }
         };

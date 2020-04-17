@@ -1,12 +1,8 @@
 package org.gamboni.cloudspill.shared.api;
 
-import org.gamboni.cloudspill.shared.util.Splitter;
-
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.function.BiConsumer;
-import java.util.function.Function;
 
 /**
  * @author tendays
@@ -20,7 +16,7 @@ public interface Csv<I> {
 
     public interface Extractor<I> {
         /** Read values from the given csv file line, and write them into the given item. */
-        I deserialise(I item, String csv);
+        <J extends I> J deserialise(J item, String csv);
     }
 
     public interface Getter<I> {
@@ -81,7 +77,7 @@ public interface Csv<I> {
 
             return new Extractor<I>() {
                 @Override
-                public I deserialise(I item, String csv) {
+                public <J extends I> J deserialise(J item, String csv) {
                     int left = 0;
                     int right = csv.indexOf(";");
                     Iterator<Setter<I>> setters = extractorSetters.iterator();

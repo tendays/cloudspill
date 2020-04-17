@@ -1,7 +1,7 @@
 package org.gamboni.cloudspill.server;
 
+import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
-import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
 import org.gamboni.cloudspill.server.html.GalleryPage;
 import org.gamboni.cloudspill.server.html.HtmlFragment;
@@ -137,7 +137,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         }));
     }
 
-    private Object itemPage(BackendConfiguration configuration, Request req, Response res, D session, ItemCredentials credentials, Item item) throws IOException {
+    private Object itemPage(BackendConfiguration configuration, Request req, Response res, D session, ItemCredentials credentials, BackendItem item) throws IOException {
         final String acceptHeader = req.headers("Accept");
         if (req.params("id").endsWith(ID_HTML_SUFFIX)) {
             return new ImagePage(configuration, item).getHtml(credentials);
@@ -177,7 +177,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                 credentialsOrError = authenticate(req, session);
             }
 
-            return credentialsOrError.get(res, credentials -> {
+            return credentialsOrError.                            get(res, credentials -> {
             /* Either we have a key, or user must be authenticated. */
             final long id = Long.parseLong(idParam);
             return loadItem(session, id, credentials)
@@ -187,7 +187,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
     }
 
     /** Acquire the item with the given id. */
-    protected abstract OrHttpError<Item> loadItem(D session, long id, ItemCredentials credentials);
+    protected abstract OrHttpError<? extends BackendItem> loadItem(D session, long id, ItemCredentials credentials);
 
     protected abstract Long upload(Request req, Response res, D session, ItemCredentials.UserPassword user, String folder, String path) throws IOException;
 
@@ -217,9 +217,9 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
     private String dump(Response res, ItemSet set, DumpFormat dumpFormat) {
         res.type("text/csv; charset=UTF-8");
 
-        StringBuilder result = new StringBuilder(Item.csvHeader() + "\n");
+        StringBuilder result = new StringBuilder(BackendItem.csvHeader() + "\n");
         Instant timestamp = Instant.EPOCH;
-        for (Item item : set.getAllItems()) {
+        for (BackendItem item : set.getAllItems()) {
             result.append(item.serialise()).append("\n");
             timestamp = item.getUpdated();
         }
@@ -227,7 +227,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         return result.toString();
     }
 
-    protected abstract Object thumbnail(Response res, D session, Item item, int size) throws InterruptedException, IOException;
+    protected abstract Object thumbnail(Response res, D session, BackendItem item, int size) throws InterruptedException, IOException;
 
     /**
      * Download the file corresponding to the item with the given id, optionally
@@ -242,17 +242,17 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
      *            The item to retrieve
      * @throws IOException
      */
-    protected abstract void download(Response res, D session, ItemCredentials credentials, Item item) throws IOException;
+    protected abstract void download(Response res, D session, ItemCredentials credentials, BackendItem item) throws IOException;
 
     protected abstract String ping();
 
-    protected abstract ItemSet doSearch(D session, Java8SearchCriteria<Item> criteria);
+    protected abstract ItemSet doSearch(D session, Java8SearchCriteria<BackendItem> criteria);
 
     protected abstract ItemSet loadGallery(D session, long partId);
 
     protected abstract HtmlFragment galleryListPage(D domain, ItemCredentials credentials);
 
     protected interface SecuredItemBody<D extends CloudSpillEntityManagerDomain> {
-        Object handle(Request request, Response response, D session, ItemCredentials credentials, Item item) throws Exception;
+        Object handle(Request request, Response response, D session, ItemCredentials credentials, BackendItem item) throws Exception;
     }
 }

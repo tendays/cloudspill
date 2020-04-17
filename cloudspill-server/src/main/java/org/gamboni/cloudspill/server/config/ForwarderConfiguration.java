@@ -12,7 +12,7 @@ public class ForwarderConfiguration extends BackendConfiguration {
     }
 
     public String getRemoteServer() {
-        return Preconditions.checkNotNull(prop.getProperty("remoteServer"), "Missing mandatory property 'remoteServer'");
+        return requireProperty("remoteServer");
     }
 
 }

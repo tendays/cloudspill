@@ -3,29 +3,27 @@
  */
 package org.gamboni.cloudspill.server.html;
 
-import java.time.format.DateTimeFormatter;
-import java.util.Optional;
-import java.util.stream.Collectors;
+import com.google.common.base.MoreObjects;
 
-import org.gamboni.cloudspill.domain.Item;
-import org.gamboni.cloudspill.domain.User;
+import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
-import org.gamboni.cloudspill.server.config.ServerConfiguration;
 import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.domain.ItemType;
 
-import com.google.common.base.MoreObjects;
+import java.time.format.DateTimeFormatter;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * @author tendays
  *
  */
 public class ImagePage extends AbstractPage {
-	private final Item item;
+	private final BackendItem item;
 
-	public ImagePage(BackendConfiguration configuration, Item item) {
+	public ImagePage(BackendConfiguration configuration, BackendItem item) {
 		super(configuration, configuration.getCss());
 
 		this.item = item;

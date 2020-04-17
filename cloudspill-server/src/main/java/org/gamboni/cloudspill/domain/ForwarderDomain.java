@@ -10,4 +10,10 @@ public class ForwarderDomain extends CloudSpillEntityManagerDomain {
     public ForwarderDomain(EntityManager session) {
         super(session);
     }
+
+    @Override
+    public Query<RemoteItem> selectItem() {
+        return new Query<>(RemoteItem.class);
+    }
+
 }

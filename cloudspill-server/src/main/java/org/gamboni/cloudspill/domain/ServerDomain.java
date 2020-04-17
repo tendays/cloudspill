@@ -26,6 +26,11 @@ public class ServerDomain extends CloudSpillEntityManagerDomain {
 		super(session);
 	}
 
+	@Override
+	public Query<Item> selectItem() {
+		return new CloudSpillEntityManagerDomain.Query<>(Item.class);
+	}
+
 	public Query<GalleryPart> selectGalleryPart() {
 		return new Query<>(GalleryPart.class);
 	}

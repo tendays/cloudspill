@@ -1,6 +1,7 @@
 package org.gamboni.cloudspill.server.config;
 
 import com.google.common.base.Charsets;
+import com.google.common.base.Preconditions;
 
 import org.gamboni.cloudspill.shared.api.SharedConfiguration;
 
@@ -27,10 +28,14 @@ public abstract class BackendConfiguration implements SharedConfiguration {
     }
 
     public String getPublicUrl() {
-        return prop.getProperty("publicUrl");
+        return requireProperty("publicUrl");
     }
 
     public String getCss() {
-        return prop.getProperty("css");
+        return requireProperty("css");
+    }
+
+    protected String requireProperty(String name) {
+        return Preconditions.checkNotNull(prop.getProperty(name), "Missing required property '"+ name +"'");
     }
 }

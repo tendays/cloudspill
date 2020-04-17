@@ -16,11 +16,11 @@ public class ServerConfiguration extends BackendConfiguration {
 	}
 
 	public File getRepositoryPath() {
-		return new File(prop.getProperty("repositoryPath"));
+		return new File(requireProperty("repositoryPath"));
 	}
 
 	public String getRepositoryName() {
-		return prop.getProperty("repositoryName");
+		return requireProperty("repositoryName");
 	}
 
 	public boolean allowAnonymousUserCreation() {

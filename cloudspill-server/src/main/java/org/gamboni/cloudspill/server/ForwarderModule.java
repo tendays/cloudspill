@@ -5,6 +5,7 @@ import com.google.inject.Provides;
 
 import org.gamboni.cloudspill.domain.GalleryPart;
 import org.gamboni.cloudspill.domain.Item;
+import org.gamboni.cloudspill.domain.RemoteItem;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.config.ForwarderConfiguration;
 import org.gamboni.cloudspill.server.config.ServerConfiguration;
@@ -35,7 +36,7 @@ public class ForwarderModule extends BackendModule {
     protected List<Class<?>> getManagedClasses() {
         return ImmutableList.of(
                 User.class,
-                Item.class
+                RemoteItem.class
         );
     }
 }

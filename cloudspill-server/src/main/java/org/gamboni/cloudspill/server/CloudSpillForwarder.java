@@ -6,8 +6,9 @@ import com.google.common.io.CharStreams;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 
+import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.ForwarderDomain;
-import org.gamboni.cloudspill.domain.Item;
+import org.gamboni.cloudspill.domain.RemoteItem;
 import org.gamboni.cloudspill.server.config.ForwarderConfiguration;
 import org.gamboni.cloudspill.server.html.HtmlFragment;
 import org.gamboni.cloudspill.server.query.ItemSet;
@@ -71,8 +72,8 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
-    protected OrHttpError<Item> loadItem(ForwarderDomain session, long id, ItemCredentials credentials) {
-        Item item = session.get(Item.class, id);
+    protected OrHttpError<RemoteItem> loadItem(ForwarderDomain session, long id, ItemCredentials credentials) {
+        RemoteItem item = session.get(RemoteItem.class, id);
         if (item == null) {
             // item not found locally, try from remote server
             try {
@@ -99,12 +100,12 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
                                 Log.warn("Remote returned empty list to single-item query (should return 404 instead!)");
                                 return notFound(id);
                             case 1:
-                                final Item remote = Iterables.getOnlyElement(remoteList);
+                                final RemoteItem remote = Iterables.getOnlyElement(remoteList);
                                 try {
                                     /* This may fail in case there's another request for the same item at the same time. */
                                     transacted(nestedSession -> {
                                         nestedSession.persist(remote);
-                                        return null;
+                                        return "";
                                     });
                                 } catch (Exception e) {
                                     Log.warn("Failed saving remote entity locally", e);
@@ -127,24 +128,24 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
         }
     }
 
-    private OrHttpError<List<Item>> deserialiseStream(Reader reader) throws IOException {
+    private OrHttpError<List<RemoteItem>> deserialiseStream(Reader reader) throws IOException {
         LineNumberReader lineReader = new LineNumberReader(reader);
         String headerLine = lineReader.readLine();
         if (headerLine == null) {
             Log.warn("Missing header line from remote server");
             return internalServerError();
         }
-        final Csv.Extractor<Item> extractor = Item.deserialise(headerLine);
+        final Csv.Extractor<BackendItem> extractor = RemoteItem.deserialise(headerLine);
         String line;
-        List<Item> result = new ArrayList<>();
+        List<RemoteItem> result = new ArrayList<>();
         while ((line = lineReader.readLine()) != null) {
-            result.add(extractor.deserialise(new Item(), line));
+            result.add(extractor.deserialise(new RemoteItem(), line));
         }
         return new OrHttpError<>(result);
     }
 
     @Override
-    protected void download(Response res, ForwarderDomain session, ItemCredentials credentials, Item item) throws IOException {
+    protected void download(Response res, ForwarderDomain session, ItemCredentials credentials, BackendItem item) throws IOException {
         final URLConnection connection = new URL(remoteApi.getImageUrl(item.getServerId(), credentials)).openConnection();
         credentials.setHeaders(connection, Base64.getEncoder()::encodeToString);
         res.status(((HttpURLConnection)connection).getResponseCode());
@@ -166,7 +167,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
-    protected Object thumbnail(Response res, ForwarderDomain session, Item item, int size) throws InterruptedException, IOException {
+    protected Object thumbnail(Response res, ForwarderDomain session, BackendItem item, int size) throws InterruptedException, IOException {
         throw new UnsupportedOperationException();
     }
 
@@ -176,7 +177,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
-    protected ItemSet doSearch(ForwarderDomain session, Java8SearchCriteria<Item> criteria) {
+    protected ItemSet doSearch(ForwarderDomain session, Java8SearchCriteria<BackendItem> criteria) {
         throw new UnsupportedOperationException();
     }
 

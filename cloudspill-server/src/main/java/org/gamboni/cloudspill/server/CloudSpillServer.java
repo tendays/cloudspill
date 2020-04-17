@@ -12,10 +12,11 @@ import com.google.inject.Injector;
 import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.FrameGrabber;
 import org.bytedeco.javacv.Java2DFrameConverter;
+import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.GalleryPart;
-import org.gamboni.cloudspill.domain.ServerDomain;
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.Item_;
+import org.gamboni.cloudspill.domain.ServerDomain;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.config.ServerConfiguration;
 import org.gamboni.cloudspill.server.html.GalleryListPage;
@@ -59,10 +60,7 @@ import spark.Request;
 import spark.Response;
 
 import static org.gamboni.cloudspill.shared.util.Files.append;
-import static spark.Spark.before;
-import static spark.Spark.get;
 import static spark.Spark.post;
-import static spark.Spark.put;
 
 /** Planned general API structure:
  * /public/* for stuff that does not require authentication
@@ -109,7 +107,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
     	try {
     	transacted(session -> {
 			final ServerDomain.Query<Item> itemQuery = session.selectItem();
-			for (Item item : itemQuery.add(root -> session.criteriaBuilder.isNull(
+			for (BackendItem item : itemQuery.add(root -> session.criteriaBuilder.isNull(
 					root.get(Item_.checksum))).list()) {
     			File file = item.getFile(rootFolder);
     			final MessageDigest md5 = getMessageDigest();
@@ -288,7 +286,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	}
 
 	@Override
-	protected ItemSet doSearch(ServerDomain domain, Java8SearchCriteria<Item> criteria) {
+	protected ItemSet doSearch(ServerDomain domain, Java8SearchCriteria<BackendItem> criteria) {
 		return new LocalItemSet(criteria, domain);
 	}
 
@@ -325,7 +323,8 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 		return item;
 	}
 
-	protected void download(Response res, ServerDomain session, ItemCredentials credentials, final Item item)
+	@Override
+	protected void download(Response res, ServerDomain session, ItemCredentials credentials, final BackendItem item)
 			throws IOException {
 		File file = item.getFile(configuration.getRepositoryPath());
 		res.header("Content-Type", item.getType().asMime());
@@ -335,7 +334,8 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 		}
 	}
 
-	protected Object thumbnail(Response res, ServerDomain session, final Item item, int size)
+	@Override
+	protected Object thumbnail(Response res, ServerDomain session, final BackendItem item, int size)
 			throws InterruptedException, IOException {
 		File file = item.getFile(configuration.getRepositoryPath());
 		

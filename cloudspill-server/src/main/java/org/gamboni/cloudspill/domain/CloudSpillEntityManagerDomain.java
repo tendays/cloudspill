@@ -25,9 +25,7 @@ public abstract class CloudSpillEntityManagerDomain {
         this.criteriaBuilder = session.getCriteriaBuilder();
     }
 
-    public CloudSpillEntityManagerDomain.Query<Item> selectItem() {
-        return new CloudSpillEntityManagerDomain.Query<>(Item.class);
-    }
+    public abstract CloudSpillEntityManagerDomain.Query<? extends BackendItem> selectItem();
 
     public Query<User> selectUser() {
         return new Query<>(User.class);

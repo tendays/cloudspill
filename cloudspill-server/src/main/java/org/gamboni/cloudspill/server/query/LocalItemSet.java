@@ -1,5 +1,6 @@
 package org.gamboni.cloudspill.server.query;
 
+import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.ServerDomain;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
@@ -10,9 +11,9 @@ import java.util.List;
  * @author tendays
  */
 public class LocalItemSet implements ItemSet {
-    private final Java8SearchCriteria<Item> criteria;
+    private final Java8SearchCriteria<BackendItem> criteria;
     private final ServerDomain domain;
-    public LocalItemSet(Java8SearchCriteria<Item> criteria, ServerDomain domain) {
+    public LocalItemSet(Java8SearchCriteria<BackendItem> criteria, ServerDomain domain) {
         this.criteria = criteria;
         this.domain = domain;
     }

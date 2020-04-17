@@ -2,8 +2,8 @@ package org.gamboni.cloudspill.server.query;
 
 import com.google.common.collect.ImmutableSet;
 
-import org.gamboni.cloudspill.domain.Item;
-import org.gamboni.cloudspill.domain.Item_;
+import org.gamboni.cloudspill.domain.BackendItem;
+import org.gamboni.cloudspill.domain.BackendItem_;
 import org.gamboni.cloudspill.domain.ServerDomain;
 
 import java.time.Instant;
@@ -15,7 +15,7 @@ import javax.persistence.criteria.CriteriaBuilder;
 /**
  * @author tendays
  */
-public class ServerSearchCriteria implements Java8SearchCriteria<Item> {
+public class ServerSearchCriteria implements Java8SearchCriteria<BackendItem> {
     public static final ServerSearchCriteria ALL = new ServerSearchCriteria(null, null, null, ImmutableSet.of(), null, null, 0);
 
     private final LocalDate from, to;
@@ -94,13 +94,13 @@ public class ServerSearchCriteria implements Java8SearchCriteria<Item> {
     }
 
     @Override
-    public <Q extends ServerDomain.Query<Item>> Q applyTo(Q itemQuery) {
+    public <E extends BackendItem, Q extends ServerDomain.Query<E>> Q applyTo(Q itemQuery) {
         CriteriaBuilder criteriaBuilder = itemQuery.getCriteriaBuilder();
         if (minId != null) {
-            itemQuery.add(root -> criteriaBuilder.gt(root.get(Item_.id), minId));
+            itemQuery.add(root -> criteriaBuilder.gt(root.get(BackendItem_.id), minId));
         }
         if (minModDate != null) {
-            itemQuery.add(root -> criteriaBuilder.greaterThanOrEqualTo(root.get(Item_.updated), minModDate));
+            itemQuery.add(root -> criteriaBuilder.greaterThanOrEqualTo(root.get(BackendItem_.updated), minModDate));
         }
         return itemQuery;
     }
