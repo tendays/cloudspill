@@ -66,6 +66,10 @@ public class CloudSpillApi {
         return serverUrl +"item"+ itemId +"/tags";
     }
 
+    public String css() {
+        return serverUrl +"main.css";
+    }
+
     public enum Size {
         PHONE_THUMBNAIL(90),
         GALLERY_THUMBNAIL(150),

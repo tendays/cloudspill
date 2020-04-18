@@ -352,7 +352,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	}
 
 	@Override
-	protected Object thumbnail(Response res, ServerDomain session, final BackendItem item, int size)
+	protected Object thumbnail(Response res, ServerDomain session, ItemCredentials credentials, final BackendItem item, int size)
 			throws InterruptedException, IOException {
 		File file = item.getFile(configuration.getRepositoryPath());
 		
@@ -371,7 +371,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 		} finally {
 			heavyTask.release();
 		}
-		return true;
+		return "";
 	}
 
     private BufferedImage createVideoThumbnail(File file, int size) throws IOException {

@@ -36,10 +36,6 @@ public abstract class BackendConfiguration implements SharedConfiguration {
         return requireProperty("publicUrl");
     }
 
-    public String getCss() {
-        return requireProperty("css");
-    }
-
     protected String requireProperty(String name) {
         return Preconditions.checkNotNull(prop.getProperty(name), "Missing required property '"+ name +"'");
     }

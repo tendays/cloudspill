@@ -18,7 +18,7 @@ public class GalleryPage extends AbstractPage {
     private final ItemSet itemSet;
 
     public GalleryPage(BackendConfiguration configuration, Java8SearchCriteria<BackendItem> criteria, ItemSet itemSet) {
-        super(configuration, configuration.getCss());
+        super(configuration);
         this.criteria = criteria;
         this.itemSet = itemSet;
     }

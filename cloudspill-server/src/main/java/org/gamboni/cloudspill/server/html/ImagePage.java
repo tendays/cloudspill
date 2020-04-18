@@ -24,7 +24,7 @@ public class ImagePage extends AbstractPage {
 	private final BackendItem item;
 
 	public ImagePage(BackendConfiguration configuration, BackendItem item) {
-		super(configuration, configuration.getCss());
+		super(configuration);
 
 		this.item = item;
 	}

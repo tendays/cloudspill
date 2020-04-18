@@ -1,5 +1,7 @@
 package org.gamboni.cloudspill.server;
 
+import com.google.common.io.ByteStreams;
+
 import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
@@ -43,6 +45,13 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         });
 
         get(api.ping(), secured((req, res, session, user) -> ping()));
+
+        get(api.css(), (req, res) -> {
+            ByteStreams.copy(
+                    getClass().getClassLoader().getResourceAsStream("css/main.css"),
+                    res.raw().getOutputStream());
+            return "";
+        });
 
         get("/tag/:tag", secured((req, res, domain, credentials) ->
         {
@@ -97,9 +106,10 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         }));
 
         /* Download a thumbnail */
-        get("/thumbs/:size/:id", securedItem(ItemCredentials.AuthenticationStatus.LOGGED_IN, (req, res, session, user, item) ->
-                thumbnail(res, session, item, Integer.parseInt(req.params("size")))
-        ));
+        get("/thumbs/:size/:id", securedItem(ItemCredentials.AuthenticationStatus.LOGGED_IN, (req, res, session, credentials, item) -> {
+            thumbnail(res, session, credentials, item, Integer.parseInt(req.params("size")));
+            return "";
+        }));
 
         /* Get list of items whose id is larger than the given one. */
         get("item/since/:id", secured((req, res, domain, credentials) -> {
@@ -248,7 +258,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         return result.toString();
     }
 
-    protected abstract Object thumbnail(Response res, D session, BackendItem item, int size) throws InterruptedException, IOException;
+    protected abstract Object thumbnail(Response res, D session, ItemCredentials credentials, BackendItem item, int size) throws InterruptedException, IOException;
 
     /**
      * Download the file corresponding to the item with the given id, optionally

@@ -14,15 +14,19 @@ import org.gamboni.cloudspill.server.html.HtmlFragment;
 import org.gamboni.cloudspill.server.query.ItemQueryLoader;
 import org.gamboni.cloudspill.server.query.ItemSet;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
-import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.Csv;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.util.Log;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.LineNumberReader;
+import java.io.OutputStream;
 import java.io.Reader;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -37,6 +41,8 @@ import javax.servlet.http.HttpServletResponse;
 
 import spark.Request;
 import spark.Response;
+
+import static org.gamboni.cloudspill.shared.util.Files.append;
 
 /**
  * @author tendays
@@ -178,8 +184,48 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
-    protected Object thumbnail(Response res, ForwarderDomain session, BackendItem item, int size) throws InterruptedException, IOException {
-        throw new UnsupportedOperationException();
+    protected Object thumbnail(Response res, ForwarderDomain session, ItemCredentials credentials, BackendItem item, int size) throws InterruptedException, IOException {
+        File cache = append(append(append(append(
+                configuration.getRepositoryPath(),
+                String.valueOf(size)),
+                item.getUser()),
+        item.getFolder()),
+        item.getPath());
+
+        if (cache.exists()) {
+            try (final FileInputStream inputStream = new FileInputStream(cache);
+                 final OutputStream clientOutput = res.raw().getOutputStream()) {
+                ByteStreams.copy(inputStream, clientOutput);
+            }
+        } else {
+            final URLConnection connection = new URL(remoteApi.getThumbnailUrl(item.getServerId(), credentials, size)).openConnection();
+            credentials.setHeaders(connection, Base64.getEncoder()::encodeToString);
+            res.status(((HttpURLConnection)connection).getResponseCode());
+
+            res.header("Content-Type", item.getType().asMime());
+            res.header("Content-Length", String.valueOf(connection.getContentLength()));
+
+            byte[] buffer = new byte[8192];
+
+            cache.getParentFile().mkdirs();
+
+            try (InputStream remoteInput = connection.getInputStream();
+            OutputStream clientOutput = res.raw().getOutputStream();
+            OutputStream cacheOutput = new FileOutputStream(cache)) {
+
+                while (true) {
+                    int r = remoteInput.read(buffer);
+                    if (r == -1) {
+                        break;
+                    }
+
+                    clientOutput.write(buffer, 0, r);
+                    cacheOutput.write(buffer, 0, r);
+                }
+            }
+        }
+
+        return "";
     }
 
     @Override

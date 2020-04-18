@@ -52,17 +52,11 @@ public abstract class AbstractPage {
                 + "\"";
     }
 
-    private final String css;
     protected final BackendConfiguration configuration;
     protected final CloudSpillApi api;
 
     protected AbstractPage(BackendConfiguration configuration) {
-        this(configuration, configuration.getCss());
-    }
-
-    protected AbstractPage(BackendConfiguration configuration, String css) {
         this.configuration = configuration;
-        this.css = css;
         this.api = new CloudSpillApi(configuration.getPublicUrl());
     }
 
@@ -86,7 +80,7 @@ public abstract class AbstractPage {
                                 meta("og:url", getPageUrl()),
                                 getThumbnailUrl().map(url -> meta("og:image", url)).orElse(HtmlFragment.EMPTY),
                                 slashedTag("link rel=\"stylesheet\" type=\"text/css\" href=" +
-                                        quote(css))
+                                        quote(api.css()))
                 ),
                         tag("body",
                                 tag("h1", getTitle()),
