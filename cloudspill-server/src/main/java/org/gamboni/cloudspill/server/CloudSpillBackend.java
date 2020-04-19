@@ -5,14 +5,15 @@ import com.google.common.io.ByteStreams;
 import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
+import org.gamboni.cloudspill.server.html.GalleryListPage;
 import org.gamboni.cloudspill.server.html.GalleryPage;
-import org.gamboni.cloudspill.server.html.HtmlFragment;
 import org.gamboni.cloudspill.server.html.ImagePage;
 import org.gamboni.cloudspill.server.query.ItemQueryLoader;
 import org.gamboni.cloudspill.server.query.ItemSet;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
+import org.gamboni.cloudspill.shared.api.Csv;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.domain.IsUser;
 import org.gamboni.cloudspill.shared.util.Log;
@@ -20,6 +21,8 @@ import org.gamboni.cloudspill.shared.util.Log;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.stream.Stream;
 
 import spark.Request;
 import spark.Response;
@@ -31,11 +34,13 @@ import static spark.Spark.get;
 import static spark.Spark.put;
 
 /** Common implementation of the {@link org.gamboni.cloudspill.shared.api.CloudSpillApi}, implemented by both {@link CloudSpillServer}
- * and CloudSpillProxy
+ * and {@link CloudSpillForwarder}.
  *
  * @author tendays
  */
 public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain> extends AbstractServer<D> {
+    private static final ItemCredentials.PublicAccess publicAccess = new ItemCredentials.PublicAccess();
+
     protected final void setupRoutes(BackendConfiguration configuration) {
         CloudSpillApi api = new CloudSpillApi("");
 
@@ -71,25 +76,26 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                     .atOffset(Integer.parseInt(req.queryParamOrDefault("offset", "0"))));
         }));
 
-        get("/gallery/", secured((req, res, domain, credentials) -> galleryListPage(domain, credentials)));
+        get(api.galleryListPage(new ItemCredentials.UserPassword()), secured((req, res, domain, credentials) ->
+                galleryListPage(res, configuration, domain, credentials, req)));
 
         get("/gallery/:part", secured((req, res, domain, credentials) -> {
             return galleryPage(configuration, req, res, domain, credentials, loadGallery(domain, Long.parseLong(req.params("part"))));
         }));
 
-        get("/public/gallery/", (req, res) -> transacted(domain -> {
-            return galleryListPage(domain, new ItemCredentials.PublicAccess());
+        get(api.galleryListPage(publicAccess), (req, res) -> transacted(domain -> {
+            return galleryListPage(res, configuration, domain, publicAccess, req);
         }));
 
         get("/public/gallery/:part", (req, res) -> transacted(domain -> {
             return galleryPage(configuration, req, res, domain,
-                    new ItemCredentials.PublicAccess(),
+                    publicAccess,
                     loadGallery(domain, Long.parseLong(req.params("part"))));
         }));
 
         get("/public", (req, res) -> transacted(session -> {
             return galleryPage(configuration, req, res, session,
-                    new ItemCredentials.PublicAccess(),
+                    publicAccess,
                     ServerSearchCriteria.ALL
                             .withTag("public")
                             .atOffset(Integer.parseInt(req.queryParamOrDefault("offset", "0"))));
@@ -153,10 +159,8 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
     }
 
     private Object galleryPage(BackendConfiguration configuration, Request req, Response res, D domain, ItemCredentials credentials, Java8SearchCriteria<BackendItem> searchCriteria) throws Exception {
-        final String acceptHeader = req.headers("Accept");
         return getQueryLoader(domain, credentials).load(searchCriteria, GalleryPage.PAGE_SIZE).get(res, itemSet -> {
-
-            if (acceptHeader != null && acceptHeader.equals("text/csv")) {
+            if (isCsvRequested(req)) {
                 return dump(res, itemSet, DumpFormat.NO_TIMESTAMP);
             } else {
                 return new GalleryPage(configuration, searchCriteria, itemSet).getHtml(credentials);
@@ -165,15 +169,21 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
     }
 
     private Object itemPage(BackendConfiguration configuration, Request req, Response res, D session, ItemCredentials credentials, BackendItem item) throws IOException {
-        final String acceptHeader = req.headers("Accept");
         if (req.params("id").endsWith(ID_HTML_SUFFIX)) {
             return new ImagePage(configuration, item).getHtml(credentials);
-        } else if (acceptHeader != null && acceptHeader.equals("text/csv")) {
-            return dump(res, ItemSet.of(item), DumpFormat.NO_TIMESTAMP);
         } else {
-            download(res, session, credentials, item);
-            return String.valueOf(res.status());
+            if (isCsvRequested(req)) {
+                return dump(res, ItemSet.of(item), DumpFormat.NO_TIMESTAMP);
+            } else {
+                download(res, session, credentials, item);
+                return String.valueOf(res.status());
+            }
         }
+    }
+
+    private boolean isCsvRequested(Request req) {
+        final String acceptHeader = req.headers("Accept");
+        return acceptHeader != null && acceptHeader.equals("text/csv");
     }
 
     /** Work around what looks like Whatsapp bug: even though url encodes correctly + as %2B,
@@ -218,6 +228,18 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
     protected abstract Long upload(Request req, Response res, D session, ItemCredentials.UserPassword user, String folder, String path) throws IOException;
 
+    public static class GalleryListData {
+        public final String title;
+        public final List<GalleryListPage.Element> elements;
+
+        public GalleryListData(String title, List<GalleryListPage.Element> elements) {
+            this.title = title;
+            this.elements = elements;
+        }
+    }
+
+    protected abstract OrHttpError<GalleryListData> galleryList(ItemCredentials credentials, D domain);
+
     /** Add the given comma-separated tags to the specified object. If a tag starts with '-' then it is removed instead.
      * <p>
      * NOTE: anybody can change tags of anybody's item.
@@ -234,7 +256,8 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         WITH_TIMESTAMP {
             @Override
             String dumpTimestamp(Instant timestamp) {
-                return "Timestamp:"+ timestamp.toEpochMilli() +'\n';
+                // insert blank line before timestamp to tell csv extractors the csv stream is finished
+                return "\nTimestamp:"+ timestamp.toEpochMilli() +'\n';
             }
         };
 
@@ -246,15 +269,24 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
     }
 
     private String dump(Response res, ItemSet itemSet, DumpFormat dumpFormat) {
-        res.type("text/csv; charset=UTF-8");
 
-        StringBuilder result = new StringBuilder(BackendItem.csvHeader() + "\n");
-        Instant timestamp = Instant.EPOCH;
-        for (BackendItem item : itemSet.rows) {
-            result.append(item.serialise()).append("\n");
-            timestamp = item.getUpdated();
-        }
-        result.append(dumpFormat.dumpTimestamp(timestamp));
+        Instant[] timestamp = new Instant[]{Instant.EPOCH};
+        final Stream<? extends BackendItem> stream = itemSet.rows.stream()
+                .peek(item -> {
+                    if (item.getUpdated().isAfter(timestamp[0])) {
+                        timestamp[0] = item.getUpdated();
+                    }
+                });
+
+        return dumpCsv(res, stream, BackendItem.CSV) + dumpFormat.dumpTimestamp(timestamp[0]);
+    }
+
+    private <T> String dumpCsv(Response res, Stream<? extends T> stream, Csv<T> csv) {
+        res.type("text/csv; charset=UTF-8");
+        StringBuilder result = new StringBuilder(csv.header() + "\n");
+        stream.forEach(item -> {
+            result.append(csv.serialise(item)).append("\n");
+        });
         return result.toString();
     }
 
@@ -282,7 +314,16 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
     protected abstract Java8SearchCriteria<BackendItem> loadGallery(D session, long partId);
 
-    protected abstract HtmlFragment galleryListPage(D domain, ItemCredentials credentials);
+    private Object galleryListPage(Response res, BackendConfiguration configuration, D domain, ItemCredentials credentials, Request req) throws Exception {
+        return galleryList(credentials, domain).get(res, data -> {
+            if (isCsvRequested(req)) {
+                // TODO: escape \ and \n in title
+                return dumpCsv(res, data.elements.stream(), GalleryListPage.Element.CSV) + "\n" + "Title:" + data.title;
+            } else {
+                return new GalleryListPage(configuration, data.title, data.elements).getHtml(credentials);
+            }
+        });
+    }
 
     protected interface SecuredItemBody<D extends CloudSpillEntityManagerDomain> {
         Object handle(Request request, Response response, D session, ItemCredentials credentials, BackendItem item) throws Exception;

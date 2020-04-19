@@ -1,10 +1,10 @@
 package org.gamboni.cloudspill.server.html;
 
-import org.gamboni.cloudspill.domain.ServerDomain;
+import org.gamboni.cloudspill.domain.GalleryPart;
 import org.gamboni.cloudspill.domain.Item;
-import org.gamboni.cloudspill.domain.User;
-import org.gamboni.cloudspill.server.config.ServerConfiguration;
+import org.gamboni.cloudspill.server.config.BackendConfiguration;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
+import org.gamboni.cloudspill.shared.api.Csv;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 
 import java.util.List;
@@ -14,18 +14,46 @@ import java.util.List;
  */
 public class GalleryListPage extends AbstractPage {
 
-    private final ServerDomain domain;
-    private final ServerConfiguration serverConfiguration;
+    private final List<Element> elements;
+    private final String title;
 
-    public GalleryListPage(ServerConfiguration configuration, ServerDomain domain) {
+    public static class Element {
+
+        public static final Csv<Element> CSV = new Csv.Impl<Element>()
+                .embed(GalleryPart.CSV, e -> e.gallery)
+                .add("sample", e -> (e.sample == null) ? null : Long.toString(e.sample),
+                        (e, sample) -> e.sample = (sample == null) ? null : Long.valueOf(sample))
+                .add("sampleKey", e -> e.sampleKey, (e, sampleKey) -> e.sampleKey = sampleKey);
+
+        /** Information about the gallery part for which to show a link (used for Title and Url) */
+        private final GalleryPart gallery;
+        /** ServerId of the Item to display as a thumbnail for the gallery */
+        private Long sample;
+        /** Checksum to use to load the sample thumbnail */
+        private String sampleKey;
+
+        public Element(GalleryPart gallery, Long sample, String sampleKey) {
+            this.gallery = gallery;
+            this.sample = sample;
+            this.sampleKey = sampleKey;
+        }
+
+        public Element(GalleryPart gallery) {
+            this.gallery = gallery;
+            this.sample = null;
+            this.sampleKey = null;
+        }
+    }
+
+    public GalleryListPage(BackendConfiguration configuration, String title, List<Element> elements) {
         super(configuration);
-        this.domain = domain;
-        this.serverConfiguration = configuration;
+        this.title = title;
+        this.elements = elements;
     }
 
     @Override
     protected String getTitle() {
-        return serverConfiguration.getRepositoryName();
+        return title;
     }
 
     @Override
@@ -35,20 +63,23 @@ public class GalleryListPage extends AbstractPage {
 
     @Override
     protected HtmlFragment getBody(ItemCredentials.AuthenticationStatus authStatus) {
-        return HtmlFragment.concatenate(domain.selectGalleryPart().list()
+        return HtmlFragment.concatenate(elements
                 .stream()
-                .map(gp -> {
-                    System.out.println("Loading "+ gp.getUrl(api));
-                    final List<Item> sample = gp.applyTo(domain.selectItem()).limit(1).list();
-                    final String href = "href="+ quote(gp.getUrl(api));
-                    if (sample.isEmpty()) {
+                .map(element -> {
+                    System.out.println("Loading "+ element.gallery.getUrl(api));
+
+                    final String href = "href="+ quote(element.gallery.getUrl(api));
+                    if (element.sample == null) {
                         return tag("a", "class='galleryLink' "+ href,
-                                gp.buildTitle());
+                                element.gallery.buildTitle());
                     } else {
                         return tag("a", href,
-                                tag("span", gp.buildTitle()),
+                                tag("span", element.gallery.buildTitle()),
                                 unclosedTag("img class='galleryLink' src="+ quote(
-                                                api.getThumbnailUrl(sample.get(0), CloudSpillApi.Size.GALLERY_THUMBNAIL)))
+                                                api.getThumbnailUrl(
+                                                        element.sample,
+                                                        new ItemCredentials.ItemKey(element.sampleKey),
+                                                        CloudSpillApi.Size.GALLERY_THUMBNAIL)))
                                 );
                     }
                 })

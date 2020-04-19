@@ -8,9 +8,10 @@ import com.google.inject.Injector;
 
 import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.ForwarderDomain;
+import org.gamboni.cloudspill.domain.GalleryPart;
 import org.gamboni.cloudspill.domain.RemoteItem;
 import org.gamboni.cloudspill.server.config.ForwarderConfiguration;
-import org.gamboni.cloudspill.server.html.HtmlFragment;
+import org.gamboni.cloudspill.server.html.GalleryListPage;
 import org.gamboni.cloudspill.server.query.ItemQueryLoader;
 import org.gamboni.cloudspill.server.query.ItemSet;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
@@ -34,6 +35,7 @@ import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.function.Supplier;
 
 import javax.inject.Inject;
 import javax.persistence.EntityManager;
@@ -112,7 +114,12 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
         }
     }
 
-    private OrHttpError<List<RemoteItem>> deserialiseStream(String url, ItemCredentials credentials) {
+    private interface ExtraDataReader<T, R> {
+        R buildResult(List<T> rows, LineNumberReader reader) throws IOException;
+    }
+
+    private <T, R> OrHttpError<R> deserialiseStream(String url, ItemCredentials credentials,
+                                                    Csv<? super T> csv, Supplier<T> factory, ExtraDataReader<T, R> extra) {
         try {
             final URLConnection connection = new URL(url).openConnection();
             credentials.setHeaders(connection, Base64.getEncoder()::encodeToString);
@@ -137,22 +144,25 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
                     Log.warn("Missing header line from remote server");
                     return internalServerError();
                 }
-                final Csv.Extractor<BackendItem> extractor = RemoteItem.deserialise(headerLine);
+                final Csv.Extractor<? super T> extractor = csv.extractor(headerLine);
                 String line;
-                List<RemoteItem> result = new ArrayList<>();
-                while ((line = lineReader.readLine()) != null) {
-                    result.add(extractor.deserialise(new RemoteItem(), line));
+                List<T> result = new ArrayList<>();
+                while ((line = lineReader.readLine()) != null && !line.isEmpty()) {
+                    result.add(extractor.deserialise(factory.get(), line));
                 }
-                return new OrHttpError<>(result);
+                return new OrHttpError<>(extra.buildResult(result, lineReader));
             }
         } catch (IOException e) {
             Log.warn("Error communicating with remote server", e);
             return gatewayTimeout();
         }
-
     }
 
-    private OrHttpError<List<RemoteItem>> gatewayTimeout() {
+    private OrHttpError<List<RemoteItem>> deserialiseStream(String url, ItemCredentials credentials) {
+        return deserialiseStream(url, credentials, BackendItem.CSV, RemoteItem::new, (rows, reader) -> rows);
+    }
+
+    private <R> OrHttpError<R> gatewayTimeout() {
         return new OrHttpError<>(res ->  gatewayTimeout(res));
     }
 
@@ -163,14 +173,15 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
 
     @Override
     protected void download(Response res, ForwarderDomain session, ItemCredentials credentials, BackendItem item) throws IOException {
-        final URLConnection connection = new URL(remoteApi.getImageUrl(item.getServerId(), credentials)).openConnection();
-        credentials.setHeaders(connection, Base64.getEncoder()::encodeToString);
-        res.status(((HttpURLConnection)connection).getResponseCode());
-
-        res.header("Content-Type", item.getType().asMime());
-        res.header("Content-Length", String.valueOf(connection.getContentLength()));
-
-        ByteStreams.copy(connection.getInputStream(), res.raw().getOutputStream());
+        doCachedRequest(res, credentials,
+                append(append(append(append(
+                        configuration.getRepositoryPath(),
+                        "full-size"),
+                        item.getUser()),
+                        item.getFolder()),
+                        item.getPath()),
+                remoteApi.getImageUrl(item.getServerId(), credentials),
+                item.getType().asMime());
     }
 
     @Override
@@ -183,26 +194,32 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
         throw new UnsupportedOperationException();
     }
 
+
     @Override
     protected Object thumbnail(Response res, ForwarderDomain session, ItemCredentials credentials, BackendItem item, int size) throws InterruptedException, IOException {
-        File cache = append(append(append(append(
-                configuration.getRepositoryPath(),
-                String.valueOf(size)),
-                item.getUser()),
-        item.getFolder()),
-        item.getPath());
+        return doCachedRequest(res, credentials,
+                append(append(append(append(
+                        configuration.getRepositoryPath(),
+                        String.valueOf(size)),
+                        item.getUser()),
+                item.getFolder()),
+                item.getPath()),
+                remoteApi.getThumbnailUrl(item.getServerId(), credentials, size),
+                "image/jpeg");
+    }
 
+    private Object doCachedRequest(Response res, ItemCredentials credentials, File cache, String url, String contentType) throws IOException {
         if (cache.exists()) {
             try (final FileInputStream inputStream = new FileInputStream(cache);
                  final OutputStream clientOutput = res.raw().getOutputStream()) {
                 ByteStreams.copy(inputStream, clientOutput);
             }
         } else {
-            final URLConnection connection = new URL(remoteApi.getThumbnailUrl(item.getServerId(), credentials, size)).openConnection();
+            final URLConnection connection = new URL(url).openConnection();
             credentials.setHeaders(connection, Base64.getEncoder()::encodeToString);
             res.status(((HttpURLConnection)connection).getResponseCode());
 
-            res.header("Content-Type", item.getType().asMime());
+            res.header("Content-Type", contentType);
             res.header("Content-Length", String.valueOf(connection.getContentLength()));
 
             byte[] buffer = new byte[8192];
@@ -210,8 +227,8 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
             cache.getParentFile().mkdirs();
 
             try (InputStream remoteInput = connection.getInputStream();
-            OutputStream clientOutput = res.raw().getOutputStream();
-            OutputStream cacheOutput = new FileOutputStream(cache)) {
+                 OutputStream clientOutput = res.raw().getOutputStream();
+                 OutputStream cacheOutput = new FileOutputStream(cache)) {
 
                 while (true) {
                     int r = remoteInput.read(buffer);
@@ -257,8 +274,19 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
-    protected HtmlFragment galleryListPage(ForwarderDomain domain, ItemCredentials credentials) {
-        throw new UnsupportedOperationException();
+    protected OrHttpError<GalleryListData> galleryList(ItemCredentials credentials, ForwarderDomain domain) {
+        return deserialiseStream(
+                remoteApi.galleryListPage(credentials),
+                credentials,
+                GalleryListPage.Element.CSV,
+                () -> new GalleryListPage.Element(new GalleryPart()),
+                (elements, reader) -> {
+                    String titleLine = reader.readLine();
+                    return new GalleryListData(
+                            (titleLine != null && titleLine.startsWith("Title:")) ?
+                        titleLine.substring("Title:".length()) : "",
+                            elements);
+                });
     }
 
     @Override

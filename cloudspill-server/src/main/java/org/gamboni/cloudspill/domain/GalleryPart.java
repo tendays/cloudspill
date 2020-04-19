@@ -1,12 +1,18 @@
 package org.gamboni.cloudspill.domain;
 
+import com.google.common.base.Functions;
+import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
+
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
+import org.gamboni.cloudspill.shared.api.Csv;
 import org.gamboni.cloudspill.shared.domain.JpaItem;
 import org.gamboni.cloudspill.shared.domain.JpaItem_;
 import org.gamboni.cloudspill.shared.query.SearchCriteria;
 
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.Set;
 
 import javax.persistence.Column;
@@ -26,9 +32,23 @@ import javax.persistence.criteria.Root;
  */
 @Entity
 public class GalleryPart implements Java8SearchCriteria<BackendItem> {
+
+    public static final Csv<GalleryPart> CSV = new Csv.Impl<GalleryPart>()
+            .add("id", gp -> String.valueOf(gp.getId()), (gp, id) -> gp.setId(Long.parseLong(id)))
+            .add("user", gp -> Strings.nullToEmpty(gp.getUser()), (gp, us) -> gp.setUser(Strings.emptyToNull(us)))
+            .add("tags", gp -> String.join(",", gp.tags), (gp, tags) -> {
+                gp.getTags().clear();
+                Splitter.on(',').omitEmptyStrings().split(tags).forEach(gp.getTags()::add);
+            })
+            .add("from", gp -> (gp.from == null) ? "" : gp.from.toString(),
+                    (gp, from) -> gp.setFrom(from.isEmpty() ? null : LocalDate.parse(from)))
+            .add("to", gp -> (gp.to == null) ? "" : gp.to.toString(),
+                    (gp, to) -> gp.setTo(to.isEmpty() ? null : LocalDate.parse(to)))
+            .add("description", GalleryPart::getDescription, GalleryPart::setDescription);
+
     private long id;
     private String user;
-    private Set<String> tags;
+    private Set<String> tags = new HashSet<>();
     private LocalDate from;
     private LocalDate to;
     private String description;

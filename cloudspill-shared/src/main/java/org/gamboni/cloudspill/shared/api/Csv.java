@@ -19,6 +19,10 @@ public interface Csv<I> {
         <J extends I> J deserialise(J item, String csv);
     }
 
+    public interface EmbedGetter<I, C> {
+        C get(I item);
+    }
+
     public interface Getter<I> {
         String get(I item);
     }
@@ -28,6 +32,7 @@ public interface Csv<I> {
 
     public static class Impl<I> implements Csv<I> {
         private List<CsvColumn> columns = new ArrayList<>();
+        private List<CsvEmbed<?>> embeds = new ArrayList<>();
 
         @Override
         public String header() {
@@ -36,6 +41,11 @@ public interface Csv<I> {
             for (CsvColumn column : this.columns) {
                 result.append(nextSeparator);
                 result.append(column.name);
+                nextSeparator = ";";
+            }
+            for (CsvEmbed<?> embed : embeds) {
+                result.append(nextSeparator);
+                result.append(embed.child.header());
                 nextSeparator = ";";
             }
             return result.toString();
@@ -48,11 +58,54 @@ public interface Csv<I> {
             for (CsvColumn column : this.columns) {
                 result.append(nextSeparator);
 
-                // TODO quote or escape
-                result.append(column.getter.get(item));
+                result.append(encode(column.getter.get(item)));
+                nextSeparator = ";";
+            }
+            for (CsvEmbed<?> embed : embeds) {
+                result.append(nextSeparator);
+                result.append(embed.serialise(item));
                 nextSeparator = ";";
             }
             return result.toString();
+        }
+
+        private String encode(String rawValue) {
+            if (rawValue == null) {
+                return "";
+            } else if (rawValue.trim().isEmpty()) {
+                return rawValue +" ";
+            } else {
+                return rawValue
+                        .replace("\\", "\\\\")
+                        .replace("\n", "\\n")
+                        .replace(";", "\\,");
+            }
+        }
+
+        private String decode(String encodedValue) {
+            if (encodedValue.isEmpty()) {
+                return null;
+            } else if (encodedValue.trim().isEmpty()) {
+                return encodedValue.substring(1); // remove one space
+            } else {
+                StringBuilder out = new StringBuilder();
+                int chunkStart = 0;
+                int semiColon = encodedValue.indexOf('\\');
+                while (semiColon > -1) {
+                    out.append(encodedValue.substring(chunkStart, semiColon));
+                    if (encodedValue.charAt(semiColon + 1) == 'n') {
+                        out.append('\n');
+                    } else if (encodedValue.charAt(semiColon + 1) == ',') {
+                        out.append(';');
+                    } else {
+                        out.append(encodedValue.charAt(semiColon + 1));
+                    }
+                    chunkStart = semiColon + 2;
+                    semiColon = encodedValue.indexOf('\\', chunkStart);
+                }
+                out.append(encodedValue.substring(chunkStart));
+                return out.toString();
+            }
         }
 
         private Setter<I> findSetter(String name) {
@@ -74,6 +127,10 @@ public interface Csv<I> {
             for (String header : headerLine.split(";")) {
                 extractorSetters.add(findSetter(header));
             }
+            List<Extractor<I>> embeddedExtractors = new ArrayList<>();
+            for (CsvEmbed<?> embed : embeds) {
+                embeddedExtractors.add(embed.extractor(headerLine));
+            }
 
             return new Extractor<I>() {
                 @Override
@@ -82,13 +139,17 @@ public interface Csv<I> {
                     int right = csv.indexOf(";");
                     Iterator<Setter<I>> setters = extractorSetters.iterator();
                     while (right != -1 && setters.hasNext()) {
-                        setters.next().set(item, csv.substring(left, right));
+                        setters.next().set(item, decode(csv.substring(left, right)));
                         left = right+1;
                         right = csv.indexOf(";", left);
                     }
                     if (setters.hasNext()) {
-                        setters.next().set(item, csv.substring(left));
+                        setters.next().set(item, decode(csv.substring(left)));
                     } // else: malformed csv!
+
+                    for (Extractor<I> embeddedExtractor : embeddedExtractors) {
+                        embeddedExtractor.deserialise(item, csv);
+                    }
                     return item;
                 }
             };
@@ -106,8 +167,39 @@ public interface Csv<I> {
             }
         }
 
+        private class CsvEmbed<C> {
+
+            private final Csv<C> child;
+            private final EmbedGetter<I, C> getter;
+
+            CsvEmbed(Csv<C> child, EmbedGetter<I,C> getter) {
+                this.child = child;
+                this.getter = getter;
+            }
+
+            String serialise(I item) {
+                return child.serialise(getter.get(item));
+            }
+
+            Extractor<I> extractor(String headerLine) {
+                final Extractor<C> childExtractor = child.extractor(headerLine);
+                return new Extractor<I>() {
+                    @Override
+                    public <J extends I> J deserialise(J item, String csv) {
+                        childExtractor.deserialise(getter.get(item), csv);
+                        return item;
+                    }
+                };
+            }
+        }
+
         public Impl<I> add(String name, Getter<I> getter, Setter<I> setter) {
             this.columns.add(new CsvColumn(name, getter, setter));
+            return this;
+        }
+
+        public <C> Impl<I> embed(Csv<C> child, EmbedGetter<I, C> getter) {
+            this.embeds.add(new CsvEmbed<>(child, getter));
             return this;
         }
     }

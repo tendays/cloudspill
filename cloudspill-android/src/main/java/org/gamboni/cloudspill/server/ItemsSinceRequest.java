@@ -89,16 +89,18 @@ public class ItemsSinceRequest extends AuthenticatingRequest<ItemsSinceRequest.R
 
         @Override
         public boolean hasNext() {
-            return (nextLine != null) && nextLine.contains(";");
+            return (nextLine != null) && !nextLine.isEmpty();
         }
 
         @Override
         public Domain.Item next() {
-            Domain.Item result = domain.new Item();
-            extractor.deserialise(result, nextLine);
+            Domain.Item result = extractor.deserialise(domain.new Item(), nextLine);
             readLine();
-            if (!hasNext() && nextLine.startsWith("Timestamp:")) {
-                latestUpdate = Long.parseLong(nextLine.substring("Timestamp:".length()));
+            if ("".equals(nextLine)) {
+                readLine();
+                if (nextLine != null && nextLine.startsWith("Timestamp:")) {
+                    latestUpdate = Long.parseLong(nextLine.substring("Timestamp:".length()));
+                }
             }
             return result;
         }

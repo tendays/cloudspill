@@ -43,7 +43,7 @@ public abstract class BackendItem extends JpaItem {
         this.updated = updated;
     }
 
-    protected static final Csv<BackendItem> CSV = new Csv.Impl<BackendItem>()
+    public static final Csv<BackendItem> CSV = new Csv.Impl<BackendItem>()
             .add("id", i -> String.valueOf(i.id), (i, id) -> i.id = Long.parseLong(id))
             .add("user", BackendItem::getUser, BackendItem::setUser)
             .add("folder", BackendItem::getFolder, BackendItem::setFolder)
@@ -52,17 +52,8 @@ public abstract class BackendItem extends JpaItem {
             .add("type", i -> i.getType().name(), (i, type) -> i.setType(ItemType.valueOf(type)))
             .add("tags",
                     i -> Joiner.on(",").join(i.getTags()),
-                    (i, tags) -> i.setTags(ImmutableSet.copyOf(Splitter.on(",").split(tags))))
+                    (i, tags) -> i.setTags(ImmutableSet.copyOf(Splitter.on(",").omitEmptyStrings().split(tags))))
             .add("checksum", BackendItem::getChecksum, BackendItem::setChecksum);
-
-    public static String csvHeader() {
-        return CSV.header();
-    }
-
-    /** Construct a Serialised form understandable by the android frontend. */
-    public String serialise() {
-        return CSV.serialise(this);
-    }
 
     /** Construct a CSV extractor based on the given header line (the first line in a CSV stream).
      * Use the {@link org.gamboni.cloudspill.shared.api.Csv.Extractor#deserialise(Object, String)} method

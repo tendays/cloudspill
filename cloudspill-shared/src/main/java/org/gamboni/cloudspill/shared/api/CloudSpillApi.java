@@ -70,6 +70,10 @@ public class CloudSpillApi {
         return serverUrl +"main.css";
     }
 
+    public String galleryListPage(ItemCredentials credentials) {
+        return credentials.getUrlPrefix() + "gallery/";
+    }
+
     public enum Size {
         PHONE_THUMBNAIL(90),
         GALLERY_THUMBNAIL(150),

@@ -5,6 +5,7 @@ package org.gamboni.cloudspill.server;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
@@ -21,7 +22,6 @@ import org.gamboni.cloudspill.domain.ServerDomain;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.config.ServerConfiguration;
 import org.gamboni.cloudspill.server.html.GalleryListPage;
-import org.gamboni.cloudspill.server.html.HtmlFragment;
 import org.gamboni.cloudspill.server.query.ItemQueryLoader;
 import org.gamboni.cloudspill.server.query.ItemSet;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
@@ -313,8 +313,13 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	}
 
 	@Override
-	protected HtmlFragment galleryListPage(ServerDomain domain, ItemCredentials credentials) {
-		return new GalleryListPage(configuration, domain).getHtml(credentials);
+	protected OrHttpError<GalleryListData> galleryList(ItemCredentials credentials, ServerDomain domain) {
+		return new OrHttpError<>(new GalleryListData(configuration.getRepositoryName(), Lists.transform(domain.selectGalleryPart().list(),
+				gp -> {
+					final List<Item> sample = gp.applyTo(domain.selectItem()).limit(1).list();
+					return sample.isEmpty() ? new GalleryListPage.Element(gp) :
+							new GalleryListPage.Element(gp, sample.get(0).getId(), sample.get(0).getChecksum());
+				})));
 	}
 
 	protected void putTags(ServerDomain session, long id, String tags) {
