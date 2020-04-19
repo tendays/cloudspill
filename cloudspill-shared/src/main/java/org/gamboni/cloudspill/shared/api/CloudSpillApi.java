@@ -71,7 +71,7 @@ public class CloudSpillApi {
     }
 
     public String galleryListPage(ItemCredentials credentials) {
-        return credentials.getUrlPrefix() + "gallery/";
+        return serverUrl + credentials.getUrlPrefix() + "gallery/";
     }
 
     public enum Size {

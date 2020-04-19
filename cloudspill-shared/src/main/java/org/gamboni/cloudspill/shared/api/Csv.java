@@ -77,6 +77,7 @@ public interface Csv<I> {
             } else {
                 return rawValue
                         .replace("\\", "\\\\")
+                        .replace("\r", "") // assume all CR are part of a CRLF and only keep the LF
                         .replace("\n", "\\n")
                         .replace(";", "\\,");
             }
