@@ -116,6 +116,12 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             return "";
         }));
 
+        /* Download a thumbnail */
+        get("/public/thumbs/:size/:id", securedItem(ItemCredentials.AuthenticationStatus.ANONYMOUS, (req, res, session, credentials, item) -> {
+            thumbnail(res, session, credentials, item, Integer.parseInt(req.params("size")));
+            return "";
+        }));
+
         /* Get list of items whose id is larger than the given one. */
         get("item/since/:id", secured((req, res, domain, credentials) -> {
             return dump(res, domain, ServerSearchCriteria.ALL.withIdAtLeast(Long.parseLong(req.params("id"))), credentials,
