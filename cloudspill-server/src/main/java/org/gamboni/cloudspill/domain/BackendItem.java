@@ -53,7 +53,8 @@ public abstract class BackendItem extends JpaItem {
             .add("tags",
                     i -> Joiner.on(",").join(i.getTags()),
                     (i, tags) -> i.setTags(ImmutableSet.copyOf(Splitter.on(",").omitEmptyStrings().split(tags))))
-            .add("checksum", BackendItem::getChecksum, BackendItem::setChecksum);
+            .add("checksum", BackendItem::getChecksum, BackendItem::setChecksum)
+            .add("description", BackendItem::getDescription, BackendItem::setDescription);
 
     /** Construct a CSV extractor based on the given header line (the first line in a CSV stream).
      * Use the {@link org.gamboni.cloudspill.shared.api.Csv.Extractor#deserialise(Object, String)} method
