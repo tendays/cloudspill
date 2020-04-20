@@ -16,6 +16,7 @@ import org.bytedeco.javacv.Java2DFrameConverter;
 import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
 import org.gamboni.cloudspill.domain.GalleryPart;
+import org.gamboni.cloudspill.domain.GalleryPart_;
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.Item_;
 import org.gamboni.cloudspill.domain.ServerDomain;
@@ -305,7 +306,9 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 
 	@Override
 	protected OrHttpError<GalleryListData> galleryList(ItemCredentials credentials, ServerDomain domain) {
-		return new OrHttpError<>(new GalleryListData(configuration.getRepositoryName(), Lists.transform(domain.selectGalleryPart().list(),
+		final CloudSpillEntityManagerDomain.Query<GalleryPart> query = domain.selectGalleryPart();
+		return new OrHttpError<>(new GalleryListData(configuration.getRepositoryName(), Lists.transform(
+				query.addOrder(root -> domain.criteriaBuilder.desc(root.get(GalleryPart_.from))).list(),
 				gp -> {
 					final List<Item> sample = gp.applyTo(domain.selectItem()).limit(1).list();
 					return sample.isEmpty() ? new GalleryListPage.Element(gp) :

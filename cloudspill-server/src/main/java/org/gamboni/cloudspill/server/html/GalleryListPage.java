@@ -68,14 +68,15 @@ public class GalleryListPage extends AbstractPage {
                 .map(element -> {
                     System.out.println("Loading "+ element.gallery.getUrl(api));
 
-                    final String href = "href="+ quote(element.gallery.getUrl(api));
+                    final String aAttributes = "class='galleryLink' href="+ quote(element.gallery.getUrl(api));
+                    final HtmlFragment span = tag("span", element.gallery.buildTitle());
                     if (element.sample == null) {
-                        return tag("a", "class='galleryLink' "+ href,
-                                element.gallery.buildTitle());
+                        return tag("a", aAttributes,
+                                span);
                     } else {
-                        return tag("a", href,
-                                tag("span", element.gallery.buildTitle()),
-                                unclosedTag("img class='galleryLink' src="+ quote(
+                        return tag("a", aAttributes,
+                                span,
+                                unclosedTag("img src="+ quote(
                                                 api.getThumbnailUrl(
                                                         element.sample,
                                                         new ItemCredentials.ItemKey(element.sampleKey),

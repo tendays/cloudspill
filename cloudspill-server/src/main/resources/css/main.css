@@ -15,17 +15,28 @@ h1 {
 }
 
 .galleryLink  {
+    position: relative; /* for absolute positionning of caption */
     display: block;
     color: white;
     text-decoration: none;
     height: 150px;
     width: 150px;
     float: left;
+
+    font-family: sans;
+    font-size: 11px;
 }
 
 .galleryLink:hover {
     background-color: #333;
     color: #fff6;
+}
+
+.galleryLink span {
+    position: absolute;
+    background-color: #000a;
+    padding: 3px;
+    width: 100%;
 }
 
 .thumb {
