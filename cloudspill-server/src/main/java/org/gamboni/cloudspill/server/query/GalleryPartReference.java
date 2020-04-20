@@ -16,7 +16,7 @@ public class GalleryPartReference implements Java8SearchCriteria<BackendItem> {
 
     @Override
     public String getUrl(CloudSpillApi api) {
-        return api.galleryPart(id);
+        return api.galleryPart(id, offset, limit);
     }
 
     public GalleryPartReference(long id) {
@@ -31,7 +31,7 @@ public class GalleryPartReference implements Java8SearchCriteria<BackendItem> {
 
     @Override
     public LocalDate getFrom() {
-        // TODO should define a Java8SearchCriteria superinterface without these methods
+        // TODO should use GalleryRequest instead, then there's no need to define these methods
         throw new IllegalStateException();
     }
 

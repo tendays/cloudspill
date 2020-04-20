@@ -74,8 +74,8 @@ public class CloudSpillApi {
         return serverUrl + credentials.getUrlPrefix() + "gallery/";
     }
 
-    public String galleryPart(long id) {
-        return serverUrl + "public/gallery/"+ id;
+    public String galleryPart(long id, int offset, Integer limit) {
+        return sliceParameters(new StringBuilder(serverUrl + "public/gallery/"+ id), offset, limit);
     }
 
     public enum Size {
@@ -142,6 +142,10 @@ public class CloudSpillApi {
         } else {
             // TODO
         }
+        return sliceParameters(builder, offset, limit);
+    }
+
+    private String sliceParameters(StringBuilder builder, int offset, Integer limit) {
         String parameterSeparator = "?";
         if (offset != 0) {
             builder.append(parameterSeparator + "offset="+ offset);

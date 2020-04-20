@@ -131,7 +131,7 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
     }
 
     @Override @Transient public String getUrl(CloudSpillApi api) {
-        return api.galleryPart(getId());
+        return api.galleryPart(id, 0, null);
     }
 
     /** Stored galleries sort from old to new. */
@@ -204,7 +204,7 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
 
         @Override
         public String getUrl(CloudSpillApi api) {
-            return GalleryPart.this.getUrl(api) + "?offset="+ getOffset();
+            return api.galleryPart(getId(), offset, limit);
         }
     }
 }
