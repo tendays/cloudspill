@@ -74,6 +74,10 @@ public class CloudSpillApi {
         return serverUrl + credentials.getUrlPrefix() + "gallery/";
     }
 
+    public String galleryPart(long id) {
+        return serverUrl + "public/gallery/"+ id;
+    }
+
     public enum Size {
         PHONE_THUMBNAIL(90),
         GALLERY_THUMBNAIL(150),
@@ -116,7 +120,7 @@ public class CloudSpillApi {
         return serverUrl + credentials.getUrlPrefix() + "item/"+ serverId + ID_HTML_SUFFIX + credentials.getQueryString();
     }
 
-    public String getGalleryUrl(Set<String> tags, String stringFrom, String stringTo, int offset) {
+    public String getGalleryUrl(Set<String> tags, String stringFrom, String stringTo, int offset, Integer limit) {
         Set<String> otherTags = new HashSet<>();
         boolean isPublic = false;
         for (String tag : tags) {
@@ -126,14 +130,27 @@ public class CloudSpillApi {
                 otherTags.add(tag);
             }
         }
-        String offsetQuery = (offset == 0) ? "" : ("?offset="+ offset);
-        String baseUrl = serverUrl + (isPublic ? "public" : "");
-        if (otherTags.size() == 1 && stringFrom == null && stringTo == null) {
-            return baseUrl + "/tag/" + encodePathPart(otherTags.iterator().next()) + offsetQuery;
-        } else if (otherTags.isEmpty() && stringFrom != null && stringFrom.equals(stringTo)) {
-            return baseUrl +"/day/"+ stringFrom + offsetQuery;
-        } else {
-            return baseUrl + offsetQuery; // TODO
+
+        StringBuilder builder = new StringBuilder(serverUrl);
+        if (isPublic) {
+            builder.append("public/");
         }
+        if (otherTags.size() == 1 && stringFrom == null && stringTo == null) {
+            builder.append("tag/" + encodePathPart(otherTags.iterator().next()));
+        } else if (otherTags.isEmpty() && stringFrom != null && stringFrom.equals(stringTo)) {
+            builder.append("day/"+ stringFrom);
+        } else {
+            // TODO
+        }
+        String parameterSeparator = "?";
+        if (offset != 0) {
+            builder.append(parameterSeparator + "offset="+ offset);
+            parameterSeparator = "&";
+        }
+        if (limit != null) {
+            builder.append(parameterSeparator + "limit="+ limit);
+            parameterSeparator = "&";
+        }
+        return builder.toString();
     }
 }

@@ -104,7 +104,12 @@ public abstract class CloudSpillEntityManagerDomain {
             return this;
         }
 
-        public Query<T> limit(int limit) {
+        /** Set or unset the maximum number of rows.
+         *
+         * @param limit null to remove a previously set limit, or a number to set the number of rows.
+         * @return this
+         */
+        public Query<T> limit(Integer limit) {
             this.limit = limit;
             return this;
         }

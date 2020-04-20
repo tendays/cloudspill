@@ -20,6 +20,8 @@ public interface SearchCriteria {
 
     int getOffset();
 
+    Integer getLimit();
+
     String getUrl(CloudSpillApi api);
 
 }

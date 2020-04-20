@@ -1,9 +1,8 @@
 package org.gamboni.cloudspill.server.html;
 
-import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
+import org.gamboni.cloudspill.server.query.GalleryRequest;
 import org.gamboni.cloudspill.server.query.ItemSet;
-import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 
@@ -14,10 +13,10 @@ public class GalleryPage extends AbstractPage {
 
     /* 60 is the smallest multiple of 2, 3, 4, 5 and 6. So as long as there are six or fewer images per row, the last result row will be full */
     public static final int PAGE_SIZE = 60;
-    private final Java8SearchCriteria<BackendItem> criteria;
+    private final GalleryRequest criteria;
     private final ItemSet itemSet;
 
-    public GalleryPage(BackendConfiguration configuration, Java8SearchCriteria<BackendItem> criteria, ItemSet itemSet) {
+    public GalleryPage(BackendConfiguration configuration, GalleryRequest criteria, ItemSet itemSet) {
         super(configuration);
         this.criteria = criteria;
         this.itemSet = itemSet;
@@ -25,7 +24,7 @@ public class GalleryPage extends AbstractPage {
 
     @Override
     protected String getTitle() {
-        return criteria.buildTitle();
+        return itemSet.title;
     }
 
     @Override
@@ -37,7 +36,7 @@ public class GalleryPage extends AbstractPage {
     protected HtmlFragment getBody(ItemCredentials.AuthenticationStatus authStatus) {
         int pageNumber = criteria.getOffset() / PAGE_SIZE;
         return HtmlFragment.concatenate(
-                tag("div", "class='description'", criteria.getDescription()),
+                tag("div", "class='description'", itemSet.description),
                 pageLink(pageNumber - 1, "<", itemSet.totalCount),
                 HtmlFragment.concatenate(
                         itemSet.rows.stream().map(item ->

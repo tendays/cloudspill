@@ -8,6 +8,4 @@ import org.gamboni.cloudspill.server.OrHttpError;
  */
 public interface ItemQueryLoader {
     OrHttpError<ItemSet> load(Java8SearchCriteria<BackendItem> criteria);
-
-    OrHttpError<ItemSet> load(Java8SearchCriteria<BackendItem> criteria, int limit);
 }

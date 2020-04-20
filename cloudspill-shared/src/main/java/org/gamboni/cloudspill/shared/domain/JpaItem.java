@@ -98,6 +98,11 @@ public abstract class JpaItem implements IsItem {
 	public File getFile(File rootFolder) {
 		return append(append(append(rootFolder, user), folder), path);
 	}
+
+	@Transient
+	public String getTitle() {
+		return user +"/"+ folder +"/"+ path;
+	}
 	
 	public String toString() {
 		return "Item("+ user +", "+ folder +", "+ path + ", "+ tags +")";

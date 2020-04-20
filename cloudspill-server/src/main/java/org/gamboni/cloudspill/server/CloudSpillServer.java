@@ -288,22 +288,13 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 
 	@Override
 	protected ItemQueryLoader getQueryLoader(ServerDomain session, ItemCredentials credentials) {
-		return new ItemQueryLoader() {
-			@Override
-			public OrHttpError<ItemSet> load(Java8SearchCriteria<BackendItem> criteria) {
-				final CloudSpillEntityManagerDomain.Query<Item> query = criteria.applyTo(session.selectItem());
-				return new OrHttpError<>(new ItemSet(
-						query.getTotalCount(),
-						query.list()));
-			}
-
-			@Override
-			public OrHttpError<ItemSet> load(Java8SearchCriteria<BackendItem> criteria, int limit) {
-				final CloudSpillEntityManagerDomain.Query<Item> query = criteria.applyTo(session.selectItem());
-				return new OrHttpError<>(new ItemSet(
-						query.getTotalCount(),
-						query.limit(limit).list()));
-			}
+		return criteria -> {
+			final CloudSpillEntityManagerDomain.Query<Item> query = criteria.applyTo(session.selectItem());
+			return new OrHttpError<>(new ItemSet(
+					query.getTotalCount(),
+					query.offset(criteria.getOffset()).limit(criteria.getLimit()).list(),
+					criteria.buildTitle(),
+					criteria.getDescription()));
 		};
 	}
 

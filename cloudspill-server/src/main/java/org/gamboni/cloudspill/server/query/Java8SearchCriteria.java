@@ -24,7 +24,7 @@ import javax.persistence.metamodel.SetAttribute;
  *
  * @author tendays
  */
-public interface Java8SearchCriteria<T extends JpaItem> extends SearchCriteria {
+public interface Java8SearchCriteria<T extends JpaItem> extends GalleryRequest {
     LocalDate getFrom();
 
     LocalDate getTo();
@@ -40,6 +40,8 @@ public interface Java8SearchCriteria<T extends JpaItem> extends SearchCriteria {
     }
 
     Java8SearchCriteria<T> atOffset(int newOffset);
+
+    Java8SearchCriteria<T> withLimit(Integer newLimit);
 
     default String buildTitle() {
         Stream<String> day = (getFrom() != null && getFrom().equals(getTo())) ?
@@ -57,7 +59,7 @@ public interface Java8SearchCriteria<T extends JpaItem> extends SearchCriteria {
     }
 
     default String getUrl(CloudSpillApi api) {
-        return api.getGalleryUrl(getTags(), getStringFrom(), getStringTo(), getOffset());
+        return api.getGalleryUrl(getTags(), getStringFrom(), getStringTo(), getOffset(), getLimit());
     }
 
     default Order getOrder(CriteriaBuilder criteriaBuilder, Root<? extends JpaItem> root) {

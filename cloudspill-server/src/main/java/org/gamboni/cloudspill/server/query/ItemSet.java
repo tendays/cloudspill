@@ -16,12 +16,17 @@ public class ItemSet {
 
     public final ImmutableList<? extends BackendItem> rows;
 
-    public ItemSet(long totalCount, List<? extends BackendItem> rows) {
+    public final String title;
+    public final String description;
+
+    public ItemSet(long totalCount, List<? extends BackendItem> rows, String title, String description) {
         this.totalCount = totalCount;
         this.rows = ImmutableList.copyOf(rows);
+        this.title = title;
+        this.description = description;
     }
 
     public static ItemSet of(BackendItem item) {
-        return new ItemSet(1, ImmutableList.of(item));
+        return new ItemSet(1, ImmutableList.of(item), item.getTitle(), "");
     }
 }

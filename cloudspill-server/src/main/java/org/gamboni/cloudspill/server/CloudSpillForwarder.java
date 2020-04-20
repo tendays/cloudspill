@@ -12,11 +12,13 @@ import org.gamboni.cloudspill.domain.GalleryPart;
 import org.gamboni.cloudspill.domain.RemoteItem;
 import org.gamboni.cloudspill.server.config.ForwarderConfiguration;
 import org.gamboni.cloudspill.server.html.GalleryListPage;
+import org.gamboni.cloudspill.server.query.GalleryPartReference;
 import org.gamboni.cloudspill.server.query.ItemQueryLoader;
 import org.gamboni.cloudspill.server.query.ItemSet;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.Csv;
+import org.gamboni.cloudspill.shared.api.CsvEncoding;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.util.Log;
 
@@ -80,18 +82,18 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
-    protected OrHttpError<RemoteItem> loadItem(ForwarderDomain session, long id, ItemCredentials credentials) {
+    protected OrHttpError<? extends BackendItem> loadItem(ForwarderDomain session, long id, ItemCredentials credentials) {
         RemoteItem item = session.get(RemoteItem.class, id);
         if (item == null) {
             // item not found locally, try from remote server
             return deserialiseStream(remoteApi.getImageUrl(id, credentials), credentials)
                     .flatMap(remoteList -> {
-                        switch (remoteList.size()) {
+                        switch (remoteList.rows.size()) {
                             case 0:
                                 Log.warn("Remote returned empty list to single-item query (should return 404 instead!)");
                                 return notFound(id);
                             case 1:
-                                final RemoteItem remote = Iterables.getOnlyElement(remoteList);
+                                final BackendItem remote = Iterables.getOnlyElement(remoteList.rows);
                                 try {
                                     /* This may fail in case there's another request for the same item at the same time. */
                                     transacted(nestedSession -> {
@@ -103,7 +105,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
                                 }
                                 return new OrHttpError<>(remote);
                             default:
-                                Log.warn("Remote returned " + remoteList.size() + " elements to single-item query");
+                                Log.warn("Remote returned " + remoteList.rows.size() + " elements to single-item query");
                                 return internalServerError();
                         }
                     });
@@ -158,8 +160,28 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
         }
     }
 
-    private OrHttpError<List<RemoteItem>> deserialiseStream(String url, ItemCredentials credentials) {
-        return deserialiseStream(url, credentials, BackendItem.CSV, RemoteItem::new, (rows, reader) -> rows);
+    private OrHttpError<ItemSet> deserialiseStream(String url, ItemCredentials credentials) {
+        return deserialiseStream(url, credentials, BackendItem.CSV, RemoteItem::new, (rows, reader) -> {
+            String title = "";
+            String description = "";
+            String totalString = Integer.toString(rows.size());
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                title = deserialiseAttribute(line, "Title", title);
+                description = deserialiseAttribute(line, "Description", description);
+                totalString = deserialiseAttribute(line, "Total", totalString);
+            }
+            return new ItemSet(Integer.parseInt(totalString), rows, title, description);
+        });
+    }
+
+    private String deserialiseAttribute(String line, String attribute, String defaultValue) {
+        if (line.startsWith(attribute +":")) {
+            return CsvEncoding.unslash(line.substring(attribute.length() + 1));
+        } else {
+            return defaultValue;
+        }
     }
 
     private <R> OrHttpError<R> gatewayTimeout() {
@@ -252,25 +274,12 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
 
     @Override
     protected ItemQueryLoader getQueryLoader(ForwarderDomain session, ItemCredentials credentials) {
-        return new ItemQueryLoader() {
-            @Override
-            public OrHttpError<ItemSet> load(Java8SearchCriteria<BackendItem> criteria) {
-                return deserialiseStream(criteria.getUrl(remoteApi), credentials)
-                        .map(rows -> new ItemSet(rows.size() + criteria.getOffset(), rows));
-            }
-
-            @Override
-            public OrHttpError<ItemSet> load(Java8SearchCriteria<BackendItem> criteria, int limit) {
-                return deserialiseStream(criteria.getUrl(remoteApi), credentials)
-                        .map(rows -> new ItemSet(rows.size() + criteria.getOffset(),
-                                (rows.size() > limit) ? rows.subList(0, limit) : rows));
-            }
-        };
+        return criteria -> deserialiseStream(criteria.getUrl(remoteApi), credentials);
     }
 
     @Override
     protected Java8SearchCriteria<BackendItem> loadGallery(ForwarderDomain session, long partId) {
-        throw new UnsupportedOperationException();
+        return new GalleryPartReference(partId);
     }
 
     @Override

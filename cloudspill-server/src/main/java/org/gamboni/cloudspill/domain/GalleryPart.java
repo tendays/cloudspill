@@ -1,6 +1,5 @@
 package org.gamboni.cloudspill.domain;
 
-import com.google.common.base.Functions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 
@@ -9,13 +8,11 @@ import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.Csv;
 import org.gamboni.cloudspill.shared.domain.JpaItem;
 import org.gamboni.cloudspill.shared.domain.JpaItem_;
-import org.gamboni.cloudspill.shared.query.SearchCriteria;
 
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Set;
 
-import javax.persistence.Column;
 import javax.persistence.ElementCollection;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
@@ -74,6 +71,12 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
         return 0;
     }
 
+    @Override
+    @Transient
+    public Integer getLimit() {
+        return null;
+    }
+
     public void setUser(String user) {
         this.user = user;
     }
@@ -128,7 +131,7 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
     }
 
     @Override @Transient public String getUrl(CloudSpillApi api) {
-        return api.getBaseUrl() + "/public/gallery/"+ getId();
+        return api.galleryPart(getId());
     }
 
     /** Stored galleries sort from old to new. */
@@ -138,18 +141,30 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
 
     @Override
     public Java8SearchCriteria<BackendItem> atOffset(int newOffset) {
-        return new AtOffset(newOffset);
+        return new Slice(newOffset, null);
     }
 
-    private class AtOffset implements Java8SearchCriteria<BackendItem> {
+    @Override
+    public Java8SearchCriteria<BackendItem> withLimit(Integer newLimit) {
+        return new Slice(0, newLimit);
+    }
+
+    private class Slice implements Java8SearchCriteria<BackendItem> {
         final int offset;
-        AtOffset(int offset) {
+        final Integer limit;
+        Slice(int offset, Integer limit) {
             this.offset = offset;
+            this.limit = limit;
         }
 
         @Override
         public Java8SearchCriteria<BackendItem> atOffset(int newOffset) {
-            return new AtOffset(newOffset);
+            return new Slice(newOffset, limit);
+        }
+
+        @Override
+        public Java8SearchCriteria<BackendItem> withLimit(Integer newLimit) {
+            return new Slice(offset, newLimit);
         }
 
         @Override
@@ -180,6 +195,11 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
         @Override
         public int getOffset() {
             return offset;
+        }
+
+        @Override
+        public Integer getLimit() {
+            return limit;
         }
 
         @Override
