@@ -48,10 +48,11 @@ public class ImagePage extends AbstractPage {
 	public HtmlFragment getBody(ItemCredentials.AuthenticationStatus authStatus) {
 					return HtmlFragment.concatenate(unclosedTag((item.getType() == ItemType.VIDEO ? "video controls " : "img ") +
 							"class='image' src="+ quote(getImageUrl())),
-						tag("div", "class='metadata'", HtmlFragment.escape("By: "+ item.getUser()),
+						tag("div", "class='metadata'",
+								tag("div", "By: "+ item.getUser()),
 								dateLine(authStatus)),
-								tag("div", "class='metadata'", MoreObjects.firstNonNull(item.getDescription(), "")),
-								tag("div", "class='metadata'",
+								tag("div", MoreObjects.firstNonNull(item.getDescription(), "")),
+								tag("div",
 										new HtmlFragment(item.getTags().stream()
 										.map(tag -> tagElement(tag, authStatus).toString())
 										.collect(Collectors.joining(" ")))));
@@ -71,7 +72,7 @@ public class ImagePage extends AbstractPage {
 		if (item.getDate() == null) { return HtmlFragment.EMPTY; }
 		String dateString = item.getDate()
 				.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm:ss"));
-		return (authStatus == ItemCredentials.AuthenticationStatus.ANONYMOUS ? tag("span","class='date'", dateString) : tag("a", "class='date' href="+
+		return (authStatus == ItemCredentials.AuthenticationStatus.ANONYMOUS ? tag("div","class='date'", dateString) : tag("a", "class='date' href="+
 				quote(ServerSearchCriteria.ALL.at(item.getDate().toLocalDate()).getUrl(api)),
 				dateString));
 	}

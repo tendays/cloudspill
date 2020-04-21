@@ -93,12 +93,14 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                     DumpFormat.GALLERY_DATA);
         }));
 
-        get("/public", (req, res) -> transacted(session -> {
+        final Route publicRoute = (req, res) -> transacted(session -> {
             return galleryPage(configuration, req, res, session,
                     publicAccess,
                     ServerSearchCriteria.ALL.withTag("public"),
                     DumpFormat.WITH_TOTAL);
-        }));
+        });
+        get("/public", publicRoute);
+        get("/public/", publicRoute);
 
         /* Download a file */
         get("/item/:id", securedItem(ItemCredentials.AuthenticationStatus.LOGGED_IN, (req, res, session, credentials, item) -> {

@@ -48,16 +48,21 @@ h1 {
 
 .image {
     max-width: 90vw;
-    max-height: 90vh;
+    /* allow hiding bottom third but always show middle third. */
+    max-height: 150vh;
     image-orientation: from-image;
-    float: left;
+    /* center */
+    margin: 0 auto;
+    display: block;
 }
 
 .metadata {
-    float: right;
+    position: fixed;
     width: 10vw;
     min-width: 10em;
     text-align: left;
+    top: 4em;
+    right: 0;
 }
 
 .pagerLink {
