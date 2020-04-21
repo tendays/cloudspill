@@ -46,16 +46,16 @@ public class ImagePage extends AbstractPage {
 	}
 
 	public HtmlFragment getBody(ItemCredentials.AuthenticationStatus authStatus) {
-					return HtmlFragment.concatenate(unclosedTag((item.getType() == ItemType.VIDEO ? "video controls " : "img ") +
-							"class='image' src="+ quote(getImageUrl())),
-						tag("div", "class='metadata'",
-								tag("div", "By: "+ item.getUser()),
-								dateLine(authStatus)),
-								tag("div", MoreObjects.firstNonNull(item.getDescription(), "")),
-								tag("div",
-										new HtmlFragment(item.getTags().stream()
+		return HtmlFragment.concatenate(unclosedTag((item.getType() == ItemType.VIDEO ? "video controls " : "img ") +
+						"class='image' src=" + quote(getImageUrl())),
+				tag("div", "class='metadata'",
+						tag("div", "By: " + item.getUser()),
+						dateLine(authStatus),
+						tag("div", MoreObjects.firstNonNull(item.getDescription(), "")),
+						tag("div",
+								new HtmlFragment(item.getTags().stream()
 										.map(tag -> tagElement(tag, authStatus).toString())
-										.collect(Collectors.joining(" ")))));
+										.collect(Collectors.joining(" "))))));
 	}
 
 	private HtmlFragment tagElement(String tag, ItemCredentials.AuthenticationStatus authStatus) {
