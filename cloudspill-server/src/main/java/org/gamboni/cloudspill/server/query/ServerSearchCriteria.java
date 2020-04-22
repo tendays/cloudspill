@@ -74,7 +74,7 @@ public class ServerSearchCriteria implements Java8SearchCriteria<BackendItem> {
 
     @Override
     public Integer getLimit() {
-        return null;
+        return limit;
     }
 
     @Override
