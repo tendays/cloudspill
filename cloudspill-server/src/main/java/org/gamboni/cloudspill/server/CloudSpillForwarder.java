@@ -253,9 +253,11 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
 
             cache.getParentFile().mkdirs();
 
+            final File tempFile = File.createTempFile("cloudspill", null);
+
             try (InputStream remoteInput = connection.getInputStream();
                  OutputStream clientOutput = res.raw().getOutputStream();
-                 OutputStream cacheOutput = new FileOutputStream(cache)) {
+                 OutputStream cacheOutput = new FileOutputStream(tempFile)) {
 
                 while (true) {
                     int r = remoteInput.read(buffer);
@@ -267,6 +269,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
                     cacheOutput.write(buffer, 0, r);
                 }
             }
+            tempFile.renameTo(cache);
         }
 
         return "";
