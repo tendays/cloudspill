@@ -52,7 +52,7 @@ public class ImagePage extends AbstractPage {
 						tag("div", "By: " + item.getUser()),
 						dateLine(authStatus),
 						tag("div", MoreObjects.firstNonNull(item.getDescription(), "")),
-						tag("div",
+						tag("div", "class='tags'",
 								new HtmlFragment(item.getTags().stream()
 										.map(tag -> tagElement(tag, authStatus).toString())
 										.collect(Collectors.joining(" "))))));
