@@ -87,18 +87,38 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	private final Semaphore heavyTask = new Semaphore(6, true);
 
     public static void main(String[] args) {
-    	if (args.length != 1) {
-    		Log.error("Usage: CloudSpillServer configPath");
-    		System.exit(1);
-    	}
-    	Injector injector = Guice.createInjector(new ServerModule(args[0]));
+        boolean forward = false;
+        String configPath = null;
 
-    	try {
-    		injector.getInstance(CloudSpillServer.class).run();
+        for (String arg : args) {
+            if (arg.equals("-forward")) {
+                forward = true;
+            } else if (configPath == null) {
+                configPath = arg;
+            } else {
+                exitWithUsage();
+            }
+        }
+    	if (configPath == null) {
+            exitWithUsage();
+        }
+
+
+        try {
+            if (forward) {
+                Guice.createInjector(new ForwarderModule(configPath)).getInstance(CloudSpillForwarder.class).run();
+            } else {
+                Guice.createInjector(new ServerModule(configPath)).getInstance(CloudSpillServer.class).run();
+            }
     	} catch (Throwable t) {
     		t.printStackTrace();
     		System.exit(1);
     	}
+    }
+
+    private static void exitWithUsage() {
+        Log.error("Usage: CloudSpillServer [-forward] configPath");
+        System.exit(1);
     }
 
     public void run() {

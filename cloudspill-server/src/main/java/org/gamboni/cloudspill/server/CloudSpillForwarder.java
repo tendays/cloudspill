@@ -48,7 +48,12 @@ import spark.Response;
 
 import static org.gamboni.cloudspill.shared.util.Files.append;
 
-/**
+/** The forwarder acts both as a client to a remote CloudSpill server, and as a server.
+ * It will cache items in a local directory.
+ * <p>
+ *     This is a standalone Java application but can also be started by passing the -forward option to {@link CloudSpillServer}.
+ * </p>
+ *
  * @author tendays
  */
 public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
@@ -77,7 +82,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
         }
     }
 
-    private void run() {
+    public void run() {
         setupRoutes(configuration);
     }
 
