@@ -128,7 +128,9 @@ public class Downloader {
                     slowDown = 10;
                 }
             }
-            SettingsActivity.setLatestUpdate(context, result.getLatestUpdate());
+            if (result.getLatestUpdate() != null) {
+                SettingsActivity.setLatestUpdate(context, result.getLatestUpdate());
+            }
             SettingsActivity.setLastServerVersion(context, currentServer);
             listener.updateMessage(StatusReport.Severity.INFO, "Download complete. Created " + created + "/" + loaded +
                     (deleteCount > 0 ? ". Deleted " + deleteCount : ""));

@@ -115,6 +115,11 @@ public class FilterSpecification implements SearchCriteria, Parcelable {
         return 0;
     }
 
+    @Override
+    public Integer getLimit() {
+        return null;
+    }
+
     private long asLong(Date date) {
         return (date == null) ? NULL_DATE : date.getTime();
     }
@@ -124,7 +129,7 @@ public class FilterSpecification implements SearchCriteria, Parcelable {
     }
 
     public String getUrl(CloudSpillApi api) {
-        return api.getGalleryUrl(getTags(), getStringFrom(), getStringTo(), getOffset());
+        return api.getGalleryUrl(getTags(), getStringFrom(), getStringTo(), getOffset(), getLimit());
     }
 
     public String toString() {

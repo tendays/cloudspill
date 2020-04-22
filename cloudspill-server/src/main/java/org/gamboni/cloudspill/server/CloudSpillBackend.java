@@ -298,8 +298,8 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         abstract String dumpMetadata(Java8SearchCriteria<? extends BackendItem> criteria, ItemSet itemSet, Instant timestamp);
     }
 
-    private OrHttpError<String> dump(Response res, D domain, ServerSearchCriteria criteria, ItemCredentials credentials, DumpFormat dumpFormat) {
-        return getQueryLoader(domain, credentials).load(criteria).map(set -> dump(res, criteria, set, dumpFormat));
+    private Object dump(Response res, D domain, ServerSearchCriteria criteria, ItemCredentials credentials, DumpFormat dumpFormat) throws Exception {
+        return getQueryLoader(domain, credentials).load(criteria).get(res, set -> dump(res, criteria, set, dumpFormat));
     }
 
     private String dump(Response res, Java8SearchCriteria<? extends BackendItem> criteria, ItemSet itemSet, DumpFormat dumpFormat) {
