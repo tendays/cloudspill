@@ -41,6 +41,7 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
                     (gp, from) -> gp.setFrom(from.isEmpty() ? null : LocalDate.parse(from)))
             .add("to", gp -> (gp.to == null) ? "" : gp.to.toString(),
                     (gp, to) -> gp.setTo(to.isEmpty() ? null : LocalDate.parse(to)))
+            .add("title", GalleryPart::getTitle, GalleryPart::setTitle)
             .add("description", GalleryPart::getDescription, GalleryPart::setDescription);
 
     private long id;

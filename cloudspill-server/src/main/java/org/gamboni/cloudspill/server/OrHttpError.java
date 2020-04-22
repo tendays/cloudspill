@@ -31,6 +31,7 @@ public class OrHttpError<T> {
         }
     }
 
+    @SuppressWarnings("unchecked") // changing type parameter is safe on error because item is null in that case
     public <U> OrHttpError<U> flatMap(Function<T, OrHttpError<U>> function) {
         if (error != null) {
             return (OrHttpError<U>)this;
@@ -39,6 +40,7 @@ public class OrHttpError<T> {
         }
     }
 
+    @SuppressWarnings("unchecked") // changing type parameter is safe on error because item is null in that case
     public <U> OrHttpError<U> map(Function<T, U> function) {
         if (error != null) {
             return (OrHttpError<U>)this;
