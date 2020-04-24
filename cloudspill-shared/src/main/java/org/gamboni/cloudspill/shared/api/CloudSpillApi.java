@@ -63,7 +63,7 @@ public class CloudSpillApi {
     }
 
     public String getTagUrl(Object itemId) {
-        return serverUrl +"item"+ itemId +"/tags";
+        return serverUrl +"item/"+ itemId +"/tags";
     }
 
     public String css() {

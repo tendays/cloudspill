@@ -97,9 +97,14 @@ public class ItemsSinceRequest extends AuthenticatingRequest<ItemsSinceRequest.R
             Domain.Item result = extractor.deserialise(domain.new Item(), nextLine);
             readLine();
             if ("".equals(nextLine)) {
+                /* Read metadata */
                 readLine();
-                if (nextLine != null && nextLine.startsWith("Timestamp:")) {
-                    latestUpdate = Long.parseLong(nextLine.substring("Timestamp:".length()));
+                while (nextLine != null) {
+                    if (nextLine.startsWith("Timestamp:")) {
+                        latestUpdate = Long.parseLong(nextLine.substring("Timestamp:".length()));
+                    }
+                    /* Keep reading until end of stream to make sure hasNext() returns false */
+                    readLine();
                 }
             }
             return result;
