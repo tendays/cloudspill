@@ -74,6 +74,7 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
             }
         }
 
+        @SuppressWarnings("unchecked")
         public void notifyNewItem(Object item) {
             Iterator<WeakReference<Consumer<E>>> iterator = watchers.iterator();
             while (iterator.hasNext()) {
@@ -87,6 +88,7 @@ public abstract class AbstractDomain<SELF extends AbstractDomain<SELF>> extends 
         }
     }
 
+    @SuppressWarnings("unchecked")
     protected SELF domain() {
         return (SELF)this;
     }

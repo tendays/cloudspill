@@ -45,7 +45,7 @@ public class MediaDownloader extends IntentService {
     public interface MediaListener {
         void updateCompletion(int percent);
         void mediaReady(Uri location);
-        void notifyStatus(DownloadStatus status);
+        void notifyStatus(DownloadStatus status, String message);
     }
 
     public interface OpenListener {
@@ -78,19 +78,19 @@ public class MediaDownloader extends IntentService {
                 }
 
                 @Override
-                public void notifyStatus(final DownloadStatus status) {
+                public void notifyStatus(final DownloadStatus status, String message) {
                     if (activity instanceof MediaDownloader.MediaListener) {
-                        ((MediaListener) activity).notifyStatus(status);
+                        ((MediaListener) activity).notifyStatus(status, message);
                     }
                     if (callback instanceof MediaDownloader.MediaListener) {
-                        ((MediaListener) callback).notifyStatus(status);
+                        ((MediaListener) callback).notifyStatus(status, message);
                     }
                     activity.runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
 
                             switch (status) {
-                                case ERROR:
+                                case DOWNLOAD_FAILED:
                                     Toast.makeText(activity, activity.getResources().getText(R.string.download_error), Toast.LENGTH_SHORT).show();
                                     return;
                                 case OFFLINE:
@@ -162,7 +162,7 @@ public class MediaDownloader extends IntentService {
 
         CloudSpillServerProxy server = CloudSpillServerProxy.selectServer(this, statusListener, domain);
         if (server == null) { // offline
-            notifyStatus(serverId, DownloadStatus.OFFLINE);
+            notifyStatus(serverId, DownloadStatus.OFFLINE, null);
             return;
         }
 
@@ -219,9 +219,12 @@ public class MediaDownloader extends IntentService {
                                 loadedTotal += len;
                                 final int newPercentage = loadedTotal * 100 / length;
                                 if (newPercentage != reportedPercentage) {
-                                    synchronized(callbacks) {
-                                        for (MediaListener listener : listeners) {
-                                            listener.updateCompletion(newPercentage);
+                                    if (listeners != null) {
+                                        // I've observed listeners being null. Seems to occur with duplicate/malformed files TODO find out why
+                                        synchronized (callbacks) {
+                                            for (MediaListener listener : listeners) {
+                                                listener.updateCompletion(newPercentage);
+                                            }
                                         }
                                     }
                                     reportedPercentage = newPercentage;
@@ -247,15 +250,17 @@ public class MediaDownloader extends IntentService {
                         synchronized (callbacks) {
                             set = callbacks.remove(serverId);
                         }
-                        for (MediaListener callback : set) {
-                            callback.mediaReady(target.getUri());
+                        if (set != null) {
+                            for (MediaListener callback : set) {
+                                callback.mediaReady(target.getUri());
+                            }
                         }
                     }
                 },
                 new Response.ErrorListener() {
                     @Override
                     public void onErrorResponse(VolleyError error) {
-                        notifyStatus(serverId, DownloadStatus.ERROR);
+                        notifyStatus(serverId, DownloadStatus.DOWNLOAD_FAILED, error.getMessage());
                         Log.e(TAG, "Failed downloading item "+ serverId, error);
                         statusListener.updateMessage(StatusReport.Severity.ERROR, "Media download error: "+ error);
                     }
@@ -268,18 +273,18 @@ public class MediaDownloader extends IntentService {
      * @param serverId server id of the item being downloaded
      * @param status download status
      */
-    private void notifyStatus(long serverId, DownloadStatus status) {
+    private void notifyStatus(long serverId, DownloadStatus status, String message) {
         final Set<MediaListener> set;
         synchronized (callbacks) {
             set = callbacks.remove(serverId);
         }
         for (MediaListener callback : set) {
-            callback.notifyStatus(status);
+            callback.notifyStatus(status, message);
         }
     }
 
     private void notifyError(long serverId, String message) {
-        notifyStatus(serverId, DownloadStatus.ERROR);
+        notifyStatus(serverId, DownloadStatus.DOWNLOAD_FAILED, message);
         statusListener.updateMessage(StatusReport.Severity.ERROR, message);
 
     }

@@ -4,39 +4,33 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Parcelable;
 import android.support.annotation.Nullable;
 import android.support.v4.view.PagerAdapter;
+import android.support.v4.view.ViewPager;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-import com.ortiz.touch.ExtendedViewPager;
 import com.ortiz.touch.TouchImageView;
 
 import org.gamboni.cloudspill.R;
-import org.gamboni.cloudspill.domain.AbstractDomain;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.EvaluatedFilter;
 import org.gamboni.cloudspill.domain.FilterSpecification;
 import org.gamboni.cloudspill.domain.HasDomain;
-import org.gamboni.cloudspill.shared.api.CloudSpillApi;
-import org.gamboni.cloudspill.shared.domain.ItemType;
+import org.gamboni.cloudspill.graphics.ImageLoader;
 import org.gamboni.cloudspill.job.DownloadStatus;
 import org.gamboni.cloudspill.job.MediaDownloader;
+import org.gamboni.cloudspill.shared.api.CloudSpillApi;
+import org.gamboni.cloudspill.shared.domain.ItemType;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.StringJoiner;
 
 /** Activity displaying a single image in full screen.
  *
@@ -67,13 +61,15 @@ public class ItemActivity extends AppCompatActivity implements HasDomain {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        ImageLoader.createLoaderThread();
+
         FilterSpecification searchFilter = getIntent().<FilterSpecification>getParcelableExtra(FILTER_PARAM);
         if (searchFilter == null) { searchFilter = FilterSpecification.defaultFilter(); }
         this.evaluatedFilter = new EvaluatedFilter(domain, searchFilter);
 
         setContentView(R.layout.activity_item);
 
-        final ExtendedViewPager pager = (ExtendedViewPager) findViewById(R.id.activity_item_pager);
+        final ViewPager pager = findViewById(R.id.activity_item_pager);
         pager.setAdapter(new Adapter());
 
         final Uri uri = getIntent().getData();
@@ -121,6 +117,8 @@ public class ItemActivity extends AppCompatActivity implements HasDomain {
 
     @Override
     protected void onDestroy() {
+        ImageLoader.killLoaderThread();
+
         if (this.evaluatedFilter != null) {
             this.evaluatedFilter.close();
             this.evaluatedFilter = null;
@@ -164,6 +162,7 @@ public class ItemActivity extends AppCompatActivity implements HasDomain {
                                 frame.addView(imageView, LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT);
                                 imageView.setImageURI(uri);
                                 imageView.setOnClickListener(callback);
+                                imageView.setMediaCallback(callback);
                             }
                         });
                     }
@@ -179,14 +178,23 @@ public class ItemActivity extends AppCompatActivity implements HasDomain {
                     }
 
                     @Override
-                    public void notifyStatus(final DownloadStatus status) {
+                    public void notifyStatus(final DownloadStatus status, final String message) {
                         runOnUiThread(new Runnable() {
                             public void run() {
-                                if (status == DownloadStatus.ERROR) {
-                                    itemStatus.setText("Error downloading item");
+                                String suffix = (message == null) ? "" : (": "+ message);
+                                if (status == DownloadStatus.DOWNLOAD_FAILED) {
+                                    itemStatus.setText("Error downloading item"+ suffix);
                                 } else if (status == DownloadStatus.OFFLINE) {
-                                    itemStatus.setText("No connection to server");
+                                    itemStatus.setText("No connection to server" + suffix);
+                                } else if (status == DownloadStatus.DECODE_FAILED) {
+                                    itemStatus.setText("Unable to open file"+ suffix);
+                                } else if (message != null) {
+                                    itemStatus.setText(message);
+                                } else {
+                                    return;
                                 }
+                                frame.removeAllViews();
+                                frame.addView(loadingItem);
                             }
                         });
                     }

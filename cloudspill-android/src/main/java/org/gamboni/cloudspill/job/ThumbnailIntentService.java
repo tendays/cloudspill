@@ -17,10 +17,10 @@ import android.util.TypedValue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 
-import org.gamboni.cloudspill.domain.AbstractDomain;
 import org.gamboni.cloudspill.domain.Domain;
 import org.gamboni.cloudspill.domain.EvaluatedFilter;
 import org.gamboni.cloudspill.domain.FilterSpecification;
+import org.gamboni.cloudspill.graphics.ImageLoader;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.file.DiskLruCache;
@@ -31,13 +31,11 @@ import org.gamboni.cloudspill.shared.util.ImageOrientationUtil;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -83,8 +81,8 @@ public class ThumbnailIntentService extends IntentService {
         // int in its constructor.
         final int maxMemory = (int) (Runtime.getRuntime().maxMemory() / 1024);
 
-        // Use 1/8th of the available memory for this memory cache.
-        final int cacheSize = maxMemory / 8;
+        // Use 1/16th of the available memory for this memory cache.
+        final int cacheSize = maxMemory / 16;
 
         memoryCache = new LruCache<Integer, BitmapWithItem>(cacheSize) {
             @Override
@@ -385,8 +383,7 @@ public class ThumbnailIntentService extends IntentService {
                     // Thumbnails are 90dp wide. Convert that to the pixel equivalent:
                     final float smallPx = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, CloudSpillApi.Size.PHONE_THUMBNAIL.pixels, getResources().getDisplayMetrics());
 
-                    // TODO set sample size to avoid OOM
-                    Bitmap bitmap = BitmapFactory.decodeStream(file.read());
+                    Bitmap bitmap = ImageLoader.fromFile(file, (int)smallPx, (int)smallPx);
 
                     if (bitmap == null) {
                         Log.w(TAG, "decodeStream returned null for " + file);
@@ -425,7 +422,7 @@ public class ThumbnailIntentService extends IntentService {
                 } else {
                     Log.w(TAG, item.getPath() +" has no specified type");
                 }
-            } catch (FileNotFoundException fnf) {
+            } catch (IOException fnf) {
                 Log.e(TAG, "Could not load file but exists returns true", fnf);
             }
         } else {
@@ -463,7 +460,7 @@ public class ThumbnailIntentService extends IntentService {
                     @Override
                     public void onErrorResponse(VolleyError error) {
                         Log.e(TAG, "Failed downloading thumbnail: "+ error);
-                        publishStatus(getCallbacks(key), DownloadStatus.ERROR);
+                        publishStatus(getCallbacks(key), DownloadStatus.DOWNLOAD_FAILED);
                     }
                 });
             }

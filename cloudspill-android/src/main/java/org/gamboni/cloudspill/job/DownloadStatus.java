@@ -6,5 +6,6 @@ package org.gamboni.cloudspill.job;
 public enum DownloadStatus {
     DOWNLOADING,
     OFFLINE,
-    ERROR
+    DOWNLOAD_FAILED,
+    DECODE_FAILED
 }

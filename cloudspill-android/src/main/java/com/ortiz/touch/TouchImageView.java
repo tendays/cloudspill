@@ -13,9 +13,7 @@
 package com.ortiz.touch;
 
 import android.content.Context;
-import android.gesture.GestureOverlayView;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.RectF;
@@ -33,6 +31,9 @@ import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
 
+import org.gamboni.cloudspill.graphics.ImageLoader;
+import org.gamboni.cloudspill.job.DownloadStatus;
+import org.gamboni.cloudspill.job.MediaDownloader;
 import org.gamboni.cloudspill.shared.util.ImageOrientationUtil;
 
 import java.io.IOException;
@@ -44,6 +45,11 @@ import java.util.Map;
 
 public class TouchImageView extends AppCompatImageView {
     private static final String TAG = "CloudSpill.ImageView";
+    private MediaDownloader.MediaListener mediaListener;
+
+    public void setMediaCallback(MediaDownloader.MediaListener mediaListener) {
+        this.mediaListener = mediaListener;
+    }
 
     /** Vectors can be added to Coordinates to make other Coordinates. */
     private static class Vector {
@@ -244,28 +250,10 @@ public class TouchImageView extends AppCompatImageView {
         }
     }
 
-    abstract class Animation implements Runnable {
-    }
-
-    class ShiftState extends Animation {
-        private final State target;
-        ShiftState(State target) {
-            this.target = target;
-        }
-
-        public void run() {
-
-        }
-    }
-
-    /** Currently running animation, if any. Setting this to null will abort the animation. */
-    private Animation animation = null;
-
     Dimensions viewDimensions;
     State state = new State(new Coordinate(0, 0), 1, 0);
 
     private final Context context;
-    private boolean onDrawReady = false;
 
     /** Image Uri to load as soon as we know our size. */
     private Uri uriToLoad = null;
@@ -511,7 +499,6 @@ public class TouchImageView extends AppCompatImageView {
 
     @Override
     protected void onDraw(Canvas canvas) {
-    	onDrawReady = true;
         if (uriToLoad != null) {
     	    Uri localUri = this.uriToLoad;
     	    this.uriToLoad = null;
@@ -528,12 +515,11 @@ public class TouchImageView extends AppCompatImageView {
             // Waiting to know our size before loading the image
             this.uriToLoad = uri;
         } else {
-            // TODO use a persistent thread rather than creating one each time
-            new Thread() {
+            ImageLoader.runOnLoaderThread(
+            new Runnable() {
                 public void run() {
                     try {
-
-                        final Bitmap bitmap = decodeSampledBitmapFromUri(uri, imageViewWidth, imageViewHeight);
+                        final Bitmap bitmap = ImageLoader.fromUri(context, uri, imageViewWidth, imageViewHeight);
 
                         state = state.withRotation(ImageOrientationUtil.getExifRotationDegrees(context.getContentResolver().openInputStream(uri)));
 
@@ -541,7 +527,13 @@ public class TouchImageView extends AppCompatImageView {
                         if (handler != null) {
                             handler.post(new Runnable() {
                                 public void run() {
-                                    setImageBitmap(bitmap);
+                                    if (bitmap == null) {
+                                        if (mediaListener != null) {
+                                            mediaListener.notifyStatus(DownloadStatus.DECODE_FAILED, null);
+                                        }
+                                    } else {
+                                        setImageBitmap(bitmap);
+                                    }
                                 }
                             });
                         } // else: view destroyed before image could be loaded
@@ -549,64 +541,8 @@ public class TouchImageView extends AppCompatImageView {
                         Log.e("TouchImageView", "Failed loading image data", e);
                     }
                 }
-            }.start();
+            });
         }
-    }
-
-    private volatile boolean lowMem;
-
-    private Bitmap decodeSampledBitmapFromUri(Uri uri, int reqWidth, int reqHeight) throws IOException {
-        try {
-            // First decode with inJustDecodeBounds = true to check dimensions
-            final BitmapFactory.Options options = new BitmapFactory.Options();
-            options.inJustDecodeBounds = true;
-            BitmapFactory.decodeStream(context.getContentResolver().openInputStream(uri), null, options);
-
-            // Calculate inSampleSize
-            options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight, lowMem);
-            // Decode bitmap with inSampleSize set
-            options.inJustDecodeBounds = false;
-            return BitmapFactory.decodeStream(context.getContentResolver().openInputStream(uri), null, options);
-        } catch (OutOfMemoryError oom) {
-            if (lowMem) {
-                throw oom;
-            } else {
-                Log.w("TouchImageView", "Caught OOM; switching to Low Memory Mode");
-                lowMem = true;
-                return decodeSampledBitmapFromUri(uri, reqWidth, reqHeight);
-            }
-        }
-    }
-
-    private static int calculateInSampleSize(
-            BitmapFactory.Options options, int reqWidth, int reqHeight, boolean lowMem) {
-
-        // Raw height and width of image
-        final int height = options.outHeight;
-        final int width = options.outWidth;
-        int inSampleSize = 1;
-
-        if (height > reqHeight || width > reqWidth) {
-
-            final int halfHeight = height / 2;
-            final int halfWidth = width / 2;
-
-            // Calculate the largest inSampleSize value that is a power of 2 and keeps both
-            // height and width larger than the requested height and width.
-            while ((halfHeight / inSampleSize) > reqHeight
-                    && (halfWidth / inSampleSize) > reqWidth) {
-                inSampleSize *= 2;
-            }
-        }
-
-        if (lowMem) {
-            inSampleSize *= 2;
-        }
-
-        Log.i("TouchImageView", "Required size: "+ reqWidth +"×"+ reqHeight +". LowMem="+ lowMem +", Image size: "+ width +"×"+ height +
-                ". Calculated sample size: "+ inSampleSize);
-
-        return inSampleSize;
     }
 
     @Override
@@ -715,13 +651,10 @@ public class TouchImageView extends AppCompatImageView {
 		}
     }
 
-    public boolean canScrollHorizontallyFroyo(int direction) {
-        return canScrollHorizontally(direction);
-    }
-    
     @Override
     public boolean canScrollHorizontally(int direction) {
         if (direction < 0) {
+            Log.d(TAG, "canScrollHorizontally:"+ (viewDimensions.relativeWidth() / 2) +" < "+ this.state.focusPoint.x * this.state.zoom +"?");
             /* See if the image overflows on the left. Working in view relative dimensions, we can scroll if the distance
              * from the image left edge to the focus point is more than the distance from the view center to the view's left edge */
             return viewDimensions.relativeWidth() / 2 < this.state.focusPoint.x * this.state.zoom;
