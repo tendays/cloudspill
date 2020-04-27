@@ -3,8 +3,6 @@
  */
 package org.gamboni.cloudspill.shared.domain;
 
-import static org.gamboni.cloudspill.shared.util.Files.append;
-
 import java.io.File;
 import java.time.LocalDateTime;
 import java.util.Set;
@@ -17,21 +15,24 @@ import javax.persistence.FetchType;
 import javax.persistence.MappedSuperclass;
 import javax.persistence.Transient;
 
+import static org.gamboni.cloudspill.shared.util.Files.append;
+
 /**
  * @author tendays
  *
  */
 @MappedSuperclass
 public abstract class JpaItem implements IsItem {
-	String user;
-	String folder;
-	String path;
-	String checksum;
-	LocalDateTime date;
-	ItemType type;
-	Set<String> tags;
-	String description;
-	
+	private String user;
+	private String folder;
+	private String path;
+	private String checksum;
+	private LocalDateTime date;
+	private ItemType type;
+	private Set<String> tags;
+	private String description;
+	private String datePrecision;
+
 	@Column
 	public String getUser() {
 		return user;
@@ -54,6 +55,10 @@ public abstract class JpaItem implements IsItem {
 	public void setPath(String path) {
 		this.path = path;
 	}
+
+	/** DateTimeFormatter characters indicating the precision of the date column: s for seconds, m for minutes, H for hours, d for day, M for month, y for year. */
+	public String getDatePrecision() { return datePrecision; }
+	public void setDatePrecision(String datePrecision) { this.datePrecision = datePrecision; }
 	
 	public LocalDateTime getDate() {
 		return this.date;

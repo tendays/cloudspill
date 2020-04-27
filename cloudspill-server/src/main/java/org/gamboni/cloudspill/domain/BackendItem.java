@@ -49,6 +49,7 @@ public abstract class BackendItem extends JpaItem {
             .add("folder", BackendItem::getFolder, BackendItem::setFolder)
             .add("path", BackendItem::getPath, BackendItem::setPath)
             .add("date", i -> serialise(i.getDate()), (i, date) -> i.setDate(deserialiseDate(date)))
+            .add("datePrecision", BackendItem::getDatePrecision, BackendItem::setDatePrecision)
             .add("type", i -> i.getType().name(), (i, type) -> i.setType(ItemType.valueOf(type)))
             .add("tags",
                     i -> Joiner.on(",").join(i.getTags()),

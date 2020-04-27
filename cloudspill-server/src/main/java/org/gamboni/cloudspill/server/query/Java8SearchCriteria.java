@@ -5,6 +5,7 @@ import com.google.common.collect.Streams;
 
 import org.gamboni.cloudspill.domain.ServerDomain;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
+import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.domain.JpaItem;
 import org.gamboni.cloudspill.shared.domain.JpaItem_;
 import org.gamboni.cloudspill.shared.query.SearchCriteria;
@@ -17,6 +18,7 @@ import java.util.stream.Stream;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.Expression;
 import javax.persistence.criteria.Order;
+import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
 import javax.persistence.metamodel.SetAttribute;
 
@@ -66,17 +68,15 @@ public interface Java8SearchCriteria<T extends JpaItem> extends GalleryRequest {
         return criteriaBuilder.desc(root.get(JpaItem_.date));
     }
 
-    default <E extends T, Q extends ServerDomain.Query<E>> Q applyTo(Q itemQuery) {
+    default <E extends T, Q extends ServerDomain.Query<E>> Q applyTo(Q itemQuery, ItemCredentials.AuthenticationStatus authStatus) {
         CriteriaBuilder criteriaBuilder = itemQuery.getCriteriaBuilder();
         itemQuery.addOrder(root -> getOrder(criteriaBuilder, root));
 
         for (String tag : getTags()) {
-            itemQuery.add(root -> {
-                @SuppressWarnings("unchecked")// why isn't get(PluralAttribute) contravariant on root type?
-                Expression<Set<String>> tagPath = root.get(
-                        (SetAttribute<E, String>)(SetAttribute)JpaItem_.tags);
-                return criteriaBuilder.isMember(tag, tagPath);
-            });
+            itemQuery.add(root -> tagQuery(criteriaBuilder, tag, root));
+        }
+        if (authStatus != ItemCredentials.AuthenticationStatus.LOGGED_IN) {
+            itemQuery.add(root -> tagQuery(criteriaBuilder, "public", root));
         }
         if (getFrom() != null) {
             itemQuery.add(root -> criteriaBuilder.greaterThanOrEqualTo(root.get(JpaItem_.date),
@@ -87,5 +87,12 @@ public interface Java8SearchCriteria<T extends JpaItem> extends GalleryRequest {
                     getTo().plusDays(1).atStartOfDay()));
         }
         return itemQuery;
+    }
+
+    default <E extends T> Predicate tagQuery(CriteriaBuilder criteriaBuilder, String tag, Root<E> root) {
+        @SuppressWarnings("unchecked")// why isn't get(PluralAttribute) contravariant on root type?
+                Expression<Set<String>> tagPath = root.get(
+                (SetAttribute<E, String>)(SetAttribute) JpaItem_.tags);
+        return criteriaBuilder.isMember(tag, tagPath);
     }
 }

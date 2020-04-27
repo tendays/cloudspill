@@ -88,13 +88,16 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 
     public static void main(String[] args) {
         boolean forward = false;
+        boolean allowAnonymousUserCreation = false;
         String configPath = null;
 
         for (String arg : args) {
             if (arg.equals("-forward")) {
                 forward = true;
+			} else if (arg.equals("-allowAnonymousUserCreation")) {
+				allowAnonymousUserCreation = true;
             } else if (configPath == null) {
-                configPath = arg;
+				configPath = arg;
             } else {
                 exitWithUsage();
             }
@@ -108,7 +111,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
             if (forward) {
                 Guice.createInjector(new ForwarderModule(configPath)).getInstance(CloudSpillForwarder.class).run();
             } else {
-                Guice.createInjector(new ServerModule(configPath)).getInstance(CloudSpillServer.class).run();
+                Guice.createInjector(new ServerModule(configPath)).getInstance(CloudSpillServer.class).run(allowAnonymousUserCreation);
             }
     	} catch (Throwable t) {
     		t.printStackTrace();
@@ -121,7 +124,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
         System.exit(1);
     }
 
-    public void run() {
+    public void run(boolean allowAnonymousUserCreation) {
     	File rootFolder = configuration.getRepositoryPath();
 
     	/* Upgrade database before serving */
@@ -179,7 +182,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 		};
 		
 		post("/user/:name",
-				configuration.allowAnonymousUserCreation() ?
+				allowAnonymousUserCreation ?
 						(req, res) -> transacted(session -> createUser.handle(req, res, session, /* user */null))
 						: secured(createUser));
     }
@@ -234,6 +237,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 					item.setDate(Instant.ofEpochMilli(Long.valueOf(timestampHeader))
 							.atOffset(ZoneOffset.UTC)
 							.toLocalDateTime());
+					item.setDatePrecision("s");
 				}
 				final String typeHeader = req.headers(CloudSpillApi.UPLOAD_TYPE_HEADER);
 				if (typeHeader != null) {
@@ -310,7 +314,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	@Override
 	protected ItemQueryLoader getQueryLoader(ServerDomain session, ItemCredentials credentials) {
 		return criteria -> {
-			final CloudSpillEntityManagerDomain.Query<Item> query = criteria.applyTo(session.selectItem());
+			final CloudSpillEntityManagerDomain.Query<Item> query = criteria.applyTo(session.selectItem(), credentials.getAuthStatus());
 			return new OrHttpError<>(new ItemSet(
 					query.getTotalCount(),
 					query.offset(criteria.getOffset()).limit(criteria.getLimit()).list(),
@@ -330,7 +334,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 		return new OrHttpError<>(new GalleryListData(configuration.getRepositoryName(), Lists.transform(
 				query.addOrder(root -> domain.criteriaBuilder.desc(root.get(GalleryPart_.from))).list(),
 				gp -> {
-					final List<Item> sample = gp.applyTo(domain.selectItem()).limit(1).list();
+					final List<Item> sample = gp.applyTo(domain.selectItem(), credentials.getAuthStatus()).limit(1).list();
 					return sample.isEmpty() ? new GalleryListPage.Element(gp) :
 							new GalleryListPage.Element(gp, sample.get(0).getId(), sample.get(0).getChecksum());
 				})));
