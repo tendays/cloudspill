@@ -70,12 +70,24 @@ public class ImagePage extends AbstractPage {
 
 	private HtmlFragment dateLine(ItemCredentials.AuthenticationStatus authStatus) {
 		if (item.getDate() == null) { return HtmlFragment.EMPTY; }
+
 		String dateString = item.getDate()
-				.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm:ss"));
+				.format(DateTimeFormatter.ofPattern(patternForPrecision(item.getDatePrecision())));
 		return (authStatus == ItemCredentials.AuthenticationStatus.ANONYMOUS ? tag("div","class='date'", dateString) : tag("a", "class='date' href="+
 				quote(ServerSearchCriteria.ALL.at(item.getDate().toLocalDate()).getUrl(api)),
 				dateString));
 	}
-	
-	
+
+	private String patternForPrecision(String datePrecision) {
+		switch (datePrecision) {
+			case "Y": return "YYYY";
+			case "M": return "YYYY-MM";
+			case "d": return "YYYY-MM-dd";
+			case "H":
+			case "m": return "YYYY-MM-dd HH:mm";
+			default: return "YYYY-MM-dd HH:mm:ss";
+		}
+	}
+
+
 }
