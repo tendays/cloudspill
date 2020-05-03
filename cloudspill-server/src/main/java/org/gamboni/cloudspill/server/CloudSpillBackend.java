@@ -58,6 +58,10 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             return "";
         });
 
+        get("/robots.txt", (req, res)->
+                "User-agent: *\n" +
+                "Disallow: /");
+
         get("/tag/:tag", secured((req, res, domain, credentials) ->
         {
             return galleryPage(configuration, req, res, domain, credentials,
