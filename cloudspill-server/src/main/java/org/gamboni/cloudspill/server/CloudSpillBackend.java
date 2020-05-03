@@ -1,6 +1,8 @@
 package org.gamboni.cloudspill.server;
 
 import com.google.common.io.ByteStreams;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 
 import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
@@ -136,13 +138,13 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
         /* Get list of items whose id is larger than the given one. */
         get("item/since/:id", secured((req, res, domain, credentials) -> {
-            return dump(res, domain, ServerSearchCriteria.ALL.withIdAtLeast(Long.parseLong(req.params("id"))), credentials,
+            return dump(req, res, domain, ServerSearchCriteria.ALL.withIdAtLeast(Long.parseLong(req.params("id"))), credentials,
                     DumpFormat.WITH_TOTAL);
         }));
 
         /* Get list of items updated at or later than the given timestamp. */
         get(api.getItemsSinceUrl(":date"), secured((req, res, domain, credentials) -> {
-            return dump(res, domain,
+            return dump(req, res, domain,
                     ServerSearchCriteria.ALL.modifiedSince(Instant.ofEpochMilli(Long.parseLong(req.params("date")))),
                     credentials,
                 DumpFormat.WITH_TIMESTAMP);
@@ -180,10 +182,10 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         final Java8SearchCriteria<BackendItem> offset = allItems.atOffset(Integer.parseInt(req.queryParamOrDefault("offset", "0")));
 
         return getQueryLoader(domain, credentials)
-                .load(offset.withLimit(isCsvRequested(req) ? requestedLimit(req) : Integer.valueOf(GalleryPage.PAGE_SIZE)))
+                .load(offset.withLimit((isCsvRequested(req) || isJsonRequested(req)) ? requestedLimit(req) : Integer.valueOf(GalleryPage.PAGE_SIZE)))
                 .get(res, itemSet -> {
             if (isCsvRequested(req)) {
-                return dump(res, offset, itemSet, format);
+                return dump(req, res, offset, itemSet, format);
             } else {
                 return new GalleryPage(configuration, offset, itemSet).getHtml(credentials);
             }
@@ -194,8 +196,8 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         if (req.params("id").endsWith(ID_HTML_SUFFIX)) {
             return new ImagePage(configuration, item).getHtml(credentials);
         } else {
-            if (isCsvRequested(req)) {
-                return dump(res, null, ItemSet.of(item), DumpFormat.WITH_TOTAL);
+            if (isCsvRequested(req) || isJsonRequested(req)) {
+                return dump(req, res, null, ItemSet.of(item), DumpFormat.WITH_TOTAL);
             } else {
                 download(res, session, credentials, item);
                 return String.valueOf(res.status());
@@ -206,6 +208,11 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
     private boolean isCsvRequested(Request req) {
         final String acceptHeader = req.headers("Accept");
         return acceptHeader != null && acceptHeader.equals("text/csv");
+    }
+
+    private boolean isJsonRequested(Request req) {
+        final String acceptHeader = req.headers("Accept");
+        return acceptHeader != null && acceptHeader.equals("application/json");
     }
 
     private Integer requestedLimit(Request req) {
@@ -285,34 +292,91 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
     private enum DumpFormat {
         WITH_TOTAL {
             @Override
-            String dumpMetadata(Java8SearchCriteria<? extends BackendItem> criteria, ItemSet itemSet, Instant timestamp) {
-                return csvMetadata("Total", itemSet.totalCount);
+            MetadataRepresentation dumpMetadata(Java8SearchCriteria<? extends BackendItem> criteria, ItemSet itemSet, Instant timestamp,
+                                                MetadataRepresentation representation) {
+                return representation.put("Total", itemSet.totalCount);
             }
         },
         WITH_TIMESTAMP {
             @Override
-            String dumpMetadata(Java8SearchCriteria<? extends BackendItem> criteria, ItemSet itemSet, Instant timestamp) {
-                return WITH_TOTAL.dumpMetadata(criteria, itemSet, timestamp) +
-                        csvMetadata("Timestamp", timestamp.toEpochMilli());
+            MetadataRepresentation dumpMetadata(Java8SearchCriteria<? extends BackendItem> criteria, ItemSet itemSet, Instant timestamp, MetadataRepresentation representation) {
+                return WITH_TOTAL.dumpMetadata(criteria, itemSet, timestamp, representation)
+                        .put("Timestamp", timestamp.toEpochMilli());
             }
         },
         GALLERY_DATA {
             @Override
-            String dumpMetadata(Java8SearchCriteria<? extends BackendItem> criteria, ItemSet itemSet, Instant timestamp) {
-                return WITH_TOTAL.dumpMetadata(criteria, itemSet, timestamp) +
-                        csvMetadata("Title", criteria.buildTitle()) +
-                        csvMetadata("Description", criteria.getDescription());
+            MetadataRepresentation dumpMetadata(Java8SearchCriteria<? extends BackendItem> criteria, ItemSet itemSet, Instant timestamp, MetadataRepresentation representation) {
+                return WITH_TOTAL.dumpMetadata(criteria, itemSet, timestamp, representation)
+                        .put("Title", criteria.buildTitle())
+                        .put("Description", criteria.getDescription());
             }
         };
 
-        abstract String dumpMetadata(Java8SearchCriteria<? extends BackendItem> criteria, ItemSet itemSet, Instant timestamp);
+        abstract MetadataRepresentation dumpMetadata(Java8SearchCriteria<? extends BackendItem> criteria, ItemSet itemSet, Instant timestamp, MetadataRepresentation representation);
     }
 
-    private Object dump(Response res, D domain, ServerSearchCriteria criteria, ItemCredentials credentials, DumpFormat dumpFormat) throws Exception {
-        return getQueryLoader(domain, credentials).load(criteria).get(res, set -> dump(res, criteria, set, dumpFormat));
+    private interface MetadataRepresentation {
+        MetadataRepresentation put(String key, String value);
+        MetadataRepresentation put(String key, long value);
     }
 
-    private String dump(Response res, Java8SearchCriteria<? extends BackendItem> criteria, ItemSet itemSet, DumpFormat dumpFormat) {
+    private static class OnePerLineMetadataRepresentation implements MetadataRepresentation {
+        private final StringBuilder output;
+
+        private OnePerLineMetadataRepresentation(StringBuilder output) {
+            output.append("\n"); // insert blank line before metadata to tell csv extractors the csv stream is finished
+            this.output = output;
+        }
+
+        @Override
+        public MetadataRepresentation put(String key, String value) {
+            output.append(csvMetadata(key, value));
+            return this;
+        }
+
+        @Override
+        public MetadataRepresentation put(String key, long value) {
+            output.append(csvMetadata(key, value));
+            return this;
+        }
+
+        @Override
+        public String toString() {
+            return output.toString();
+        }
+    }
+
+    private static class JsonMetadataRepresentation implements MetadataRepresentation {
+        private final JsonObject value;
+
+        JsonMetadataRepresentation(JsonObject value) {
+            this.value = value;
+        }
+
+        @Override
+        public MetadataRepresentation put(String key, String value) {
+            this.value.addProperty(key, value);
+            return this;
+        }
+
+        @Override
+        public MetadataRepresentation put(String key, long value) {
+            this.value.addProperty(key, value);
+            return this;
+        }
+
+        @Override
+        public String toString() {
+            return this.value.toString();
+        }
+    }
+
+    private Object dump(Request req, Response res, D domain, ServerSearchCriteria criteria, ItemCredentials credentials, DumpFormat dumpFormat) throws Exception {
+        return getQueryLoader(domain, credentials).load(criteria).get(res, set -> dump(req, res, criteria, set, dumpFormat));
+    }
+
+    private String dump(Request req, Response res, Java8SearchCriteria<? extends BackendItem> criteria, ItemSet itemSet, DumpFormat dumpFormat) {
 
         Instant[] timestamp = new Instant[]{Instant.EPOCH};
         final Stream<? extends BackendItem> stream = itemSet.rows.stream()
@@ -321,19 +385,35 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                         timestamp[0] = item.getUpdated();
                     }
                 });
-
-        return dumpCsv(res, stream, BackendItem.CSV) +
-                "\n" + // insert blank line before metadata to tell csv extractors the csv stream is finished
-                dumpFormat.dumpMetadata(criteria, itemSet, timestamp[0]);
+        if (isCsvRequested(req)) {
+            final StringBuilder data = dumpCsv(res, stream, BackendItem.CSV);
+            return dumpFormat.dumpMetadata(criteria, itemSet, timestamp[0], new OnePerLineMetadataRepresentation(data)).toString();
+        } else { // json
+            final JsonArray data = dumpJson(res, stream, BackendItem.CSV);
+            JsonObject object = new JsonObject();
+            object.add("data", data);
+            return dumpFormat.dumpMetadata(criteria, itemSet, timestamp[0], new JsonMetadataRepresentation(object)).toString();
+        }
     }
 
-    private <T> String dumpCsv(Response res, Stream<? extends T> stream, Csv<T> csv) {
+    private <T> StringBuilder dumpCsv(Response res, Stream<? extends T> stream, Csv<T> csv) {
         res.type("text/csv; charset=UTF-8");
         StringBuilder result = new StringBuilder(csv.header() + "\n");
         stream.forEach(item -> {
             result.append(csv.serialise(item)).append("\n");
         });
-        return result.toString();
+        return result;
+    }
+
+    private <T> JsonArray dumpJson(Response res, Stream<? extends T> stream, Csv<T> csv) {
+        res.type("application/json; charset=UTF-8");
+        JsonArray result = new JsonArray();
+        stream.forEach(item -> {
+            JsonObject row = new JsonObject();
+            csv.toMap(item, row::addProperty);
+            result.add(row);
+        });
+        return result;
     }
 
     protected abstract Object thumbnail(Response res, D session, ItemCredentials credentials, BackendItem item, int size) throws InterruptedException, IOException;

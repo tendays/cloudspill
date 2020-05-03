@@ -1,8 +1,10 @@
 package org.gamboni.cloudspill.shared.api;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author tendays
@@ -11,6 +13,12 @@ public interface Csv<I> {
     String header();
 
     String serialise(I item);
+
+    public interface Consumer {
+        void put(String key, String value);
+    }
+
+    void toMap(I item, Consumer consumer);
 
     Extractor<I> extractor(String header);
 
@@ -67,6 +75,16 @@ public interface Csv<I> {
                 nextSeparator = ";";
             }
             return result.toString();
+        }
+
+        @Override
+        public void toMap(I item, Consumer consumer) {
+            for (CsvColumn column : this.columns) {
+                consumer.put(column.name, column.getter.get(item));
+            }
+            for (CsvEmbed<?> embed : embeds) {
+                embed.toMap(item, consumer);
+            }
         }
 
         private String encode(String rawValue) {
@@ -164,6 +182,10 @@ public interface Csv<I> {
 
             String serialise(I item) {
                 return child.serialise(getter.get(item));
+            }
+
+            void toMap(I item, Consumer consumer) {
+                child.toMap(getter.get(item), consumer);
             }
 
             Extractor<I> extractor(String headerLine) {
