@@ -194,6 +194,11 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
         }
 
         @Override
+        public String getDescription() {
+            return GalleryPart.this.getDescription();
+        }
+
+        @Override
         public int getOffset() {
             return offset;
         }
