@@ -184,7 +184,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         return getQueryLoader(domain, credentials)
                 .load(offset.withLimit((isCsvRequested(req) || isJsonRequested(req)) ? requestedLimit(req) : Integer.valueOf(GalleryPage.PAGE_SIZE)))
                 .get(res, itemSet -> {
-            if (isCsvRequested(req)) {
+            if (isCsvRequested(req) || isJsonRequested(req)) {
                 return dump(req, res, offset, itemSet, format);
             } else {
                 return new GalleryPage(configuration, offset, itemSet).getHtml(credentials);
