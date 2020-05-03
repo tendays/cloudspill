@@ -5,6 +5,7 @@ import com.google.common.io.ByteStreams;
 import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
+import org.gamboni.cloudspill.server.html.AbstractPage;
 import org.gamboni.cloudspill.server.html.GalleryListPage;
 import org.gamboni.cloudspill.server.html.GalleryPage;
 import org.gamboni.cloudspill.server.html.ImagePage;
@@ -29,6 +30,7 @@ import spark.Response;
 import spark.Route;
 
 import static org.gamboni.cloudspill.shared.api.CloudSpillApi.ID_HTML_SUFFIX;
+import static spark.Spark.after;
 import static spark.Spark.before;
 import static spark.Spark.get;
 import static spark.Spark.put;
@@ -48,6 +50,10 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         before((req, res) -> {
             Log.info(req.ip() +" "+ req.requestMethod() +" "+ req.uri());
         });
+
+        /* Print full request processing time in HTML pages */
+        before((req, res) -> AbstractPage.recordRequestStart());
+        after((req, res) -> AbstractPage.clearRequestStopwatch());
 
         get(api.ping(), secured((req, res, session, user) -> ping()));
 

@@ -16,6 +16,16 @@ import static org.gamboni.cloudspill.server.html.HtmlFragment.escape;
  * @author tendays
  */
 public abstract class AbstractPage {
+
+    private static final ThreadLocal<Stopwatch> requestStart = new ThreadLocal<>();
+    public static void recordRequestStart() {
+        requestStart.set(Stopwatch.createStarted());
+    }
+
+    public static void clearRequestStopwatch() {
+        requestStart.remove();
+    }
+
     protected static HtmlFragment tag(String name, String attributes, String content) {
         return tag(name, attributes, escape(content));
     }
@@ -71,7 +81,6 @@ public abstract class AbstractPage {
     }
 
     public HtmlFragment getHtml(ItemCredentials user) {
-        Stopwatch stopwatch = Stopwatch.createStarted();
         return tag("html", "prefix=\"og: http://ogp.me/ns#\"",
                 tag("head",
                         tag("title", getTitle()),
@@ -85,7 +94,7 @@ public abstract class AbstractPage {
                         tag("body",
                                 tag("h1", getTitle()),
                                 getBody(user.getAuthStatus()),
-                                tag("div", "class='debug'", "Page rendered in "+ stopwatch)));
+                                tag("div", "class='debug'", "Page rendered in "+ requestStart.get())));
     }
 
 }
