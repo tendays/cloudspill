@@ -89,12 +89,21 @@ public abstract class AbstractPage {
                                 meta("og:url", getPageUrl()),
                                 getThumbnailUrl().map(url -> meta("og:image", url)).orElse(HtmlFragment.EMPTY),
                                 slashedTag("link rel=\"stylesheet\" type=\"text/css\" href=" +
-                                        quote(api.css()))
+                                        quote(api.css())),
+                        scripts()
                 ),
-                        tag("body",
+                        tag("body", bodyAttributes(),
                                 tag("h1", getTitle()),
                                 getBody(user.getAuthStatus()),
                                 tag("div", "class='debug'", "Page rendered in "+ requestStart.get())));
+    }
+
+    protected String bodyAttributes() {
+        return "";
+    }
+
+    protected HtmlFragment scripts() {
+        return HtmlFragment.EMPTY;
     }
 
 }

@@ -60,8 +60,17 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         get(api.ping(), secured((req, res, session, user) -> ping()));
 
         get(api.css(), (req, res) -> {
+            res.type("text/css; charset=UTF-8");
             ByteStreams.copy(
                     getClass().getClassLoader().getResourceAsStream("css/main.css"),
+                    res.raw().getOutputStream());
+            return "";
+        });
+
+        get(api.js(), (req, res) -> {
+            res.type("application/javascript; charset=UTF-8");
+            ByteStreams.copy(
+                    getClass().getClassLoader().getResourceAsStream("js/lazy-load.js"),
                     res.raw().getOutputStream());
             return "";
         });
@@ -187,7 +196,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             if (isCsvRequested(req) || isJsonRequested(req)) {
                 return dump(req, res, offset, itemSet, format);
             } else {
-                return new GalleryPage(configuration, offset, itemSet).getHtml(credentials);
+                return new GalleryPage(configuration, offset, itemSet, req.queryParamOrDefault("experimental", "").equals("true")).getHtml(credentials);
             }
         });
     }
@@ -381,7 +390,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         Instant[] timestamp = new Instant[]{Instant.EPOCH};
         final Stream<? extends BackendItem> stream = itemSet.rows.stream()
                 .peek(item -> {
-                    if (item.getUpdated().isAfter(timestamp[0])) {
+                    if (item.getUpdated() != null && item.getUpdated().isAfter(timestamp[0])) {
                         timestamp[0] = item.getUpdated();
                     }
                 });
@@ -392,7 +401,9 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             final JsonArray data = dumpJson(res, stream, BackendItem.CSV);
             JsonObject object = new JsonObject();
             object.add("data", data);
-            return dumpFormat.dumpMetadata(criteria, itemSet, timestamp[0], new JsonMetadataRepresentation(object)).toString();
+            // galleries do not yet support metadata in forwarder, so disabling that for now
+            //return dumpFormat.dumpMetadata(criteria, itemSet, timestamp[0], new JsonMetadataRepresentation(object)).toString();
+            return object.toString();
         }
     }
 

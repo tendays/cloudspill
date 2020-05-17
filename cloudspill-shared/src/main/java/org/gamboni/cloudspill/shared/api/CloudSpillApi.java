@@ -70,6 +70,10 @@ public class CloudSpillApi {
         return serverUrl +"main.css";
     }
 
+    public String js() {
+        return serverUrl +"main.js";
+    }
+
     public String galleryListPage(ItemCredentials credentials) {
         return serverUrl + credentials.getUrlPrefix() + "gallery/";
     }
@@ -100,7 +104,7 @@ public class CloudSpillApi {
         return getThumbnailUrl(item.getServerId(), credentialsForItem(item), size);
     }
 
-    public String getThumbnailUrl(long id, ItemCredentials credentials, Object pixels) {
+    public String getThumbnailUrl(Object id, ItemCredentials credentials, Object pixels) {
         return serverUrl + credentials.getUrlPrefix() +"thumbs/"+ pixels +"/"+ id + credentials.getQueryString();
     }
 
@@ -116,7 +120,7 @@ public class CloudSpillApi {
         return getImagePageUrl(item.getServerId(), credentialsForItem(item));
     }
 
-    public String getImagePageUrl(long serverId, ItemCredentials credentials) {
+    public String getImagePageUrl(Object serverId, ItemCredentials credentials) {
         return serverUrl + credentials.getUrlPrefix() + "item/"+ serverId + ID_HTML_SUFFIX + credentials.getQueryString();
     }
 

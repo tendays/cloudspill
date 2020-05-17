@@ -15,11 +15,13 @@ public class GalleryPage extends AbstractPage {
     public static final int PAGE_SIZE = 60;
     private final GalleryRequest criteria;
     private final ItemSet itemSet;
+    private final boolean experimental;
 
-    public GalleryPage(BackendConfiguration configuration, GalleryRequest criteria, ItemSet itemSet) {
+    public GalleryPage(BackendConfiguration configuration, GalleryRequest criteria, ItemSet itemSet, boolean experimental) {
         super(configuration);
         this.criteria = criteria;
         this.itemSet = itemSet;
+        this.experimental = experimental;
     }
 
     @Override
@@ -30,6 +32,23 @@ public class GalleryPage extends AbstractPage {
     @Override
     protected String getPageUrl() {
         return criteria.getUrl(api);
+    }
+
+    @Override
+    protected HtmlFragment scripts() {
+        return tag("script", "type='text/javascript' src="+ quote(api.js()), "");
+    }
+
+    @Override
+    protected String bodyAttributes() {
+        if (itemSet.totalCount > PAGE_SIZE && criteria.getOffset() == 0) {
+            return "onload="+ quote("createPlaceholders('"+ criteria.getUrl(api) +"', '"+
+                    api.getThumbnailUrl("%d", new ItemCredentials.ItemKey("%s"), CloudSpillApi.Size.IMAGE_THUMBNAIL.pixels) +"', '"+
+                    api.getImagePageUrl("%d", new ItemCredentials.ItemKey("%s")) +"', "+
+                    PAGE_SIZE +", "+ itemSet.totalCount +")");
+        } else {
+            return super.bodyAttributes();
+        }
     }
 
     @Override
@@ -51,7 +70,10 @@ public class GalleryPage extends AbstractPage {
     private HtmlFragment pageLink(int pageNumber, String label, long totalCount) {
         int offset = pageNumber * PAGE_SIZE;
         if (offset >= 0 && offset < totalCount) {
-            return tag("a", "class='pagerLink' href="+ quote(criteria.atOffset(offset).getUrl(api)),
+
+            String id = (label.equals(">")) ? "id='marker' " : "";
+
+            return tag("a", id + "class='pagerLink' href="+ quote(criteria.atOffset(offset).getUrl(api)),
                     label);
         } else {
             return HtmlFragment.EMPTY;
