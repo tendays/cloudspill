@@ -86,6 +86,10 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                     DumpFormat.WITH_TOTAL);
         }));
 
+        get(api.dayListPage(":year"), secured((req, res, domain, credentials) ->
+            dayList(credentials, domain, Integer.parseInt(req.params("year")))
+                    .get(res, galleryListFunction(req, res, configuration, credentials))));
+
         get("/day/:day", secured((req, res, domain, credentials) -> {
             LocalDate day = LocalDate.parse(req.params("day"));
 
@@ -283,6 +287,8 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
     protected abstract OrHttpError<GalleryListData> galleryList(ItemCredentials credentials, D domain);
 
+    protected abstract OrHttpError<GalleryListData> dayList(ItemCredentials credentials, D domain, int year);
+
     /** Add the given comma-separated tags to the specified object. If a tag starts with '-' then it is removed instead.
      * <p>
      * NOTE: anybody can change tags of anybody's item.
@@ -451,15 +457,19 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
     protected abstract Java8SearchCriteria<BackendItem> loadGallery(D session, long partId);
 
+    private OrHttpError.ItemConsumer<GalleryListData> galleryListFunction(Request req, Response res, BackendConfiguration configuration, ItemCredentials credentials) {
+        return data -> {
+                    if (isCsvRequested(req)) {
+                        // TODO: escape \ and \n in title
+                        return dumpCsv(res, data.elements.stream(), GalleryListPage.Element.CSV) + "\n" + "Title:" + data.title;
+                    } else {
+                        return new GalleryListPage(configuration, data.title, data.elements).getHtml(credentials);
+                    }
+                };
+    }
+
     private Object galleryListPage(Response res, BackendConfiguration configuration, D domain, ItemCredentials credentials, Request req) throws Exception {
-        return galleryList(credentials, domain).get(res, data -> {
-            if (isCsvRequested(req)) {
-                // TODO: escape \ and \n in title
-                return dumpCsv(res, data.elements.stream(), GalleryListPage.Element.CSV) + "\n" + "Title:" + data.title;
-            } else {
-                return new GalleryListPage(configuration, data.title, data.elements).getHtml(credentials);
-            }
-        });
+        return galleryList(credentials, domain).get(res, galleryListFunction(req, res, configuration, credentials));
     }
 
     protected interface SecuredItemBody<D extends CloudSpillEntityManagerDomain> {

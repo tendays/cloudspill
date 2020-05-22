@@ -78,6 +78,10 @@ public class CloudSpillApi {
         return serverUrl + credentials.getUrlPrefix() + "gallery/";
     }
 
+    public String dayListPage(Object year) {
+        return serverUrl + "year/"+ year;
+    }
+
     public String galleryPart(long id, int offset, Integer limit) {
         return sliceParameters(new StringBuilder(serverUrl + "public/gallery/"+ id), offset, limit);
     }

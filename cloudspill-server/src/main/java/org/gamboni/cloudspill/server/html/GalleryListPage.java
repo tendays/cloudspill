@@ -3,6 +3,7 @@ package org.gamboni.cloudspill.server.html;
 import org.gamboni.cloudspill.domain.GalleryPart;
 import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
+import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.Csv;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
@@ -20,28 +21,30 @@ public class GalleryListPage extends AbstractPage {
     public static class Element {
 
         public static final Csv<Element> CSV = new Csv.Impl<Element>()
-                .embed(GalleryPart.CSV, e -> e.gallery)
+                .add("relativeUrl", e -> e.relativeUrl, (e, u) -> e.relativeUrl = u)
+                .add("title", e -> e.title, (e, title) -> e.title = title)
+                /* Temporary backward compatibility */
+                .add("id", e -> (e.relativeUrl.startsWith("/gallery/") ? e.relativeUrl.substring("/gallery/".length()) : null),
+                        (e, ignore) -> {})
                 .add("sample", e -> (e.sample == null) ? null : Long.toString(e.sample),
                         (e, sample) -> e.sample = (sample == null) ? null : Long.valueOf(sample))
                 .add("sampleKey", e -> e.sampleKey, (e, sampleKey) -> e.sampleKey = sampleKey);
 
-        /** Information about the gallery part for which to show a link (used for Title and Url) */
-        private final GalleryPart gallery;
+        private String relativeUrl;
+        private String title;
         /** ServerId of the Item to display as a thumbnail for the gallery */
         private Long sample;
         /** Checksum to use to load the sample thumbnail */
         private String sampleKey;
 
-        public Element(GalleryPart gallery, Long sample, String sampleKey) {
-            this.gallery = gallery;
+        /** Empty constructor for use when decoding CSV */
+        public Element() {}
+
+        public Element(Java8SearchCriteria<?> gallery, Long sample, String sampleKey) {
+            this.relativeUrl = gallery.getUrl(new CloudSpillApi("")).substring(1);
+            this.title = gallery.buildTitle();
             this.sample = sample;
             this.sampleKey = sampleKey;
-        }
-
-        public Element(GalleryPart gallery) {
-            this.gallery = gallery;
-            this.sample = null;
-            this.sampleKey = null;
         }
     }
 
@@ -66,10 +69,11 @@ public class GalleryListPage extends AbstractPage {
         return HtmlFragment.concatenate(elements
                 .stream()
                 .map(element -> {
-                    System.out.println("Loading "+ element.gallery.getUrl(api));
+                    final String elementUrl = api.getBaseUrl() + element.relativeUrl;
+                    System.out.println("Loading " + elementUrl);
 
-                    final String aAttributes = "class='galleryLink' href="+ quote(element.gallery.getUrl(api));
-                    final HtmlFragment span = tag("span", element.gallery.buildTitle());
+                    final String aAttributes = "class='galleryLink' href="+ quote(elementUrl);
+                    final HtmlFragment span = tag("span", element.title);
                     if (element.sample == null) {
                         return tag("a", aAttributes,
                                 span);

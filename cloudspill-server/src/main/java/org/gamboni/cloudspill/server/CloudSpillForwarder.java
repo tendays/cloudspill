@@ -292,16 +292,25 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
 
     @Override
     protected OrHttpError<GalleryListData> galleryList(ItemCredentials credentials, ForwarderDomain domain) {
+        return deserialiseGalleryList(credentials, remoteApi.galleryListPage(credentials));
+    }
+
+    @Override
+    protected OrHttpError<GalleryListData> dayList(ItemCredentials credentials, ForwarderDomain domain, int year) {
+        return deserialiseGalleryList(credentials, remoteApi.dayListPage(year));
+    }
+
+    private OrHttpError<GalleryListData> deserialiseGalleryList(ItemCredentials credentials, String url) {
         return deserialiseStream(
-                remoteApi.galleryListPage(credentials),
+                url,
                 credentials,
                 GalleryListPage.Element.CSV,
-                () -> new GalleryListPage.Element(new GalleryPart()),
+                GalleryListPage.Element::new,
                 (elements, reader) -> {
                     String titleLine = reader.readLine();
                     return new GalleryListData(
                             (titleLine != null && titleLine.startsWith("Title:")) ?
-                        titleLine.substring("Title:".length()) : "",
+                                    titleLine.substring("Title:".length()) : "",
                             elements);
                 });
     }

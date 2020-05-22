@@ -26,6 +26,7 @@ import org.gamboni.cloudspill.server.html.GalleryListPage;
 import org.gamboni.cloudspill.server.query.ItemQueryLoader;
 import org.gamboni.cloudspill.server.query.ItemSet;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
+import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.domain.ItemType;
@@ -47,6 +48,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.List;
@@ -57,6 +59,7 @@ import java.util.function.BiFunction;
 import javax.imageio.ImageIO;
 import javax.inject.Inject;
 import javax.persistence.EntityManager;
+import javax.persistence.Query;
 
 import spark.Request;
 import spark.Response;
@@ -335,9 +338,25 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 				query.addOrder(root -> domain.criteriaBuilder.desc(root.get(GalleryPart_.from))).list(),
 				gp -> {
 					final List<Item> sample = gp.applyTo(domain.selectItem(), credentials.getAuthStatus()).limit(1).list();
-					return sample.isEmpty() ? new GalleryListPage.Element(gp) :
+					return sample.isEmpty() ? new GalleryListPage.Element(gp, null, null) :
 							new GalleryListPage.Element(gp, sample.get(0).getId(), sample.get(0).getChecksum());
 				})));
+	}
+
+	@Override
+	protected OrHttpError<GalleryListData> dayList(ItemCredentials credentials, ServerDomain domain, int year) {
+		final Query query = domain.getEntityManager().createNativeQuery(
+				"select id, date(date) as date, checksum from Item " +
+						"where id in (select max(id) from Item where date >= ? && date < ? group by date(date)) " +
+						"order by date");
+		query.setParameter(1, LocalDate.ofYearDay(year, 1));
+		query.setParameter(2, LocalDate.ofYearDay(year+1, 1));
+		return new OrHttpError<>(new GalleryListData("Year "+ year, Lists.transform((List<Object[]>)query.getResultList(), row -> {
+			long id = ((Number) row[0]).longValue();
+			LocalDate date = (LocalDate) row[1];
+			String checksum = (String) row[2];
+			return new GalleryListPage.Element(ServerSearchCriteria.ALL.at(date), id, checksum);
+		})));
 	}
 
 	protected void putTags(ServerDomain session, long id, String tags) {
