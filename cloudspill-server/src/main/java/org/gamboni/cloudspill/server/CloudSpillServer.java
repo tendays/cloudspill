@@ -353,7 +353,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 		query.setParameter(2, LocalDate.ofYearDay(year+1, 1));
 		return new OrHttpError<>(new GalleryListData("Year "+ year, Lists.transform((List<Object[]>)query.getResultList(), row -> {
 			long id = ((Number) row[0]).longValue();
-			LocalDate date = (LocalDate) row[1];
+			LocalDate date = ((java.sql.Date) row[1]).toLocalDate();
 			String checksum = (String) row[2];
 			return new GalleryListPage.Element(ServerSearchCriteria.ALL.at(date), id, checksum);
 		})));
