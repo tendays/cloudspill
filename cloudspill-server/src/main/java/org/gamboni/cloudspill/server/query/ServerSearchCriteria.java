@@ -6,12 +6,16 @@ import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.BackendItem_;
 import org.gamboni.cloudspill.domain.ServerDomain;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.domain.JpaItem;
+import org.gamboni.cloudspill.shared.domain.JpaItem_;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Set;
 
 import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.Order;
+import javax.persistence.criteria.Root;
 
 /**
  * @author tendays
@@ -104,6 +108,15 @@ public class ServerSearchCriteria implements Java8SearchCriteria<BackendItem> {
 
     public ServerSearchCriteria modifiedSince(Instant minModDate) {
         return new ServerSearchCriteria(from, to, user, tags, minId, minModDate, offset, limit);
+    }
+
+    @Override
+    public Order getOrder(CriteriaBuilder criteriaBuilder, Root<? extends BackendItem> root) {
+        if (minModDate != null) {
+            return criteriaBuilder.asc(root.get(BackendItem_.updated));
+        } else {
+            return Java8SearchCriteria.super.getOrder(criteriaBuilder, root);
+        }
     }
 
     @Override

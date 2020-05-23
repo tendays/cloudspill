@@ -64,7 +64,7 @@ public interface Java8SearchCriteria<T extends JpaItem> extends GalleryRequest {
         return api.getGalleryUrl(getTags(), getStringFrom(), getStringTo(), getOffset(), getLimit());
     }
 
-    default Order getOrder(CriteriaBuilder criteriaBuilder, Root<? extends JpaItem> root) {
+    default Order getOrder(CriteriaBuilder criteriaBuilder, Root<? extends T> root) {
         return criteriaBuilder.desc(root.get(JpaItem_.date));
     }
 

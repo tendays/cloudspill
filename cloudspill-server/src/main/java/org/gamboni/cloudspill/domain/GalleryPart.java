@@ -136,7 +136,7 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
     }
 
     /** Stored galleries sort from old to new. */
-    @Override @Transient public Order getOrder(CriteriaBuilder criteriaBuilder, Root<? extends JpaItem> root) {
+    @Override @Transient public Order getOrder(CriteriaBuilder criteriaBuilder, Root<? extends BackendItem> root) {
         return criteriaBuilder.asc(root.get(JpaItem_.date));
     }
 
