@@ -6,8 +6,6 @@ import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.BackendItem_;
 import org.gamboni.cloudspill.domain.ServerDomain;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
-import org.gamboni.cloudspill.shared.domain.JpaItem;
-import org.gamboni.cloudspill.shared.domain.JpaItem_;
 
 import java.time.Instant;
 import java.time.LocalDate;
