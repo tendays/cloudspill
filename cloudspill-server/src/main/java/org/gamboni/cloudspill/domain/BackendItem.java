@@ -74,4 +74,8 @@ public abstract class BackendItem extends JpaItem {
     private static LocalDateTime deserialiseDate(String time) {
         return time.isEmpty() ? null : Instant.ofEpochMilli(Long.parseLong(time)).atOffset(ZoneOffset.UTC).toLocalDateTime();
     }
+
+    public String toString() {
+        return super.toString() +"@"+ id;
+    }
 }
