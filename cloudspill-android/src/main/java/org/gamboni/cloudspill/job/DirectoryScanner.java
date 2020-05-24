@@ -70,8 +70,9 @@ public class DirectoryScanner {
 
         Log.d(TAG, "Starting run with queue "+ queue);
 
-        Domain.Query<Domain.Item> q = domain.selectItems();
-        for (Domain.Item item : q.list()) { // TODO select current user/folder only
+        Domain.Query<Domain.Item> q = domain.selectItems()
+            .eq(Domain.ItemSchema.USER, SettingsActivity.getUser(context));
+        for (Domain.Item item : q.list()) { // TODO select current folder only
             pathsInDb.add(item.getPath()); // TODO support single attribute selects
         }
         q.close();

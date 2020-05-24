@@ -401,15 +401,15 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                     }
                 });
         if (isJsonRequested(req)) {
-            final StringBuilder data = dumpCsv(res, stream, BackendItem.CSV);
-            return dumpFormat.dumpMetadata(criteria, itemSet, timestamp[0], new OnePerLineMetadataRepresentation(data)).toString();
-        } else { // csv
             final JsonArray data = dumpJson(res, stream, BackendItem.CSV);
             JsonObject object = new JsonObject();
             object.add("data", data);
             // galleries do not yet support metadata in forwarder, so disabling that for now
             //return dumpFormat.dumpMetadata(criteria, itemSet, timestamp[0], new JsonMetadataRepresentation(object)).toString();
             return object.toString();
+        } else { // csv
+            final StringBuilder data = dumpCsv(res, stream, BackendItem.CSV);
+            return dumpFormat.dumpMetadata(criteria, itemSet, timestamp[0], new OnePerLineMetadataRepresentation(data)).toString();
         }
     }
 
