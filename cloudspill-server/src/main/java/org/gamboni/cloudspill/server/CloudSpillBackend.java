@@ -400,10 +400,10 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                         timestamp[0] = item.getUpdated();
                     }
                 });
-        if (isCsvRequested(req)) {
+        if (isJsonRequested(req)) {
             final StringBuilder data = dumpCsv(res, stream, BackendItem.CSV);
             return dumpFormat.dumpMetadata(criteria, itemSet, timestamp[0], new OnePerLineMetadataRepresentation(data)).toString();
-        } else { // json
+        } else { // csv
             final JsonArray data = dumpJson(res, stream, BackendItem.CSV);
             JsonObject object = new JsonObject();
             object.add("data", data);

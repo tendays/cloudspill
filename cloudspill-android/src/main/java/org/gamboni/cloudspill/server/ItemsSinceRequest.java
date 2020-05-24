@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.util.Iterator;
+import java.util.Map;
 
 /** Get the list of items that have been created after (I have a greater id than) the given one.
  *
@@ -40,6 +41,13 @@ public class ItemsSinceRequest extends AuthenticatingRequest<ItemsSinceRequest.R
         super(context, Method.GET, api.getItemsSinceUrl(millis), listener, errorListener);
         this.domain = domain;
         setRetryPolicy(new DefaultRetryPolicy(/*timeout*/30_000, /*retries*/3, /*backoff multiplier*/2));
+    }
+
+    @Override
+    public Map<String, String> getHeaders() {
+        final Map<String, String> headers = super.getHeaders();
+        headers.put("Accept", "text/csv");
+        return headers;
     }
 
     @Override
