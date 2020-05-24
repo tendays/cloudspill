@@ -58,6 +58,7 @@ abstract class BackendModule extends AbstractModule {
         prop.setProperty(AvailableSettings.PASS, "cloudspill");
         prop.setProperty(AvailableSettings.SHOW_SQL, "true");
         prop.setProperty(AvailableSettings.DIALECT, MySQLDialect.class.getName());
+        prop.setProperty(AvailableSettings.DEFAULT_BATCH_FETCH_SIZE, "50");
 
         // See https://www.databasesandlife.com/automatic-reconnect-from-hibernate-to-mysql/
         prop.setProperty(AvailableSettings.C3P0_MIN_SIZE, "5");
