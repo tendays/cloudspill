@@ -7,9 +7,10 @@ import com.google.inject.Guice;
 import com.google.inject.Injector;
 
 import org.gamboni.cloudspill.domain.BackendItem;
+import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
 import org.gamboni.cloudspill.domain.ForwarderDomain;
-import org.gamboni.cloudspill.domain.GalleryPart;
 import org.gamboni.cloudspill.domain.RemoteItem;
+import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.config.ForwarderConfiguration;
 import org.gamboni.cloudspill.server.html.GalleryListPage;
 import org.gamboni.cloudspill.server.query.GalleryPartReference;
@@ -21,6 +22,7 @@ import org.gamboni.cloudspill.shared.api.Csv;
 import org.gamboni.cloudspill.shared.api.CsvEncoding;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.util.Log;
+import org.mindrot.jbcrypt.BCrypt;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -87,6 +89,11 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
+    protected OrHttpError<User> getUser(String username, String password, CloudSpillEntityManagerDomain session) {
+        return null;
+    }
+
+    @Override
     protected OrHttpError<? extends BackendItem> loadItem(ForwarderDomain session, long id, ItemCredentials credentials) {
         RemoteItem item = session.get(RemoteItem.class, id);
         if (item == null) {
@@ -134,15 +141,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
             try (Reader reader = new InputStreamReader(connection.getInputStream())) {
                 final int responseCode = ((HttpURLConnection) connection).getResponseCode();
                 if (responseCode < 200 || responseCode >= 300) {
-                    return new OrHttpError<>(res -> {
-                        try {
-                            String responseString = CharStreams.toString(reader);
-                            res.status(responseCode);
-                            return "Remote Server answered: " + responseString;
-                        } catch (IOException e) {
-                            return gatewayTimeout(res);
-                        }
-                    });
+                    return passHttpError(reader, responseCode);
                 }
 
                 LineNumberReader lineReader = new LineNumberReader(reader);
@@ -163,6 +162,18 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
             Log.warn("Error communicating with remote server", e);
             return gatewayTimeout();
         }
+    }
+
+    private <R> OrHttpError<R> passHttpError(Reader reader, int responseCode) {
+        return new OrHttpError<>(res -> {
+            try {
+                String responseString = CharStreams.toString(reader);
+                res.status(responseCode);
+                return "Remote Server answered: " + responseString;
+            } catch (IOException e) {
+                return gatewayTimeout(res);
+            }
+        });
     }
 
     private OrHttpError<ItemSet> deserialiseStream(String url, ItemCredentials credentials) {
@@ -276,8 +287,33 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
-    protected String ping() {
-        throw new UnsupportedOperationException();
+    protected OrHttpError<String> ping(ForwarderDomain session, ItemCredentials.UserPassword credentials) {
+        try {
+            final URLConnection connection = new URL(remoteApi.ping()).openConnection();
+            credentials.setHeaders(connection, Base64.getEncoder()::encodeToString);
+            try (Reader reader = new InputStreamReader(connection.getInputStream())) {
+                final int responseCode = ((HttpURLConnection) connection).getResponseCode();
+                if (responseCode < 200 || responseCode >= 300) {
+                    return passHttpError(reader, responseCode);
+                }
+                String info = CharStreams.toString(reader);
+
+                User u = new User();
+                u.setName(credentials.user.getName());
+
+                String salt = BCrypt.gensalt();
+                u.setSalt(salt);
+
+                u.setPass(BCrypt.hashpw(requireNotNull(credentials.getPassword()), salt));
+
+                session.persist(u);
+
+                return new OrHttpError<>(info);
+            }
+        } catch (IOException e) {
+            Log.error(e.toString());
+            return gatewayTimeout();
+        }
     }
 
     @Override

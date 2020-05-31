@@ -144,25 +144,32 @@ public class CloudSpillServerProxy {
             .connect(new AuthenticatingConnection.Session() {
                 @Override
                 public void run(AuthenticatingConnection.Connected connected) throws IOException {
+                    final InputStream input = connected.getInput();
+                    Log.d(TAG, "Eager input has "+ input.available() +" bytes ready");
+                    //final BufferedReader eagerRead = new BufferedReader(new InputStreamReader(input));
+
                     BufferedReader response = null;
 
                     int loggedPercentage = 0; // latest displayed percentage
                     int transmitted = 0; // how many bytes have been pushed so far
 
-                    OutputStream out = null;
-                    out = connected.getOutput();
+                    OutputStream out = connected.getOutput();
                     byte[] buffer = new byte[BUF_SIZE];
                     int readLen;
-                    while ((readLen = body.read(buffer)) > 0) {
-                        out.write(buffer, 0, readLen);
-                        transmitted += readLen;
-                        int percentage = (int) (transmitted * 100 / bytes);
-                        if (percentage / 10 > loggedPercentage / 10) {
-                            Log.d(TAG, "UploadingVideo " + folder + "/" + path + " [" + percentage + "%]");
-                            loggedPercentage = percentage;
+                    try {
+                        while ((readLen = body.read(buffer)) > 0) {
+                            out.write(buffer, 0, readLen);
+                            transmitted += readLen;
+                            int percentage = (int) (transmitted * 100 / bytes);
+                            if (percentage / 10 > loggedPercentage / 10) {
+                                Log.d(TAG, "UploadingVideo " + folder + "/" + path + " [" + percentage + "%]");
+                                loggedPercentage = percentage;
+                            }
                         }
+                    } catch (IOException writeException) {
+                        Log.w(TAG, "Exception writing message body. This may be expected when uploading an already existing item", writeException);
                     }
-                    response = new BufferedReader(new InputStreamReader(connected.getInput()));
+                    response = new BufferedReader(new InputStreamReader(input));
                     String responseText = response.readLine();
                     if (responseText == null) {
                         Log.e(TAG, "No response");

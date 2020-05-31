@@ -57,7 +57,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         before((req, res) -> AbstractPage.recordRequestStart());
         after((req, res) -> AbstractPage.clearRequestStopwatch());
 
-        get(api.ping(), secured((req, res, session, user) -> ping()));
+        get(api.ping(), secured((req, res, session, user) -> ping(session, user)));
 
         get(api.css(), (req, res) -> {
             res.type("text/css; charset=UTF-8");
@@ -450,7 +450,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
      */
     protected abstract void download(Response res, D session, ItemCredentials credentials, BackendItem item) throws IOException;
 
-    protected abstract String ping();
+    protected abstract OrHttpError<String> ping(D session, ItemCredentials.UserPassword credentials);
 
     /** @param credentials current user credentials (permissions have already been checked so this can be ignored) */
     protected abstract ItemQueryLoader getQueryLoader(D session, ItemCredentials credentials);

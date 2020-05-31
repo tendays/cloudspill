@@ -8,7 +8,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
 import com.google.inject.Guice;
-import com.google.inject.Injector;
 
 import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.FrameGrabber;
@@ -21,6 +20,7 @@ import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.Item_;
 import org.gamboni.cloudspill.domain.ServerDomain;
 import org.gamboni.cloudspill.domain.User;
+import org.gamboni.cloudspill.domain.User_;
 import org.gamboni.cloudspill.server.config.ServerConfiguration;
 import org.gamboni.cloudspill.server.html.GalleryListPage;
 import org.gamboni.cloudspill.server.query.ItemQueryLoader;
@@ -289,6 +289,9 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 				return item.getId();
 
 			case 1:
+				// throw away input data.
+				// TODO we should ideally just return early but it makes Java clients crash
+				ByteStreams.exhaust(req.raw().getInputStream());
 				return existing.get(0).getId();
 
 			default:
@@ -306,12 +309,28 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 		}
 	}
 
-
-	protected String ping() {
+	@Override
+	protected OrHttpError<String> ping(ServerDomain session, ItemCredentials.UserPassword credentials) {
 		// WARN: currently the frontend requires precisely this syntax, spaces included
-		return CloudSpillApi.PING_PREAMBLE + "\n"
+		return new OrHttpError<>(CloudSpillApi.PING_PREAMBLE + "\n"
 				+ CloudSpillApi.PING_DATA_VERSION + ": "+ DATA_VERSION +"\n"
-				+ CloudSpillApi.PING_PUBLIC_URL + ": "+ configuration.getPublicUrl();
+				+ CloudSpillApi.PING_PUBLIC_URL + ": "+ configuration.getPublicUrl());
+	}
+
+	@Override
+	protected OrHttpError<User> getUser(String username, String password, CloudSpillEntityManagerDomain session) {
+		final ServerDomain.Query<User> userQuery = session.selectUser();
+		final List<User> users = userQuery.add(root ->
+				session.criteriaBuilder.equal(root.get(User_.name), username))
+				.list();
+		if (users.isEmpty()) {
+			return new OrHttpError<>(res -> {
+				Log.error("Unknown user " + username);
+				return forbidden(res, true);
+			});
+		} else {
+			return new OrHttpError<>(Iterables.getOnlyElement(users));
+		}
 	}
 
 	@Override

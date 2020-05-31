@@ -89,6 +89,13 @@ public interface ItemCredentials {
 
             connection.setRequestProperty("Authorization", "Basic " + b64.encode(credentials.getBytes()));
         }
+
+        public String getPassword() {
+            if (password == null) {
+                throw new IllegalStateException("No password available");
+            }
+            return password;
+        }
     }
 
     class ItemKey implements ItemCredentials {

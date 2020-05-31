@@ -2,7 +2,6 @@ package org.gamboni.cloudspill.server;
 
 import java.io.File;
 import java.util.Base64;
-import java.util.List;
 
 import javax.inject.Inject;
 import javax.persistence.EntityManager;
@@ -11,13 +10,9 @@ import javax.persistence.EntityTransaction;
 import javax.servlet.http.HttpServletResponse;
 
 import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
-import org.gamboni.cloudspill.domain.ServerDomain;
 import org.gamboni.cloudspill.domain.User;
-import org.gamboni.cloudspill.domain.User_;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.util.Log;
-
-import com.google.common.collect.Iterables;
 
 import spark.Request;
 import spark.Response;
@@ -82,19 +77,10 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 			}
 			String username = credentials.substring(0, colon);
 			String password = credentials.substring(colon+1);
-            final ServerDomain.Query<User> userQuery = session.selectUser();
-            final List<User> users = userQuery.add(root ->
-                    session.criteriaBuilder.equal(root.get(User_.name), username))
-                    .list();
-			if (users.isEmpty()) {
-				return new OrHttpError<>(res -> {
-					Log.error("Unknown user " + username);
-					return forbidden(res, true);
-				});
-			}
-			User user = Iterables.getOnlyElement(users);
-			user.verifyPassword(password);
-			return new OrHttpError<>(new ItemCredentials.UserPassword(user, password));
+			return getUser(username, password, session).map(user -> {
+				user.verifyPassword(password);
+				return new ItemCredentials.UserPassword(user, password);
+			});
 		} else {
 			return new OrHttpError<>(res -> {
 				Log.error("Unsupported Authorization scheme");
@@ -102,6 +88,8 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 			});
 		}
 	}
+
+	protected abstract OrHttpError<User> getUser(String username, String password, CloudSpillEntityManagerDomain session);
 
 	protected String notFound(Response res, long item) {
 		Log.error("Not found: item "+ item);
