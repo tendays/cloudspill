@@ -31,6 +31,10 @@ public class OrHttpError<T> {
         }
     }
 
+    public Object get(Response res) throws Exception {
+        return this.get(res, value -> value);
+    }
+
     @SuppressWarnings("unchecked") // changing type parameter is safe on error because item is null in that case
     public <U> OrHttpError<U> flatMap(Function<T, OrHttpError<U>> function) {
         if (error != null) {
