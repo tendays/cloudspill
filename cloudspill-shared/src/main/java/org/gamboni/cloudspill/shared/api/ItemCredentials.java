@@ -1,5 +1,6 @@
 package org.gamboni.cloudspill.shared.api;
 
+import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
 import org.gamboni.cloudspill.shared.domain.IsItem;
 import org.gamboni.cloudspill.shared.domain.IsUser;
 import org.gamboni.cloudspill.shared.domain.Items;
@@ -70,7 +71,12 @@ public interface ItemCredentials {
 
         @Override
         public boolean verify(IsItem item) {
-            return user.verifyPassword(password);
+            try {
+                user.verifyPassword(password);
+                return true;
+            } catch (InvalidPasswordException e) {
+                return false;
+            }
         }
 
         @Override
