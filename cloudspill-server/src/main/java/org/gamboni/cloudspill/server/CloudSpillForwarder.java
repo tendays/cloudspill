@@ -89,8 +89,8 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
-    protected OrHttpError<User> getUser(String username, String password, CloudSpillEntityManagerDomain session) {
-        return null;
+    protected OrHttpError<User> getUser(String username, CloudSpillEntityManagerDomain session) {
+        return getUserFromDB(username, session);
     }
 
     @Override
@@ -298,15 +298,18 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
                 }
                 String info = CharStreams.toString(reader);
 
-                User u = new User();
-                u.setName(credentials.user.getName());
+                final OrHttpError<User> userFromDB = getUserFromDB(credentials.user.getName(), session);
 
-                String salt = BCrypt.gensalt();
-                u.setSalt(salt);
+                if (!userFromDB.hasValue()) {
+                    User u = new User();
+                    u.setName(credentials.user.getName());
 
-                u.setPass(BCrypt.hashpw(requireNotNull(credentials.getPassword()), salt));
+                    String salt = BCrypt.gensalt();
+                    u.setSalt(salt);
+                    u.setPass(BCrypt.hashpw(requireNotNull(credentials.getPassword()), salt));
 
-                session.persist(u);
+                    session.persist(u);
+                } // TODO support changing password?
 
                 return new OrHttpError<>(info);
             }

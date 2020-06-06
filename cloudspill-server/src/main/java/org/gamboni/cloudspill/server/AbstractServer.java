@@ -1,7 +1,10 @@
 package org.gamboni.cloudspill.server;
 
+import com.google.common.collect.Iterables;
+
 import java.io.File;
 import java.util.Base64;
+import java.util.List;
 
 import javax.inject.Inject;
 import javax.persistence.EntityManager;
@@ -10,7 +13,9 @@ import javax.persistence.EntityTransaction;
 import javax.servlet.http.HttpServletResponse;
 
 import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
+import org.gamboni.cloudspill.domain.ServerDomain;
 import org.gamboni.cloudspill.domain.User;
+import org.gamboni.cloudspill.domain.User_;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
 import org.gamboni.cloudspill.shared.util.Log;
@@ -55,17 +60,32 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 		return authenticate(req, session, false);
 	}
 
+
+
 	private OrHttpError<ItemCredentials.UserPassword> authenticate(Request req, S session, boolean required) {
-		final String authHeader = req.headers("Authorization");
-		if (authHeader == null) {
-			if (required) {
+		return getUnverifiedCredentials(req, session).flatMap(credentials -> {
+			if (required && credentials == null) {
 				return new OrHttpError<>(res -> {
 					Log.error("Missing Authorization header");
 					return unauthorized(res);
 				});
-			} else {
-				return new OrHttpError<>((ItemCredentials.UserPassword)null);
 			}
+			if (credentials != null) {
+				try {
+					credentials.user.verifyPassword(credentials.getPassword());
+				} catch (InvalidPasswordException e) {
+					return forbidden(false);
+				}
+			}
+			return new OrHttpError<>(credentials);
+
+		});
+	}
+
+	protected OrHttpError<ItemCredentials.UserPassword> getUnverifiedCredentials(Request req, S session) {
+		final String authHeader = req.headers("Authorization");
+		if (authHeader == null) {
+			return new OrHttpError<>((ItemCredentials.UserPassword)null);
 		} else if (authHeader.startsWith("Basic ")) {
 			final String token = authHeader.substring("Basic ".length()).trim();
 			final String credentials = new String(Base64.getDecoder().decode(token));
@@ -78,14 +98,8 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 			}
 			String username = credentials.substring(0, colon);
 			String password = credentials.substring(colon+1);
-			return getUser(username, password, session).flatMap(user -> {
-				try {
-					user.verifyPassword(password);
-					return new OrHttpError<>(new ItemCredentials.UserPassword(user, password));
-				} catch (InvalidPasswordException e) {
-					return forbidden(false);
-				}
-			});
+			return getUser(username, session).flatMap(user ->
+				new OrHttpError<>(new ItemCredentials.UserPassword(user, password)));
 		} else {
 			return new OrHttpError<>(res -> {
 				Log.error("Unsupported Authorization scheme");
@@ -94,7 +108,23 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 		}
 	}
 
-	protected abstract OrHttpError<User> getUser(String username, String password, CloudSpillEntityManagerDomain session);
+	protected abstract OrHttpError<User> getUser(String username, CloudSpillEntityManagerDomain session);
+
+	protected OrHttpError<User> getUserFromDB(String username, CloudSpillEntityManagerDomain session) {
+		final ServerDomain.Query<User> userQuery = session.selectUser();
+		final List<User> users = userQuery.add(root ->
+				session.criteriaBuilder.equal(root.get(User_.name), username))
+				.list();
+		if (users.isEmpty()) {
+			return new OrHttpError<>(res -> {
+				Log.error("Unknown user " + username);
+				return forbidden(res, true);
+			});
+		} else {
+			return new OrHttpError<>(Iterables.getOnlyElement(users));
+		}
+	}
+
 
 	protected String notFound(Response res, long item) {
 		Log.error("Not found: item "+ item);

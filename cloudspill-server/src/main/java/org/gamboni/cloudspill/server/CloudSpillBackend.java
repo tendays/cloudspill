@@ -57,7 +57,12 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         before((req, res) -> AbstractPage.recordRequestStart());
         after((req, res) -> AbstractPage.clearRequestStopwatch());
 
-        get(api.ping(), secured((req, res, session, user) -> ping(session, user).get(res)));
+        get(api.ping(), (req, res) -> transacted(session ->
+                getUnverifiedCredentials(req, session)
+                        .flatMap(unverifiedCredentials ->
+                            (unverifiedCredentials == null) ? // no authentication headers
+                                forbidden(true) :
+                            ping(session, unverifiedCredentials))));
 
         get(api.css(), (req, res) -> {
             res.type("text/css; charset=UTF-8");

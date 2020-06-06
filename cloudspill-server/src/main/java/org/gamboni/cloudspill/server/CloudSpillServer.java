@@ -311,6 +311,9 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 
 	@Override
 	protected OrHttpError<String> ping(ServerDomain session, ItemCredentials.UserPassword credentials) {
+    	if (!credentials.verify(null)) {
+    		return forbidden(false);
+		}
 		// WARN: currently the frontend requires precisely this syntax, spaces included
 		return new OrHttpError<>(CloudSpillApi.PING_PREAMBLE + "\n"
 				+ CloudSpillApi.PING_DATA_VERSION + ": "+ DATA_VERSION +"\n"
@@ -318,19 +321,8 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	}
 
 	@Override
-	protected OrHttpError<User> getUser(String username, String password, CloudSpillEntityManagerDomain session) {
-		final ServerDomain.Query<User> userQuery = session.selectUser();
-		final List<User> users = userQuery.add(root ->
-				session.criteriaBuilder.equal(root.get(User_.name), username))
-				.list();
-		if (users.isEmpty()) {
-			return new OrHttpError<>(res -> {
-				Log.error("Unknown user " + username);
-				return forbidden(res, true);
-			});
-		} else {
-			return new OrHttpError<>(Iterables.getOnlyElement(users));
-		}
+	protected OrHttpError<User> getUser(String username, CloudSpillEntityManagerDomain session) {
+		return getUserFromDB(username, session);
 	}
 
 	@Override

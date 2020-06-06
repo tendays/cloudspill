@@ -60,4 +60,8 @@ public class OrHttpError<T> {
     public interface ItemConsumer<T> {
         Object accept(T item) throws Exception;
     }
+
+    public boolean hasValue() {
+        return (error == null);
+    }
 }
