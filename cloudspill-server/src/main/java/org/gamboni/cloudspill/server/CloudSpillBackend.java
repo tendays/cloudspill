@@ -62,7 +62,8 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                         .flatMap(unverifiedCredentials ->
                             (unverifiedCredentials == null) ? // no authentication headers
                                 forbidden(true) :
-                            ping(session, unverifiedCredentials))));
+                            ping(session, unverifiedCredentials))
+                        .get(res)));
 
         get(api.css(), (req, res) -> {
             res.type("text/css; charset=UTF-8");
