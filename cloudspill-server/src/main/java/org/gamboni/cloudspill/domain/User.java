@@ -3,8 +3,10 @@
  */
 package org.gamboni.cloudspill.domain;
 
+import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
 import org.gamboni.cloudspill.shared.domain.IsUser;
 import org.gamboni.cloudspill.shared.util.Log;
+import org.gamboni.cloudspill.shared.util.Supplier;
 import org.mindrot.jbcrypt.BCrypt;
 
 import javax.persistence.Column;
@@ -28,14 +30,13 @@ public class User implements IsUser {
 	}
 
 	@Override
-	public boolean verifyPassword(String password) {
+	public void verifyPassword(String password) throws InvalidPasswordException {
 		final String queryHash = BCrypt.hashpw(password, this.getSalt());
 		if (!queryHash.equals(this.getPass())) {
 			Log.error("Invalid credentials for user "+ this.getName());
-			return false;
+			throw new InvalidPasswordException();
 		} else {
 			Log.info("User "+ this.getName() +" authenticated");
-			return true;
 		}
 	}
 

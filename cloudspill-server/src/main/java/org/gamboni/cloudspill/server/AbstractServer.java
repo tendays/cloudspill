@@ -12,6 +12,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
 import org.gamboni.cloudspill.shared.util.Log;
 
 import spark.Request;
@@ -77,9 +78,13 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 			}
 			String username = credentials.substring(0, colon);
 			String password = credentials.substring(colon+1);
-			return getUser(username, password, session).map(user -> {
-				user.verifyPassword(password);
-				return new ItemCredentials.UserPassword(user, password);
+			return getUser(username, password, session).flatMap(user -> {
+				try {
+					user.verifyPassword(password);
+					return new OrHttpError<>(new ItemCredentials.UserPassword(user, password));
+				} catch (InvalidPasswordException e) {
+					return forbidden(false);
+				}
 			});
 		} else {
 			return new OrHttpError<>(res -> {

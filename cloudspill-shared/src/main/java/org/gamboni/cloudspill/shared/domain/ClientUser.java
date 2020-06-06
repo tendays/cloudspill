@@ -1,5 +1,7 @@
 package org.gamboni.cloudspill.shared.domain;
 
+import org.gamboni.cloudspill.shared.util.Supplier;
+
 /** {@link IsUser} implementation containing just a username, suitable to create a {@link org.gamboni.cloudspill.shared.api.ItemCredentials.UserPassword}
  * credential object.
  *
@@ -19,7 +21,7 @@ public class ClientUser implements IsUser {
     }
 
     @Override
-    public boolean verifyPassword(String password) {
+    public void verifyPassword(String password) {
         throw new UnsupportedOperationException();
     }
 }

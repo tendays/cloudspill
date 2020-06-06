@@ -495,8 +495,7 @@ public class Domain extends AbstractDomain<Domain> {
         }
 
         /** @throws java.lang.IllegalArgumentException if the path is not a valid URI. */
-        public FileBuilder getFile() {
-            return new FileBuilder.Found(context, Uri.parse(get(FolderSchema.PATH)));
+        public FileBuilder getFile() { return new FileBuilder.Found(context, Uri.parse(get(FolderSchema.PATH)));
         }
     }
 
