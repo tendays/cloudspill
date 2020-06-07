@@ -21,7 +21,8 @@ public class ClientUser implements IsUser {
     }
 
     @Override
-    public void verifyPassword(String password) {
-        throw new UnsupportedOperationException();
+    public void verifyPassword(String password) throws InvalidPasswordException {
+        /* This object is used in the forwarder for users which aren't in the database, so we should reject logins using such a user */
+        throw new InvalidPasswordException();
     }
 }
