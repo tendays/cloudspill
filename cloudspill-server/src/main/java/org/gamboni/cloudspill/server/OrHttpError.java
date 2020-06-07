@@ -3,6 +3,7 @@ package org.gamboni.cloudspill.server;
 import com.google.common.base.Preconditions;
 
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import spark.Response;
 
@@ -50,6 +51,14 @@ public class OrHttpError<T> {
             return (OrHttpError<U>)this;
         } else {
             return new OrHttpError<>(function.apply(item));
+        }
+    }
+
+    public T orElse(Supplier<T> supplier) {
+        if (error == null) {
+            return this.item;
+        } else {
+            return supplier.get();
         }
     }
 

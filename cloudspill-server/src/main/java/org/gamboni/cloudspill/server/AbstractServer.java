@@ -17,6 +17,7 @@ import org.gamboni.cloudspill.domain.ServerDomain;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.domain.User_;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.domain.ClientUser;
 import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
 import org.gamboni.cloudspill.shared.util.Log;
 
@@ -98,8 +99,11 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 			}
 			String username = credentials.substring(0, colon);
 			String password = credentials.substring(colon+1);
-			return getUser(username, session).flatMap(user ->
-				new OrHttpError<>(new ItemCredentials.UserPassword(user, password)));
+			return new OrHttpError<>(
+					getUser(username, session)
+							.map(u -> new ItemCredentials.UserPassword(u, password))
+							.orElse(() ->
+									new ItemCredentials.UserPassword(new ClientUser(username), password)));
 		} else {
 			return new OrHttpError<>(res -> {
 				Log.error("Unsupported Authorization scheme");
