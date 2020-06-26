@@ -144,8 +144,11 @@ public class CloudSpillServerProxy {
             .connect(new AuthenticatingConnection.Session() {
                 @Override
                 public void run(AuthenticatingConnection.Connected connected) throws IOException {
+                    /*
+                    DANGER: this creates zero-byte files in server!
                     final InputStream input = connected.getInput();
                     Log.d(TAG, "Eager input has "+ input.available() +" bytes ready");
+                    */
                     //final BufferedReader eagerRead = new BufferedReader(new InputStreamReader(input));
 
                     BufferedReader response = null;
@@ -160,7 +163,7 @@ public class CloudSpillServerProxy {
                         while ((readLen = body.read(buffer)) > 0) {
                             out.write(buffer, 0, readLen);
                             transmitted += readLen;
-                            int percentage = (int) (transmitted * 100 / bytes);
+                            int percentage = (int) (transmitted * 100.0 / bytes);
                             if (percentage / 10 > loggedPercentage / 10) {
                                 Log.d(TAG, "UploadingVideo " + folder + "/" + path + " [" + percentage + "%]");
                                 loggedPercentage = percentage;
@@ -169,7 +172,7 @@ public class CloudSpillServerProxy {
                     } catch (IOException writeException) {
                         Log.w(TAG, "Exception writing message body. This may be expected when uploading an already existing item", writeException);
                     }
-                    response = new BufferedReader(new InputStreamReader(input));
+                    response = new BufferedReader(new InputStreamReader(connected.getInput()));
                     String responseText = response.readLine();
                     if (responseText == null) {
                         Log.e(TAG, "No response");
