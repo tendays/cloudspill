@@ -12,7 +12,6 @@ function createPlaceholders(dataUrl, imageUrlPattern, hrefPattern, pageSize, cou
                     if (req.readyState != 4) return; // State 4 is DONE
 
                     let response = JSON.parse(req.responseText);
-                    //console.log(response);
                     let data = response.data;
                     for (let i=0; i<data.length; i++) {
                         placeholders[i+offset].href = hrefPattern.replace("%d", data[i].id).replace("%s", data[i].checksum)

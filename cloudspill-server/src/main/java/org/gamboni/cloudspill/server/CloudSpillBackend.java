@@ -65,21 +65,9 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                             ping(session, unverifiedCredentials))
                         .get(res)));
 
-        get(api.css(), (req, res) -> {
-            res.type("text/css; charset=UTF-8");
-            ByteStreams.copy(
-                    getClass().getClassLoader().getResourceAsStream("css/main.css"),
-                    res.raw().getOutputStream());
-            return "";
-        });
-
-        get(api.js(), (req, res) -> {
-            res.type("application/javascript; charset=UTF-8");
-            ByteStreams.copy(
-                    getClass().getClassLoader().getResourceAsStream("js/lazy-load.js"),
-                    res.raw().getOutputStream());
-            return "";
-        });
+        exposeResource(api.css(), "css/main.css", "text/css");
+        exposeResource(api.lazyLoadJS(), "js/lazy-load.js", "application/javascript");
+        exposeResource(api.editorJS(), "js/editor.js", "application/javascript");
 
         get("/robots.txt", (req, res)->
                 "User-agent: *\n" +
@@ -194,6 +182,16 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             Log.debug("user is "+ username +", folder is "+ folder +" and path is "+ path);
             return upload(req, res, session, credentials, folder, path);
         }));
+    }
+
+    private void exposeResource(String url, String fileName, String mime) {
+        get(url, (req, res) -> {
+            res.type(mime+ "; charset=UTF-8");
+            ByteStreams.copy(
+                    getClass().getClassLoader().getResourceAsStream(fileName),
+                    res.raw().getOutputStream());
+            return "";
+        });
     }
 
     private Object galleryPage(BackendConfiguration configuration, Request req, Response res, D domain, ItemCredentials credentials, Java8SearchCriteria<BackendItem> allItems,

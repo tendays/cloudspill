@@ -120,3 +120,37 @@ h1 {
     font-family: monospace;
     color: darkgray;
 }
+
+/* Editor */
+
+.button {
+    cursor: pointer;
+    background-color: #666;
+    color: pink;
+    border-radius: 5px;
+    padding: 3px;
+    font-variant: small-caps;
+    display: inline-block;
+    border-style: solid;
+    border-width: 1px;
+    border-color: #888 #333 #333 #888;
+}
+
+.cursor {
+    height: 1em;
+    width: 2px;
+    background-color: white;
+    display: inline-block;
+    margin: 0 2px;
+    vertical-align: middle;
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 49% {
+    opacity: 100%;
+  }
+  50%, 100% {
+    opacity: 0%;
+  }
+}

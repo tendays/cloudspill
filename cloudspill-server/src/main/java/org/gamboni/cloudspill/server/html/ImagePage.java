@@ -28,7 +28,13 @@ public class ImagePage extends AbstractPage {
 
 		this.item = item;
 	}
-	
+
+
+	@Override
+	protected HtmlFragment scripts() {
+		return tag("script", "type='text/javascript' src=" + quote(api.editorJS()), "");
+	}
+
 	public String getTitle() {
 		return item.getUser() +"/"+ item.getFolder() +"/"+ item.getPath();
 	}
@@ -49,6 +55,8 @@ public class ImagePage extends AbstractPage {
 		return HtmlFragment.concatenate(unclosedTag((item.getType() == ItemType.VIDEO ? "video controls " : "img ") +
 						"class='image' src=" + quote(getImageUrl())),
 				tag("div", "class='metadata'",
+						(authStatus == ItemCredentials.AuthenticationStatus.LOGGED_IN ?
+								tag("div", "class='button' onclick='edit()'", "edit") : HtmlFragment.EMPTY),
 						tag("div", "By: " + item.getUser()),
 						dateLine(authStatus),
 						tag("div", MoreObjects.firstNonNull(item.getDescription(), "")),

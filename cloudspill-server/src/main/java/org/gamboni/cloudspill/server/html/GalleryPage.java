@@ -36,7 +36,7 @@ public class GalleryPage extends AbstractPage {
 
     @Override
     protected HtmlFragment scripts() {
-        return tag("script", "type='text/javascript' src="+ quote(api.js()), "");
+        return tag("script", "type='text/javascript' src="+ quote(api.lazyLoadJS()), "");
     }
 
     @Override

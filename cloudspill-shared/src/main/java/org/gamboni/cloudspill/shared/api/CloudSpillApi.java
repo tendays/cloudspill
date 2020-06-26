@@ -70,8 +70,12 @@ public class CloudSpillApi {
         return serverUrl +"main.css";
     }
 
-    public String js() {
-        return serverUrl +"main.js";
+    public String lazyLoadJS() {
+        return serverUrl +"lazy-load.js";
+    }
+
+    public String editorJS() {
+        return serverUrl +"editor.js";
     }
 
     public String galleryListPage(ItemCredentials credentials) {
