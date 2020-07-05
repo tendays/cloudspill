@@ -1,6 +1,8 @@
 package org.gamboni.cloudspill.server;
 
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimap;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CharStreams;
 import com.google.inject.Guice;
@@ -11,6 +13,7 @@ import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
 import org.gamboni.cloudspill.domain.ForwarderDomain;
 import org.gamboni.cloudspill.domain.RemoteItem;
 import org.gamboni.cloudspill.domain.User;
+import org.gamboni.cloudspill.domain.UserAuthToken;
 import org.gamboni.cloudspill.server.config.ForwarderConfiguration;
 import org.gamboni.cloudspill.server.html.GalleryListPage;
 import org.gamboni.cloudspill.server.query.GalleryPartReference;
@@ -64,6 +67,9 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
 
     private final ForwarderConfiguration configuration;
     private final CloudSpillApi remoteApi;
+
+    /** Temporary: keep tokens in memory */
+    Multimap<String, UserAuthToken> tokens = HashMultimap.create();
 
     @Inject
     public CloudSpillForwarder(ForwarderConfiguration configuration) {

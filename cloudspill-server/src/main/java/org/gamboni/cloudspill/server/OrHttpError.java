@@ -24,11 +24,18 @@ public class OrHttpError<T> {
         this.error = Preconditions.checkNotNull(error);
     }
 
-    public Object get(Response res, ItemConsumer<T> onItem) throws Exception {
+    /** If this is an error, publish it to the given Response object. Otherwise (this holds a value), transform it
+     * using the given {@link ItemConsumer}.
+     * @param res where to publish any error
+     * @param onValue transformer if this has a value
+     * @return either an error string, or whatever {@code onValue} returned
+     * @throws Exception if thrown by {@code onValue}
+     */
+    public Object get(Response res, ItemConsumer<T> onValue) throws Exception {
         if (error != null) {
             return error.emit(res);
         } else {
-            return onItem.accept(item);
+            return onValue.accept(item);
         }
     }
 

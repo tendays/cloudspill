@@ -1,16 +1,13 @@
 package org.gamboni.cloudspill.server;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Multimap;
 import com.google.common.io.ByteStreams;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
-import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.domain.UserAuthToken;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
 import org.gamboni.cloudspill.server.html.AbstractPage;
@@ -33,12 +30,12 @@ import org.gamboni.cloudspill.shared.domain.Items;
 import org.gamboni.cloudspill.shared.util.Log;
 
 import java.io.IOException;
-import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -60,9 +57,6 @@ import static spark.Spark.put;
  */
 public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain> extends AbstractServer<D> {
     private static final ItemCredentials.PublicAccess publicAccess = new ItemCredentials.PublicAccess();
-
-    /* Temporary: keep tokens in memory */
-    Multimap<String, UserAuthToken> tokens = HashMultimap.create();
 
     protected final void setupRoutes(BackendConfiguration configuration) {
         CloudSpillApi api = new CloudSpillApi("");
@@ -204,68 +198,23 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
         get("/", (req, res) -> title().get(res, title -> new LoginPage(configuration, title).getHtml(publicAccess)));
 
-        /* Request a new authentication token */
-        post("/user/:name/new-token", (req, res) -> transacted(session -> {
-            String chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-            final SecureRandom random = new SecureRandom();
-            final String secret = random.ints(255).map(n -> chars.charAt(Math.abs(n) % (chars.length())))
-                    .collect(StringBuilder::new, (builder, chr) -> builder.append((char) chr),
-                            (a, b) -> {
-                                throw new UnsupportedOperationException();
-                            }).toString();
-            UserAuthToken token = new UserAuthToken();
-            token.setId(tokens.values().size()); // NOTE: remove once in database
-            token.setValue(secret);
-            token.setValid(false);
-            final User user = session.get(User.class, req.params("name"));
-            token.setUser(user);
-            token.setDescription(req.headers("User-Agent") +" at "+ req.ip() +" at "+ LocalDateTime.now());
-            tokens.put(req.params("name"), token);
+        /* Login, step 1: request a new authentication token */
+        post("/user/:name/new-token", (req, res) -> newToken(
+                req.params("name"),
+                req.headers("User-Agent") +" at "+ req.ip() +" at "+ LocalDateTime.now())
+                .map(ItemCredentials.UserToken::encodeLoginParam)
+                .get(res));
 
-            return new ItemCredentials.UserToken(user, token.getId(), secret).encodeLoginParam();
-        }));
-
-        /* List authentication tokens that haven't been validated yet */
-        get("/user/:name/tokens", secured((req, res, session, user) ->
-            UserAuthToken.CSV.header() +"\n" +
-                    tokens.get(req.params("name")).stream()
-                            .filter(t -> !t.getValid())
-                    .map(UserAuthToken.CSV::serialise)
-                    .collect(Collectors.joining("\n"))));
-
-        /* Authorise an authentication token */
-        post("/user/:name/tokens/:id/validate", secured((req, res, session, user) -> {
-            final String username = req.params("name");
-            // In future, one user will be allowed to validate a token for a different "guest" user
-            Preconditions.checkArgument(user.user.getName().equals(username));
-            final long tokenId = Long.parseLong(req.params("id"));
-            final UserAuthToken token = loadToken(username, tokenId);
-            token.setValid(true);
-            synchronized(token) { token.notifyAll(); }
-            return "ok";
-        }));
-
-        /* Wait for an authentication token to be validated */
-        post(api.login(":name"), (req, res) -> transacted(session -> {
+        /* Login, step 2: wait for an authentication token to be validated */
+        post(api.login(":name"), (req, res) -> {
             // NOTE: using ClientUser so that Forwarder may create it after a token is validated
             final String username = req.params("name");
 
             ItemCredentials.UserToken credentials = new ItemCredentials.UserToken(
                     new ClientUser(username),
                     req.body());
-            final UserAuthToken token = loadToken(credentials.user.getName(), credentials.id);
-            if (token == null || !token.getValue().equals(credentials.secret)) {
-                return forbidden(res, false);
-            }
-            synchronized (token) {
-                /* "Long-polling": wait at most one minute */
-                final long deadline = System.currentTimeMillis() + 60_000;
-                while (System.currentTimeMillis() < deadline && !token.getValid()) {
-                    //  max() needed in case the deadline expires right after above condition check
-                    token.wait(Math.max(1, deadline - System.currentTimeMillis()));
-                }
-            }
-            if (token.getValid()) {
+            return login(credentials).get(res, ok -> {
+                if (ok) {
                 res.cookie("/",
                         LOGIN_COOKIE_NAME,
                         credentials.encodeCookie(),
@@ -275,13 +224,34 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                 return "ok";
             } else {
                 return "invalid";
-            }
+            }});
+        });
+
+        /* List authentication tokens that haven't been validated yet */
+        get("/user/:name/tokens", secured((req, res, session, user) ->
+                listInvalidTokens(session, user).get(res, tokens ->
+                        UserAuthToken.CSV.header() +"\n" +
+                                tokens.stream()
+                                        .map(UserAuthToken.CSV::serialise)
+                                        .collect(Collectors.joining("\n")))));
+
+        /* Authorise an authentication token */
+        post("/user/:name/tokens/:id/validate", secured((req, res, session, user) -> {
+            final String username = req.params("name");
+            // In future, one user will be allowed to validate a token for a different "guest" user
+            Preconditions.checkArgument(user.user.getName().equals(username));
+            final long tokenId = Long.parseLong(req.params("id"));
+            return validateToken(session, username, tokenId).get(res);
         }));
     }
 
-    private UserAuthToken loadToken(String username, long tokenId) {
-        return Iterables.find(tokens.get(username), t -> t.getId() == tokenId);
-    }
+    protected abstract OrHttpError<Object> validateToken(D session, String username, long tokenId);
+
+    protected abstract OrHttpError<Boolean> login(ItemCredentials.UserToken credentials) throws InvalidPasswordException;
+
+    protected abstract OrHttpError<List<UserAuthToken>> listInvalidTokens(D session, ItemCredentials.UserCredentials user);
+
+    protected abstract OrHttpError<ItemCredentials.UserToken> newToken(String username, String description);
 
     protected void verifyCredentials(ItemCredentials credentials, IsItem item) throws InvalidPasswordException {
         credentials.match(new ItemCredentials.Matcher<InvalidPasswordException>() {
@@ -406,15 +376,6 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
     protected abstract OrHttpError<? extends BackendItem> loadItem(D session, long id, ItemCredentials credentials);
 
     protected abstract Long upload(Request req, Response res, D session, ItemCredentials.UserCredentials user, String folder, String path) throws IOException;
-
-    @Override
-    protected void verifyUserToken(IsUser user, long id, String secret) throws InvalidPasswordException {
-        final UserAuthToken userAuthToken = loadToken(user.getName(), id);
-
-        if (!userAuthToken.getValid() || !userAuthToken.getValue().equals(secret)) {
-            throw new InvalidPasswordException();
-        }
-    }
 
     public static class GalleryListData {
         public final String title;

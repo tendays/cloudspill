@@ -35,4 +35,8 @@ public class ServerDomain extends CloudSpillEntityManagerDomain {
 		return new Query<>(GalleryPart.class);
 	}
 
+	public Query<UserAuthToken> selectUserAuthToken() {
+		return new Query<>(UserAuthToken.class);
+	}
+
 }

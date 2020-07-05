@@ -248,6 +248,28 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 		}
 	}
 
+	protected <R, E extends Throwable> OrHttpError<R> transactedOrError(TransactionBody<S, R> task) {
+		try {
+			return new OrHttpError<>(transacted(task));
+		} catch (Throwable t) {
+			/* NOTE: exception already logged by transacted() itself */
+			return internalServerError();
+		}
+	}
+
+	protected <R, E extends Throwable> OrHttpError<R> transactedOrError(TransactionBody<S, R> task, Class<E> allowed) throws E {
+		try {
+			return new OrHttpError<>(transacted(task));
+		} catch (Throwable t) {
+			if (allowed.isInstance(t)) {
+				throw (E)t;
+			} else {
+				/* NOTE: exception already logged by transacted() itself */
+				return internalServerError();
+			}
+		}
+	}
+
 	public AbstractServer() {
 		super();
 	}

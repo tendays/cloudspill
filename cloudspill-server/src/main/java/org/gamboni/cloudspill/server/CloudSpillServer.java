@@ -20,6 +20,9 @@ import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.Item_;
 import org.gamboni.cloudspill.domain.ServerDomain;
 import org.gamboni.cloudspill.domain.User;
+import org.gamboni.cloudspill.domain.UserAuthToken;
+import org.gamboni.cloudspill.domain.UserAuthToken_;
+import org.gamboni.cloudspill.domain.User_;
 import org.gamboni.cloudspill.server.config.ServerConfiguration;
 import org.gamboni.cloudspill.server.html.GalleryListPage;
 import org.gamboni.cloudspill.server.query.ItemQueryLoader;
@@ -29,6 +32,7 @@ import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
+import org.gamboni.cloudspill.shared.domain.IsUser;
 import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.shared.util.ImageOrientationUtil;
 import org.gamboni.cloudspill.shared.util.Log;
@@ -47,11 +51,14 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.function.BiFunction;
@@ -86,6 +93,17 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	private static final int DATA_VERSION = 1;
 
 	@Inject	ServerConfiguration configuration;
+
+	/** Maps UserAuthToken ids to a Boolean saying if they have been validated.
+	 * This map only contains ids which have a pending login() call.
+	 * All read or write access must be synchronized on the Map itself, with a wait() for reads and a notifyAll() for writes.
+	 */
+	private final Map<Long, TokenWatch> watchedTokens = new HashMap<>();
+
+	private static class TokenWatch {
+		int watchCount = 0;
+		boolean valid = false;
+	}
 
 	private final Semaphore heavyTask = new Semaphore(6, true);
 
@@ -328,6 +346,111 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	@Override
 	protected OrHttpError<User> getUser(String username, CloudSpillEntityManagerDomain session) {
 		return getUserFromDB(username, session);
+	}
+
+	@Override
+	protected OrHttpError<ItemCredentials.UserToken> newToken(String username, String description) {
+    	return transactedOrError(session -> {
+			String chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+			final SecureRandom random = new SecureRandom();
+			final String secret = random.ints(255).map(n -> chars.charAt(Math.abs(n) % (chars.length())))
+					.collect(StringBuilder::new, (builder, chr) -> builder.append((char) chr),
+							(a, b) -> {
+								throw new UnsupportedOperationException();
+							}).toString();
+			UserAuthToken token = new UserAuthToken();
+			token.setValue(secret);
+			token.setValid(false);
+			final User user = session.get(User.class, username);
+			token.setUser(user);
+			token.setDescription(description);
+			session.persist(token);
+
+			return new ItemCredentials.UserToken(user, token.getId(), secret);
+		});
+	}
+
+	@Override
+	protected OrHttpError<Boolean> login(ItemCredentials.UserToken credentials) {
+		return transactedOrError(session -> {
+			final UserAuthToken token = session.get(UserAuthToken.class, credentials.id);
+			if (token == null ||
+					!token.getValue().equals(credentials.secret) ||
+					!token.getUser().getName().equals(credentials.user.getName())) {
+				throw new InvalidPasswordException();
+			}
+			if (token.getValid()) {
+				return true;
+			}
+			synchronized (watchedTokens) {
+				TokenWatch watch = watchedTokens.compute(token.getId(), (__, w) -> {
+					if (w == null) {
+						w = new TokenWatch();
+					}
+					w.watchCount++;
+					return w;
+				});
+				/* "Long-polling": wait at most one minute */
+				final long deadline = System.currentTimeMillis() + 60_000;
+				while (System.currentTimeMillis() < deadline && !watch.valid) {
+					//  max() needed in case the deadline expires right after above condition check
+					watchedTokens.wait(Math.max(1, deadline - System.currentTimeMillis()));
+				}
+				watch.watchCount --;
+
+				if (watch.watchCount == 0) {
+					watchedTokens.remove(token.getId());
+				}
+				return watch.valid;
+			}
+		});
+	}
+
+	@Override
+	protected OrHttpError<Object> validateToken(ServerDomain session, String username, long tokenId) {
+		final UserAuthToken token = session.get(UserAuthToken.class, tokenId);
+		if (token == null || !token.getUser().getName().equals(username)) {
+			return forbidden(false);
+		}
+
+		token.setValid(true);
+		session.flush(); // to acquire lock (would be better to do a for update earlier)
+		synchronized(watchedTokens) {
+			/* If anybody's waiting for this to be validated, let them grant access. */
+			final TokenWatch tokenWatch = watchedTokens.get(tokenId);
+			if (tokenWatch != null) {
+				tokenWatch.valid = true;
+				watchedTokens.notifyAll();
+			}
+		}
+		return new OrHttpError<>( "ok");
+	}
+
+
+	@Override
+	protected void verifyUserToken(IsUser user, long id, String secret) throws InvalidPasswordException {
+    	transactedOrError(session -> {
+			final UserAuthToken token = session.get(UserAuthToken.class, id);
+			if (token == null ||
+					!token.getValue().equals(secret) ||
+					!token.getUser().getName().equals(user.getName())) {
+				throw new InvalidPasswordException();
+			}
+
+			if (!token.getValid() || !token.getValue().equals(secret)) {
+				throw new InvalidPasswordException();
+			}
+			return null;
+		}, InvalidPasswordException.class);
+	}
+
+
+	@Override
+	protected OrHttpError<List<UserAuthToken>> listInvalidTokens(ServerDomain session, ItemCredentials.UserCredentials user) {
+    	return new OrHttpError<>(session.selectUserAuthToken()
+				.add(uat -> session.criteriaBuilder.equal(uat.get(UserAuthToken_.user).get(User_.name), user.user.getName()))
+				.add(uat -> session.criteriaBuilder.equal(uat.get(UserAuthToken_.valid), false))
+				.list());
 	}
 
 	@Override
