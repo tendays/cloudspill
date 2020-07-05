@@ -20,7 +20,6 @@ import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.Item_;
 import org.gamboni.cloudspill.domain.ServerDomain;
 import org.gamboni.cloudspill.domain.User;
-import org.gamboni.cloudspill.domain.User_;
 import org.gamboni.cloudspill.server.config.ServerConfiguration;
 import org.gamboni.cloudspill.server.html.GalleryListPage;
 import org.gamboni.cloudspill.server.query.ItemQueryLoader;
@@ -29,6 +28,7 @@ import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
 import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.shared.util.ImageOrientationUtil;
 import org.gamboni.cloudspill.shared.util.Log;
@@ -195,16 +195,19 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 		Item item = session.get(Item.class, id);
 		// NOTE: even if user is authenticated, refuse incorrect keys
 		if (item == null) {
-			return new OrHttpError<>(res -> notFound(res, id));
-		} else if (!credentials.verify(item)) {
-			return new OrHttpError<>(res -> forbidden(res, false));
+			return notFound(id);
 		} else {
+			try {
+				verifyCredentials(credentials, item);
+			} catch (InvalidPasswordException e) {
+				return forbidden(false);
+			}
 			return new OrHttpError<>(item);
 		}
 	}
 
 	@Override
-	protected Long upload(Request req, Response res, ServerDomain session, ItemCredentials.UserPassword credentials, String folder, String path) throws IOException {
+	protected Long upload(Request req, Response res, ServerDomain session, ItemCredentials.UserCredentials credentials, String folder, String path) throws IOException {
 		// Normalise given path
 		File folderPath = append(append(configuration.getRepositoryPath(), credentials.user.getName()), folder);
 		File requestedTarget = append(folderPath, path);
@@ -310,8 +313,10 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	}
 
 	@Override
-	protected OrHttpError<String> ping(ServerDomain session, ItemCredentials.UserPassword credentials) {
-    	if (!credentials.verify(null)) {
+	protected OrHttpError<String> ping(ServerDomain session, ItemCredentials.UserCredentials credentials) {
+    	try {
+    		verifyCredentials(credentials, null);
+		} catch (InvalidPasswordException e) {
     		return forbidden(false);
 		}
 		// WARN: currently the frontend requires precisely this syntax, spaces included
@@ -352,6 +357,11 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 					return sample.isEmpty() ? new GalleryListPage.Element(gp, null, null) :
 							new GalleryListPage.Element(gp, sample.get(0).getId(), sample.get(0).getChecksum());
 				})));
+	}
+
+	@Override
+	protected OrHttpError<String> title() {
+		return new OrHttpError<>(configuration.getRepositoryName());
 	}
 
 	@Override

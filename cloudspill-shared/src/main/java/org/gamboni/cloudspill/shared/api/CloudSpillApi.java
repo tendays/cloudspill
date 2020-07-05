@@ -90,6 +90,10 @@ public class CloudSpillApi {
         return sliceParameters(new StringBuilder(serverUrl + "public/gallery/"+ id), offset, limit);
     }
 
+    public String login(String userName) {
+        return "/user/"+ userName +"/login";
+    }
+
     public enum Size {
         PHONE_THUMBNAIL(90),
         GALLERY_THUMBNAIL(150),

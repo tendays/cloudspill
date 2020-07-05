@@ -1,5 +1,6 @@
 package org.gamboni.cloudspill.server;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 
 import java.io.File;
@@ -19,6 +20,7 @@ import org.gamboni.cloudspill.domain.User_;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.domain.ClientUser;
 import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
+import org.gamboni.cloudspill.shared.domain.IsUser;
 import org.gamboni.cloudspill.shared.util.Log;
 
 import spark.Request;
@@ -27,6 +29,7 @@ import spark.Route;
 
 public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 
+	protected static final String LOGIN_COOKIE_NAME = "cloudspill-login";
 	@Inject
 	EntityManagerFactory sessionFactory;
 
@@ -35,7 +38,7 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 	    }
 
 	protected interface SecuredBody<S extends CloudSpillEntityManagerDomain> {
-	    	Object handle(Request request, Response response, S session, ItemCredentials.UserPassword user) throws Exception;
+	    	Object handle(Request request, Response response, S session, ItemCredentials.UserCredentials user) throws Exception;
 	    }
 
 	protected static final <T> T requireNotNull(T value) {
@@ -53,17 +56,17 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 								.get(res, user -> task.handle(req, res, session, user)));
 	}
 
-	protected OrHttpError<ItemCredentials.UserPassword> authenticate(Request req, S session) {
+	protected OrHttpError<ItemCredentials.UserCredentials> authenticate(Request req, S session) {
 		return authenticate(req, session, true);
 	}
 	
-	protected OrHttpError<ItemCredentials.UserPassword> optionalAuthenticate(Request req, S session) {
+	protected OrHttpError<ItemCredentials.UserCredentials> optionalAuthenticate(Request req, S session) {
 		return authenticate(req, session, false);
 	}
 
 
 
-	private OrHttpError<ItemCredentials.UserPassword> authenticate(Request req, S session, boolean required) {
+	private OrHttpError<ItemCredentials.UserCredentials> authenticate(Request req, S session, boolean required) {
 		return getUnverifiedCredentials(req, session).flatMap(credentials -> {
 			if (required && credentials == null) {
 				return new OrHttpError<>(res -> {
@@ -73,7 +76,27 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 			}
 			if (credentials != null) {
 				try {
-					credentials.user.verifyPassword(credentials.getPassword());
+					credentials.match(new ItemCredentials.Matcher<InvalidPasswordException>() {
+						@Override
+						public void when(ItemCredentials.UserPassword password) throws InvalidPasswordException {
+							credentials.user.verifyPassword(password.getPassword());
+						}
+
+						@Override
+						public void when(ItemCredentials.UserToken token) throws InvalidPasswordException {
+							verifyUserToken(token.user, token.id, token.secret);
+						}
+
+						@Override
+						public void when(ItemCredentials.PublicAccess pub) throws InvalidPasswordException {
+							/* Check later when we know which Item is being accessed (if any) */
+						}
+
+						@Override
+						public void when(ItemCredentials.ItemKey key) throws InvalidPasswordException {
+							/* Check later when we know which Item is being accessed (if any) */
+						}
+					});
 				} catch (InvalidPasswordException e) {
 					return forbidden(false);
 				}
@@ -83,10 +106,22 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 		});
 	}
 
-	protected OrHttpError<ItemCredentials.UserPassword> getUnverifiedCredentials(Request req, S session) {
+	protected abstract void verifyUserToken(IsUser user, long id, String secret) throws InvalidPasswordException;
+
+	protected OrHttpError<ItemCredentials.UserCredentials> getUnverifiedCredentials(Request req, S session) {
 		final String authHeader = req.headers("Authorization");
 		if (authHeader == null) {
-			return new OrHttpError<>((ItemCredentials.UserPassword)null);
+			final String cookie = req.cookie(LOGIN_COOKIE_NAME);
+			if (cookie == null) {
+				return new OrHttpError<>((ItemCredentials.UserCredentials) null);
+			} else {
+				final ItemCredentials.UserToken clientToken = ItemCredentials.UserToken.decode(cookie);
+				String username = clientToken.user.getName();
+				return new OrHttpError<>(
+						getUser(username, session)
+								.map(u -> new ItemCredentials.UserToken(u, clientToken.id, clientToken.secret))
+								.orElse(() -> clientToken));
+			}
 		} else if (authHeader.startsWith("Basic ")) {
 			final String token = authHeader.substring("Basic ".length()).trim();
 			final String credentials = new String(Base64.getDecoder().decode(token));

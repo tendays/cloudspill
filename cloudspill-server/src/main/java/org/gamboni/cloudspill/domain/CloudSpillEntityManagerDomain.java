@@ -152,7 +152,7 @@ public abstract class CloudSpillEntityManagerDomain {
         }
     }
 
-    public <T> T get(Class<T> persistentClass, long id) {
+    public <T> T get(Class<T> persistentClass, Object id) {
         return session.find(persistentClass, id);
     }
 

@@ -1,8 +1,8 @@
 package org.gamboni.cloudspill.shared.domain;
 
-import org.gamboni.cloudspill.shared.util.Supplier;
+import org.gamboni.cloudspill.shared.api.ItemCredentials;
 
-/** {@link IsUser} implementation containing just a username, suitable to create a {@link org.gamboni.cloudspill.shared.api.ItemCredentials.UserPassword}
+/** {@link IsUser} implementation containing just a username, suitable to create a {@link ItemCredentials.UserCredentials}
  * credential object.
  *
  * @author tendays

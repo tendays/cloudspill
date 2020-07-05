@@ -9,9 +9,12 @@ import org.gamboni.cloudspill.shared.util.Log;
 import org.gamboni.cloudspill.shared.util.Supplier;
 import org.mindrot.jbcrypt.BCrypt;
 
+import java.util.List;
+
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
+import javax.persistence.OneToMany;
 
 /**
  * @author tendays
@@ -22,11 +25,13 @@ public class User implements IsUser {
 	private String name;
 	private String salt;
 	private String pass;
-	
-	@Column
+
 	@Id
 	public String getName() {
 		return name;
+	}
+	public void setName(String name) {
+		this.name = name;
 	}
 
 	@Override
@@ -40,11 +45,6 @@ public class User implements IsUser {
 		}
 	}
 
-	public void setName(String name) {
-		this.name = name;
-	}
-	
-	@Column
 	public String getSalt() {
 		return salt;
 	}
@@ -52,12 +52,10 @@ public class User implements IsUser {
 		this.salt = salt;
 	}
 	
-	@Column
 	public String getPass() {
 		return pass;
 	}
 	public void setPass(String pass) {
 		this.pass = pass;
 	}
-	
 }

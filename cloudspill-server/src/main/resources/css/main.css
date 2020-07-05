@@ -121,6 +121,47 @@ h1 {
     color: darkgray;
 }
 
+/* Login */
+
+.login {
+    /* Full screen */
+    height: 100%;
+    width: 100%;
+    position: absolute;
+    top: 0;
+
+    /* Center elements */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+
+    font-size: 3em;
+}
+
+.login-message {
+    font-family: serif;
+    font-style: italic;
+    color: #adf;
+    font-weight: lighter;
+}
+
+/* Enable font-size cascading on input elements */
+.login input {
+    font-size: 1em;
+}
+
+.login input[type='text'] {
+    margin: 1em;
+}
+
+.login input[type='submit'] {
+    /* Matches: .login-message */
+    background-color: #adf;
+    border-color: #cef;
+    border-width: 5px;
+}
+
 /* Editor */
 
 .button {

@@ -21,6 +21,8 @@ import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.Csv;
 import org.gamboni.cloudspill.shared.api.CsvEncoding;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
+import org.gamboni.cloudspill.shared.domain.Items;
 import org.gamboni.cloudspill.shared.util.Log;
 import org.mindrot.jbcrypt.BCrypt;
 
@@ -121,9 +123,12 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
                                 return internalServerError();
                         }
                     });
-        } else if (!credentials.verify(item)) {
-            return forbidden(false);
         } else {
+            try {
+                verifyCredentials(credentials, item);
+            } catch (InvalidPasswordException e) {
+                return forbidden(false);
+            }
             return new OrHttpError<>(item);
         }
     }
@@ -223,7 +228,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
-    protected Long upload(Request req, Response res, ForwarderDomain session, ItemCredentials.UserPassword user, String folder, String path) throws IOException {
+    protected Long upload(Request req, Response res, ForwarderDomain session, ItemCredentials.UserCredentials user, String folder, String path) throws IOException {
         throw new UnsupportedOperationException();
     }
 
@@ -287,7 +292,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
-    protected OrHttpError<String> ping(ForwarderDomain session, ItemCredentials.UserPassword credentials) {
+    protected OrHttpError<String> ping(ForwarderDomain session, ItemCredentials.UserCredentials credentials) {
         try {
             final URLConnection connection = new URL(remoteApi.ping()).openConnection();
             credentials.setHeaders(connection, Base64.getEncoder()::encodeToString);
@@ -304,9 +309,29 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
                     User u = new User();
                     u.setName(credentials.user.getName());
 
-                    String salt = BCrypt.gensalt();
-                    u.setSalt(salt);
-                    u.setPass(BCrypt.hashpw(requireNotNull(credentials.getPassword()), salt));
+                    credentials.match(new ItemCredentials.Matcher<RuntimeException>() {
+                        @Override
+                        public void when(ItemCredentials.UserPassword password) {
+                            String salt = BCrypt.gensalt();
+                            u.setSalt(salt);
+                            u.setPass(BCrypt.hashpw(requireNotNull(password.getPassword()), salt));
+                        }
+
+                        @Override
+                        public void when(ItemCredentials.UserToken token) {
+
+                        }
+
+                        @Override
+                        public void when(ItemCredentials.PublicAccess pub) {
+
+                        }
+
+                        @Override
+                        public void when(ItemCredentials.ItemKey key) {
+
+                        }
+                    });
 
                     session.persist(u);
                 } // TODO support changing password?
@@ -332,6 +357,12 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     @Override
     protected OrHttpError<GalleryListData> galleryList(ItemCredentials credentials, ForwarderDomain domain) {
         return deserialiseGalleryList(credentials, remoteApi.galleryListPage(credentials));
+    }
+
+    @Override
+    protected OrHttpError<String> title() {
+        // TODO load actual title
+        return new OrHttpError<>("Welcome to CloudSpill");
     }
 
     @Override

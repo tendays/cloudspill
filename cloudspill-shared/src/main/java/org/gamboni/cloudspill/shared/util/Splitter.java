@@ -44,6 +44,12 @@ public class Splitter {
         return string.isEmpty() ? null : Long.valueOf(string);
     }
 
+    public Integer getInteger() {
+        String string = getString();
+
+        return string.isEmpty() ? null : Integer.valueOf(string);
+    }
+
     public <T extends Collection<String>> T allRemainingTo(T target) {
         while (right < input.length()) {
             final String item = getString();
