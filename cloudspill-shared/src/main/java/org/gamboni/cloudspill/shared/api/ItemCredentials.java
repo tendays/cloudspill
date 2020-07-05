@@ -96,6 +96,7 @@ public interface ItemCredentials {
     }
 
     class UserToken extends UserCredentials {
+        public static final String AUTH_TYPE = "Token";
         public final long id;
         public final String secret;
 
@@ -119,7 +120,7 @@ public interface ItemCredentials {
 
         @Override
         public void setHeaders(URLConnection connection, Base64Encoder b64) {
-            // TODO needed by client? connection.setRequestProperty("Cookie", encodeCookie());
+            connection.setRequestProperty("Authorization", AUTH_TYPE +" "+ encodeCookie());
         }
 
         public String encodeCookie() {

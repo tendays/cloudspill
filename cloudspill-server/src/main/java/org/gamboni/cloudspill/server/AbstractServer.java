@@ -1,5 +1,6 @@
 package org.gamboni.cloudspill.server;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 
@@ -110,12 +111,15 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 
 	protected OrHttpError<ItemCredentials.UserCredentials> getUnverifiedCredentials(Request req, S session) {
 		final String authHeader = req.headers("Authorization");
-		if (authHeader == null) {
+		if (authHeader == null || authHeader.startsWith(ItemCredentials.UserToken.AUTH_TYPE +" ")) {
 			final String cookie = req.cookie(LOGIN_COOKIE_NAME);
-			if (cookie == null) {
+			final String authString = (authHeader == null) ? null : authHeader.substring(ItemCredentials.UserToken.AUTH_TYPE.length() + 1);
+			if (cookie == null && authString == null) {
 				return new OrHttpError<>((ItemCredentials.UserCredentials) null);
 			} else {
-				final ItemCredentials.UserToken clientToken = ItemCredentials.UserToken.decode(cookie);
+				final ItemCredentials.UserToken clientToken = ItemCredentials.UserToken.decode(
+						MoreObjects.firstNonNull(cookie, authString)
+				);
 				String username = clientToken.user.getName();
 				return new OrHttpError<>(
 						getUser(username, session)
