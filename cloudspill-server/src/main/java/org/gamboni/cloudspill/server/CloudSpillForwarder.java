@@ -116,7 +116,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
             connection.setRequestMethod("POST");
             connection.setDoOutput(true);
             try (final OutputStreamWriter output = new OutputStreamWriter(connection.getOutputStream())) {
-                output.write(credentials.secret);
+                output.write(credentials.encodeLoginParam());
             }
             final String response;
             try (final InputStreamReader in = new InputStreamReader(connection.getInputStream())) {
