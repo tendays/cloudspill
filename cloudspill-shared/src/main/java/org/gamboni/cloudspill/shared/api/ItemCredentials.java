@@ -131,10 +131,18 @@ public interface ItemCredentials {
             return id +":"+ secret;
         }
 
-        public static UserToken decode(String cookie) {
+        public static UserToken decodeCookie(String cookie) {
             Splitter splitter = new Splitter(cookie, ':');
             return new UserToken(
                     new ClientUser(splitter.getString()),
+                    splitter.getLong(),
+                    splitter.getString());
+        }
+
+        public static UserToken decodeLoginParam(IsUser user, String loginParam) {
+            Splitter splitter = new Splitter(loginParam, ':');
+            return new UserToken(
+                    user,
                     splitter.getLong(),
                     splitter.getString());
         }

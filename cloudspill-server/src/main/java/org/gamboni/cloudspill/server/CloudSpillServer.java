@@ -54,6 +54,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.HashMap;
@@ -349,7 +350,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	}
 
 	@Override
-	protected OrHttpError<ItemCredentials.UserToken> newToken(String username, String description) {
+	protected OrHttpError<ItemCredentials.UserToken> newToken(String username, String userAgent, String client) {
     	return transactedOrError(session -> {
 			String chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 			final SecureRandom random = new SecureRandom();
@@ -363,7 +364,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 			token.setValid(false);
 			final User user = session.get(User.class, username);
 			token.setUser(user);
-			token.setDescription(description);
+			token.setDescription(client +" "+ userAgent +" at "+ LocalDateTime.now());
 			session.persist(token);
 
 			return new ItemCredentials.UserToken(user, token.getId(), secret);

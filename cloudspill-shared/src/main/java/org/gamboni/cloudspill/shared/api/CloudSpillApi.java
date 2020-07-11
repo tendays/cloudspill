@@ -94,6 +94,10 @@ public class CloudSpillApi {
         return "/user/"+ userName +"/login";
     }
 
+    public String newToken(String username) {
+        return "/user/"+ username +"/new-token";
+    }
+
     public enum Size {
         PHONE_THUMBNAIL(90),
         GALLERY_THUMBNAIL(150),

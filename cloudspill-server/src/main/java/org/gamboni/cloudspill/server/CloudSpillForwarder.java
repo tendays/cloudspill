@@ -24,7 +24,9 @@ import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.Csv;
 import org.gamboni.cloudspill.shared.api.CsvEncoding;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.domain.ClientUser;
 import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
+import org.gamboni.cloudspill.shared.domain.IsUser;
 import org.gamboni.cloudspill.shared.domain.Items;
 import org.gamboni.cloudspill.shared.util.Log;
 import org.mindrot.jbcrypt.BCrypt;
@@ -99,6 +101,40 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     @Override
     protected OrHttpError<User> getUser(String username, CloudSpillEntityManagerDomain session) {
         return getUserFromDB(username, session);
+    }
+
+    @Override
+    protected OrHttpError<Object> validateToken(ForwarderDomain session, String username, long tokenId) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected OrHttpError<Boolean> login(ItemCredentials.UserToken credentials) throws InvalidPasswordException {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected OrHttpError<List<UserAuthToken>> listInvalidTokens(ForwarderDomain session, ItemCredentials.UserCredentials user) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected OrHttpError<ItemCredentials.UserToken> newToken(String username, String userAgent, String client) {
+        try {
+            final HttpURLConnection connection = (HttpURLConnection) new URL(remoteApi.newToken(username)).openConnection();
+            connection.setRequestProperty("X-Forwarded-For", client);
+            connection.setRequestProperty("UserAgent", userAgent);
+            final String response = CharStreams.toString(new InputStreamReader(connection.getInputStream()));
+            return new OrHttpError<>(ItemCredentials.UserToken.decodeLoginParam(new ClientUser(username), response));
+        } catch (IOException e) {
+            Log.warn("Error communicating with remote server", e);
+            return gatewayTimeout();
+        }
+    }
+
+    @Override
+    protected void verifyUserToken(IsUser user, long id, String secret) throws InvalidPasswordException {
+        throw new UnsupportedOperationException();
     }
 
     @Override

@@ -83,7 +83,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         exposeResource(api.editorJS(), "js/editor.js", "application/javascript");
 
         get("/robots.txt", (req, res)->
-                "User-agent: *\n" +
+                "User-agent: *\r\n" +
                 "Disallow: /");
 
         get("/tag/:tag", secured((req, res, domain, credentials) ->
@@ -199,11 +199,16 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         get("/", (req, res) -> title().get(res, title -> new LoginPage(configuration, title).getHtml(publicAccess)));
 
         /* Login, step 1: request a new authentication token */
-        post("/user/:name/new-token", (req, res) -> newToken(
-                req.params("name"),
-                req.headers("User-Agent") +" at "+ req.ip() +" at "+ LocalDateTime.now())
-                .map(ItemCredentials.UserToken::encodeLoginParam)
-                .get(res));
+        post(api.newToken(":name"), (req, res) -> {
+            final String forwarded = req.headers("X-Forwarded-For");
+            return newToken(
+                    req.params("name"),
+                    req.headers("User-Agent"),
+                            (forwarded == null ? req.ip() :
+                            (forwarded +" (connecting through "+ req.ip() +")")))
+                    .map(ItemCredentials.UserToken::encodeLoginParam)
+                    .get(res);
+        });
 
         /* Login, step 2: wait for an authentication token to be validated */
         post(api.login(":name"), (req, res) -> {
@@ -251,7 +256,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
     protected abstract OrHttpError<List<UserAuthToken>> listInvalidTokens(D session, ItemCredentials.UserCredentials user);
 
-    protected abstract OrHttpError<ItemCredentials.UserToken> newToken(String username, String description);
+    protected abstract OrHttpError<ItemCredentials.UserToken> newToken(String username, String userAgent, String client);
 
     protected void verifyCredentials(ItemCredentials credentials, IsItem item) throws InvalidPasswordException {
         credentials.match(new ItemCredentials.Matcher<InvalidPasswordException>() {
@@ -363,7 +368,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                 credentialsOrError = authenticate(req, session);
             }
 
-            return credentialsOrError.                            get(res, credentials -> {
+            return credentialsOrError.get(res, credentials -> {
             /* Either we have a key, or user must be authenticated. */
             final long id = Long.parseLong(idParam);
             return loadItem(session, id, credentials)

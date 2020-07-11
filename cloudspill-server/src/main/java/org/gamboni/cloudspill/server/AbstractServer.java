@@ -117,7 +117,7 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 			if (cookie == null && authString == null) {
 				return new OrHttpError<>((ItemCredentials.UserCredentials) null);
 			} else {
-				final ItemCredentials.UserToken clientToken = ItemCredentials.UserToken.decode(
+				final ItemCredentials.UserToken clientToken = ItemCredentials.UserToken.decodeCookie(
 						MoreObjects.firstNonNull(cookie, authString)
 				);
 				String username = clientToken.user.getName();
