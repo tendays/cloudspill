@@ -91,11 +91,15 @@ public class CloudSpillApi {
     }
 
     public String login(String userName) {
-        return "/user/"+ userName +"/login";
+        return serverUrl +"user/"+ userName +"/login";
     }
 
     public String newToken(String username) {
-        return "/user/"+ username +"/new-token";
+        return serverUrl +"user/"+ username +"/new-token";
+    }
+
+    public static String loginResult(boolean result) {
+        return result ? "ok" : "invalid";
     }
 
     public enum Size {

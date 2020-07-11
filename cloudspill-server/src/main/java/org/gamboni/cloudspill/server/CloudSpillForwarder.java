@@ -39,6 +39,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.LineNumberReader;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -110,7 +111,30 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
 
     @Override
     protected OrHttpError<Boolean> login(ItemCredentials.UserToken credentials) throws InvalidPasswordException {
-        throw new UnsupportedOperationException();
+        try {
+            final HttpURLConnection connection = (HttpURLConnection) new URL(remoteApi.login(credentials.user.getName())).openConnection();
+            connection.setRequestMethod("POST");
+            connection.setDoOutput(true);
+            try (final OutputStreamWriter output = new OutputStreamWriter(connection.getOutputStream())) {
+                output.write(credentials.secret);
+            }
+            final String response;
+            try (final InputStreamReader in = new InputStreamReader(connection.getInputStream())) {
+                response = CharStreams.toString(in);
+            }
+
+            if (response.equals(CloudSpillApi.loginResult(true))) {
+                return new OrHttpError<>(true);
+            } else if (response.equals(CloudSpillApi.loginResult(false))) {
+                return new OrHttpError<>(false);
+            } else {
+                Log.warn("Unexpected response '"+ response +"' after login");
+                return gatewayTimeout();
+            }
+        } catch (IOException e) {
+            Log.warn("Error communicating with remote server", e);
+            return gatewayTimeout();
+        }
     }
 
     @Override
@@ -122,6 +146,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     protected OrHttpError<ItemCredentials.UserToken> newToken(String username, String userAgent, String client) {
         try {
             final HttpURLConnection connection = (HttpURLConnection) new URL(remoteApi.newToken(username)).openConnection();
+            connection.setRequestMethod("POST");
             connection.setRequestProperty("X-Forwarded-For", client);
             connection.setRequestProperty("UserAgent", userAgent);
             final String response = CharStreams.toString(new InputStreamReader(connection.getInputStream()));

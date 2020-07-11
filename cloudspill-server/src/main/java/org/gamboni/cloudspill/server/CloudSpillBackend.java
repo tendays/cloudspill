@@ -42,6 +42,7 @@ import java.util.stream.Stream;
 import spark.Request;
 import spark.Response;
 import spark.Route;
+import spark.Spark;
 
 import static org.gamboni.cloudspill.shared.api.CloudSpillApi.ID_HTML_SUFFIX;
 import static spark.Spark.after;
@@ -70,6 +71,12 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         before((req, res) -> AbstractPage.recordRequestStart());
         after((req, res) -> AbstractPage.clearRequestStopwatch());
 
+        Spark.exception(Exception.class, (exception, req, res) -> {
+            Log.error("Uncaught exception handling "+ req.requestMethod() +" "+ req.uri(), exception);
+            res.status(500);
+            res.body("500 Internal Server Error");
+        });
+
         get(api.ping(), (req, res) -> transacted(session ->
                 getUnverifiedCredentials(req, session)
                         .flatMap(unverifiedCredentials ->
@@ -83,7 +90,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         exposeResource(api.editorJS(), "js/editor.js", "application/javascript");
 
         get("/robots.txt", (req, res)->
-                "User-agent: *\r\n" +
+                "User-agent: *\n" +
                 "Disallow: /");
 
         get("/tag/:tag", secured((req, res, domain, credentials) ->
@@ -215,9 +222,12 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             // NOTE: using ClientUser so that Forwarder may create it after a token is validated
             final String username = req.params("name");
 
+            final String secret = req.body();
+            Log.debug("Handling login request for "+ username +" with credentials "+ secret);
+
             ItemCredentials.UserToken credentials = new ItemCredentials.UserToken(
                     new ClientUser(username),
-                    req.body());
+                    secret);
             return login(credentials).get(res, ok -> {
                 if (ok) {
                 res.cookie("/",
@@ -226,9 +236,9 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                         (int)Duration.ofDays(365).getSeconds(),
                         false, // TODO configuration value. On my localhost testing it's false, elsewhere it's true
                         true);
-                return "ok";
+                return api.loginResult(true);
             } else {
-                return "invalid";
+                return api.loginResult(false);
             }});
         });
 

@@ -32,10 +32,15 @@ public class Log {
 		log(Severity.WARN, message);
 	}
 
+	public static void error(String message, Throwable e) {
+		error(message);
+		e.printStackTrace();
+	}
+
 	public static void error(String message) {
 		log(Severity.ERROR, message);
 	}
-	
+
 	private static void log(Severity severity, String message) {
 		System.err.println(new Date() +" "+ severity +": "+ message);
 	}
