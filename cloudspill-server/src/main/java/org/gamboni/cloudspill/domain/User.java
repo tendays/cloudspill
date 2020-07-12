@@ -58,4 +58,10 @@ public class User implements IsUser {
 	public void setPass(String pass) {
 		this.pass = pass;
 	}
+
+	public static User withName(String name) {
+		User result = new User();
+		result.setName(name);
+		return result;
+	}
 }

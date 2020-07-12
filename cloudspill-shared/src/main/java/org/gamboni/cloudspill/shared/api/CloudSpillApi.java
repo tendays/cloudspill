@@ -102,6 +102,10 @@ public class CloudSpillApi {
         return result ? "ok" : "invalid";
     }
 
+    public String listInvalidTokens(String username) {
+        return serverUrl +"user/"+ username +"/tokens";
+    }
+
     public enum Size {
         PHONE_THUMBNAIL(90),
         GALLERY_THUMBNAIL(150),

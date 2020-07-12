@@ -83,7 +83,7 @@ public abstract class AbstractPage {
     public HtmlFragment getHtml(ItemCredentials user) {
         return tag("html", "prefix=\"og: http://ogp.me/ns#\"",
                 tag("head",
-                        tag("meta name='robots' content='noindex'"),
+                        slashedTag("meta name='robots' content='noindex'"),
                         tag("title", getTitle()),
                                 meta("og:title", getTitle()),
                                 meta("og:type", "article"),

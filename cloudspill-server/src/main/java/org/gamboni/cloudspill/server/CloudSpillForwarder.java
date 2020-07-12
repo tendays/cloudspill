@@ -139,7 +139,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
 
     @Override
     protected OrHttpError<List<UserAuthToken>> listInvalidTokens(ForwarderDomain session, ItemCredentials.UserCredentials user) {
-        throw new UnsupportedOperationException();
+        return this.deserialiseStream(remoteApi.listInvalidTokens(user.user.getName()), user, UserAuthToken.CSV, UserAuthToken::new, (rows, reader) -> rows);
     }
 
     @Override
@@ -148,7 +148,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
             final HttpURLConnection connection = (HttpURLConnection) new URL(remoteApi.newToken(username)).openConnection();
             connection.setRequestMethod("POST");
             connection.setRequestProperty("X-Forwarded-For", client);
-            connection.setRequestProperty("UserAgent", userAgent);
+            connection.setRequestProperty("User-Agent", userAgent);
             final String response = CharStreams.toString(new InputStreamReader(connection.getInputStream()));
             return new OrHttpError<>(ItemCredentials.UserToken.decodeLoginParam(new ClientUser(username), response));
         } catch (IOException e) {

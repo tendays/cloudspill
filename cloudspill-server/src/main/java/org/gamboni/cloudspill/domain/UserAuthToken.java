@@ -1,6 +1,7 @@
 package org.gamboni.cloudspill.domain;
 
 import org.gamboni.cloudspill.shared.api.Csv;
+import org.gamboni.cloudspill.shared.domain.ClientUser;
 
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
@@ -15,8 +16,8 @@ import javax.persistence.ManyToOne;
 public class UserAuthToken {
 
     public static final Csv<UserAuthToken> CSV = new Csv.Impl<UserAuthToken>()
-            .add("id", t -> Long.toString(t.getId()), (t, id) ->t.setId(Long.parseLong(id)))
-            .add("user", t -> t.getUser().getName(), (t, user) -> {})
+            .add("id", t -> Long.toString(t.getId()), (t, id) -> t.setId(Long.parseLong(id)))
+            .add("user", t -> t.getUser().getName(), (t, user) -> t.setUser(User.withName(user)))
             .add("description", t -> t.getDescription(), (t, descr) -> t.setDescription(descr));
 
     private long id;

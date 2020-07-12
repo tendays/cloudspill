@@ -59,4 +59,10 @@ public class Splitter {
         }
         return target;
     }
+
+    public void verifyEndReached() throws IllegalStateException {
+        if (right != input.length()) {
+            throw new IllegalStateException("Unexpected characters at end of String");
+        }
+    }
 }

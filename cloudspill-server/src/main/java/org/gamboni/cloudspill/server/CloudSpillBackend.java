@@ -243,7 +243,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         });
 
         /* List authentication tokens that haven't been validated yet */
-        get("/user/:name/tokens", secured((req, res, session, user) ->
+        get(api.listInvalidTokens(":name"), secured((req, res, session, user) ->
                 listInvalidTokens(session, user).get(res, tokens ->
                         UserAuthToken.CSV.header() +"\n" +
                                 tokens.stream()
