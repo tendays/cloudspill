@@ -64,7 +64,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
         /* Access logging */
         before((req, res) -> {
-            Log.info(req.headers("User-Agent") +" @"+ req.ip() +" "+ req.requestMethod() +" "+ req.uri());
+            Log.info(req.headers("User-Agent") +" @"+ req.raw().getRemoteAddr() +" "+ req.requestMethod() +" "+ req.uri());
         });
 
         /* Print full request processing time in HTML pages */
