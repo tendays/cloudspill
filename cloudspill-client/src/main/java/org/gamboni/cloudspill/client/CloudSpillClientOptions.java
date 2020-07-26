@@ -7,12 +7,9 @@ import com.google.common.collect.ImmutableList;
 
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.client.ResponseHandler;
 import org.gamboni.cloudspill.shared.domain.ClientUser;
 
-import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLConnection;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
@@ -89,25 +86,18 @@ public class CloudSpillClientOptions {
         return this.get(key).orElseThrow(() -> new IllegalArgumentException(errorMessage));
     }
 
-    public CloudSpillApi getServerApi() {
-        return new CloudSpillApi(this.require(server, "Server url not set"));
-    }
 
-    public HttpURLConnection openConnection(String url) {
-        try {
-            URLConnection connection = new URL(url).openConnection();
+    public CloudSpillApi<ResponseHandler> getServerApi() {
 
-            // include authentication header if both user and password specified
-            get(user).ifPresent(givenUser ->
-                    get(password).ifPresent(givenPassword -> {
-                        new ItemCredentials.UserPassword(new ClientUser(givenUser), givenPassword)
-                                .setHeaders(connection, Base64.getEncoder()::encodeToString);
-                    }));
+        // include authentication header if both user and password specified
+        ItemCredentials credentials = get(user).<ItemCredentials>flatMap(givenUser ->
+                get(password).map(givenPassword ->
+                    new ItemCredentials.UserPassword(new ClientUser(givenUser), givenPassword)))
+                .orElse(new ItemCredentials.PublicAccess());
 
-            return (HttpURLConnection) connection;
-
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        return CloudSpillApi.authenticatedClient(
+                this.require(server, "Server url not set"),
+                credentials,
+                Base64.getEncoder()::encodeToString);
     }
 }

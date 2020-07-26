@@ -1,15 +1,23 @@
 package org.gamboni.cloudspill.shared.api;
 
+import org.gamboni.cloudspill.shared.client.ResponseHandler;
+import org.gamboni.cloudspill.shared.client.ResponseHandlers;
 import org.gamboni.cloudspill.shared.domain.IsItem;
 import org.gamboni.cloudspill.shared.domain.Items;
 
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.ProtocolException;
+import java.net.URL;
+import java.util.Base64;
 import java.util.HashSet;
 import java.util.Set;
 
 /**
  * @author tendays
  */
-public class CloudSpillApi {
+public class CloudSpillApi<T> {
     public static final String PING_PREAMBLE = "CloudSpill server.";
     /** Data version field in response */
     public static final String PING_DATA_VERSION = "Data-Version";
@@ -23,15 +31,56 @@ public class CloudSpillApi {
     public static final String ID_HTML_SUFFIX = ".cloudspill";
 
     private final String serverUrl;
+    private final ApiElementMatcher<T> matcher;
 
     public CloudSpillApi(String serverUrl) {
         // make sure server urls end in a slash.
         this.serverUrl = serverUrl + (serverUrl.endsWith("/") ? "" : "/");
+        this.matcher = null;
+    }
+
+    public CloudSpillApi(String serverUrl, ApiElementMatcher<T> matcher) {
+        this.serverUrl = serverUrl + (serverUrl.endsWith("/") ? "" : "/");
+        this.matcher = matcher;
+    }
+
+    public static class Client implements ApiElementMatcher<ResponseHandler> {
+        public final void match(ApiElementMatcher.HttpMethod method, String url, ResponseHandler consumer) {
+            try {
+                handle(method, url, consumer);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        protected void handle(HttpMethod method, String url, ResponseHandler consumer) throws IOException {
+            final HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
+            connection.setRequestMethod(method.name());
+
+            consumer.handle(connection);
+        }
+    }
+
+    public static CloudSpillApi<ResponseHandler> client(String serverUrl) {
+        return new CloudSpillApi<ResponseHandler>(serverUrl, new Client());
+    }
+
+    public static CloudSpillApi<ResponseHandler> authenticatedClient(String serverUrl, ItemCredentials credentials, Base64Encoder base64Encoder) {
+        return new CloudSpillApi<ResponseHandler>(serverUrl, new Client() {
+
+            protected void handle(HttpMethod method, String url, ResponseHandler consumer) throws IOException {
+                super.handle(method, url, ResponseHandlers.withCredentials(credentials, base64Encoder, consumer));
+            }
+        });
     }
 
     /** Function used by clients to ensure connectivity is available and check API compatibility. */
     public String ping() {
         return serverUrl + "ping";
+    }
+
+    public void ping(T consumer) {
+        matcher.match(ApiElementMatcher.HttpMethod.GET, ping(), consumer);
     }
 
     /** "Upload file" function: file timestamp HTTP header */
@@ -42,6 +91,10 @@ public class CloudSpillApi {
     /** PUT URL to upload a file */
     public String upload(String user, String folder, String path) {
         return serverUrl +"item/"+ encodePathPart(user) +"/"+ encodePathPart(folder) +"/"+ encodePathPart(path);
+    }
+
+    public void upload(String user, String folder, String path, T consumer) {
+        matcher.match(ApiElementMatcher.HttpMethod.PUT, upload(user, folder, path), consumer);
     }
 
     private static String encodePathPart(String text) {
@@ -77,6 +130,8 @@ public class CloudSpillApi {
     public String editorJS() {
         return serverUrl +"editor.js";
     }
+
+    public String loginJS() { return serverUrl +"login.js"; }
 
     public String galleryListPage(ItemCredentials credentials) {
         return serverUrl + credentials.getUrlPrefix() + "gallery/";

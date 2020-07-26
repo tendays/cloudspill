@@ -160,6 +160,10 @@ public abstract class CloudSpillEntityManagerDomain {
         session.persist(entity);
     }
 
+    public void merge(Object entity) {
+        session.merge(entity);
+    }
+
     public void reload(Object entity) {
         session.refresh(entity);
     }

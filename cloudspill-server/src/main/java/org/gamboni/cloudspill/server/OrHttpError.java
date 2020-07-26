@@ -39,8 +39,24 @@ public class OrHttpError<T> {
         }
     }
 
-    public Object get(Response res) throws Exception {
-        return this.get(res, value -> value);
+    /** If this is an error, publish it to the given Response object. Otherwise (this holds a value), return that value.
+     * @param res where to publish any error
+     * @return either an error string, or whatever {@code onValue} returned
+     */
+    public Object get(Response res) {
+        try {
+            return this.get(res, value -> value);
+        } catch (Exception e) {
+            /* Not supposed to happen, our consumer doesn't throw exceptions */
+            throw new RuntimeException(e);
+        }
+    }
+
+    public T orThrow() {
+        if (error != null) {
+            throw new RuntimeException();
+        }
+        return item;
     }
 
     @SuppressWarnings("unchecked") // changing type parameter is safe on error because item is null in that case

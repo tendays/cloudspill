@@ -25,10 +25,16 @@ public class LoginPage extends AbstractPage {
     }
 
     @Override
+    protected HtmlFragment scripts() {
+        return tag("script", "type='text/javascript' src="+ quote(api.loginJS()), "");
+    }
+
+    @Override
     protected HtmlFragment getBody(ItemCredentials.AuthenticationStatus authStatus) {
-        return tag("div", "class='login'",
+        return tag("form", "class='login' onsubmit="+quote("login(getElementById('username').value, '"+
+                        api.newToken("%s")+ "', '"+ api.login("%s") +"'); event.preventDefault()"),
                 tag("div", "class='login-message'", "Enter your username to log in"),
-                unclosedTag("input type='text'"),
+                unclosedTag("input type='text' id='username'"),
                 unclosedTag("input type='submit' value='GO'")
         );
     }

@@ -12,6 +12,7 @@ import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
 import org.gamboni.cloudspill.domain.ForwarderDomain;
 import org.gamboni.cloudspill.domain.RemoteItem;
+import org.gamboni.cloudspill.domain.RemoteUserAuthToken;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.domain.UserAuthToken;
 import org.gamboni.cloudspill.server.config.ForwarderConfiguration;
@@ -24,10 +25,11 @@ import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.Csv;
 import org.gamboni.cloudspill.shared.api.CsvEncoding;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.client.ResponseHandler;
+import org.gamboni.cloudspill.shared.client.ResponseHandlers;
 import org.gamboni.cloudspill.shared.domain.ClientUser;
 import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
 import org.gamboni.cloudspill.shared.domain.IsUser;
-import org.gamboni.cloudspill.shared.domain.Items;
 import org.gamboni.cloudspill.shared.util.Log;
 import org.mindrot.jbcrypt.BCrypt;
 
@@ -69,7 +71,7 @@ import static org.gamboni.cloudspill.shared.util.Files.append;
 public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
 
     private final ForwarderConfiguration configuration;
-    private final CloudSpillApi remoteApi;
+    private final CloudSpillApi<ResponseHandler> remoteApi;
 
     /** Temporary: keep tokens in memory */
     Multimap<String, UserAuthToken> tokens = HashMultimap.create();
@@ -77,7 +79,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     @Inject
     public CloudSpillForwarder(ForwarderConfiguration configuration) {
         this.configuration = configuration;
-        this.remoteApi = new CloudSpillApi(configuration.getRemoteServer());
+        this.remoteApi = CloudSpillApi.client(configuration.getRemoteServer());
     }
 
     public static void main(String[] args) {
@@ -110,7 +112,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
-    protected OrHttpError<Boolean> login(ItemCredentials.UserToken credentials) throws InvalidPasswordException {
+    protected OrHttpError<Boolean> login(ItemCredentials.UserToken credentials) {
         try {
             final HttpURLConnection connection = (HttpURLConnection) new URL(remoteApi.login(credentials.user.getName())).openConnection();
             connection.setRequestMethod("POST");
@@ -159,7 +161,50 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
 
     @Override
     protected void verifyUserToken(IsUser user, long id, String secret) throws InvalidPasswordException {
-        throw new UnsupportedOperationException();
+
+        transactedOrError(session -> {
+            final RemoteUserAuthToken token = session.get(RemoteUserAuthToken.class, id);
+            if (token == null || !token.getValid()) {
+                boolean verified[] = new boolean[1];
+                remoteApi.ping(ResponseHandlers.withCredentials(new ItemCredentials.UserToken(user, id, secret), Base64.getEncoder()::encodeToString,
+                        connection -> {
+                    if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
+                        /* Try saving token in database, ignoring failures */
+                        try {
+                            transacted(nested -> {
+                                RemoteUserAuthToken newToken = new RemoteUserAuthToken();
+                                User userEntity = this.getUserFromDB(user.getName(), nested).orElse(() -> {
+                                    User newUser = new User();
+                                    newUser.setName(user.getName());
+                                    nested.persist(newUser);
+                                    return newUser;
+                                });
+                                newToken.setUser(userEntity);
+                                newToken.setValid(true);
+                                newToken.setValue(secret);
+                                newToken.setId(id);
+                                nested.persist(newToken);
+
+                                return newToken;
+                            });
+                        } catch (Exception e) {
+                            Log.warn("Failed saving UserAuthToken after successful connection", e);
+                        }
+                        verified[0] = true;
+                    } else {
+                        Log.error("Failed verifying user token: server returned HTTP status code "+ connection.getResponseCode());
+                    }
+                        }));
+                if (!verified[0]) {
+                    throw new InvalidPasswordException();
+                }
+            } else if (!token.getValue().equals(secret) ||
+                    !token.getUser().getName().equals(user.getName())) {
+                throw new InvalidPasswordException();
+            }
+
+            return null;
+        }, InvalidPasswordException.class);
     }
 
     @Override

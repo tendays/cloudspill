@@ -19,6 +19,7 @@ import org.gamboni.cloudspill.server.query.ItemQueryLoader;
 import org.gamboni.cloudspill.server.query.ItemSet;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
+import org.gamboni.cloudspill.shared.api.ApiElementMatcher;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.Csv;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
@@ -60,11 +61,21 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
     private static final ItemCredentials.PublicAccess publicAccess = new ItemCredentials.PublicAccess();
 
     protected final void setupRoutes(BackendConfiguration configuration) {
-        CloudSpillApi api = new CloudSpillApi("");
+        CloudSpillApi<Route> api = new CloudSpillApi<>("", (method, url, route) -> {
+            if (method == ApiElementMatcher.HttpMethod.GET) {
+                get(url, route);
+            } else if (method == ApiElementMatcher.HttpMethod.POST) {
+                post(url, route);
+            } else if (method == ApiElementMatcher.HttpMethod.PUT) {
+                put(url, route);
+            } else {
+                throw new UnsupportedOperationException(method.toString());
+            }
+        });
 
         /* Access logging */
         before((req, res) -> {
-            Log.info(req.headers("User-Agent") +" @"+ req.raw().getRemoteAddr() +" "+ req.requestMethod() +" "+ req.uri());
+            Log.info(req.headers("User-Agent") +" @"+ req.ip() +" "+ req.requestMethod() +" "+ req.uri());
         });
 
         /* Print full request processing time in HTML pages */
@@ -77,7 +88,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             res.body("500 Internal Server Error");
         });
 
-        get(api.ping(), (req, res) -> transacted(session ->
+        api.ping((req, res) -> transacted(session ->
                 getUnverifiedCredentials(req, session)
                         .flatMap(unverifiedCredentials ->
                             (unverifiedCredentials == null) ? // no authentication headers
@@ -88,6 +99,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         exposeResource(api.css(), "css/main.css", "text/css");
         exposeResource(api.lazyLoadJS(), "js/lazy-load.js", "application/javascript");
         exposeResource(api.editorJS(), "js/editor.js", "application/javascript");
+        exposeResource(api.loginJS(), "js/login.js", "application/javascript");
 
         get("/robots.txt", (req, res)->
                 "User-agent: *\n" +
@@ -213,8 +225,17 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                     req.headers("User-Agent"),
                             (forwarded == null ? req.ip() :
                             (forwarded +" (connecting through "+ req.ip() +")")))
-                    .map(ItemCredentials.UserToken::encodeLoginParam)
-                    .get(res);
+                    .get(res, token -> {
+
+                        res.cookie("/",
+                                LOGIN_COOKIE_NAME,
+                                token.encodeCookie(),
+                                (int)Duration.ofDays(365).getSeconds(),
+                                false, // TODO configuration value. On my localhost testing it's false, elsewhere it's true
+                                true);
+
+                        return token.encodeLoginParam();
+                    });
         });
 
         /* Login, step 2: wait for an authentication token to be validated */
@@ -230,12 +251,6 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                     secret);
             return login(credentials).get(res, ok -> {
                 if (ok) {
-                res.cookie("/",
-                        LOGIN_COOKIE_NAME,
-                        credentials.encodeCookie(),
-                        (int)Duration.ofDays(365).getSeconds(),
-                        false, // TODO configuration value. On my localhost testing it's false, elsewhere it's true
-                        true);
                 return api.loginResult(true);
             } else {
                 return api.loginResult(false);
