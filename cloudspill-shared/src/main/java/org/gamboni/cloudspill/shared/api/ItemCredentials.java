@@ -26,7 +26,15 @@ public interface ItemCredentials {
         void when(ItemKey key) throws E;
     }
 
+    public interface Mapper<R> {
+        R when(UserPassword password);
+        R when(UserToken token);
+        R when(PublicAccess pub);
+        R when(ItemKey key);
+    }
+
     <E extends Throwable> void match(Matcher<E> matcher) throws E;
+    <R> R map(Mapper<R> mapper);
 
     AuthenticationStatus getAuthStatus();
 
@@ -41,7 +49,14 @@ public interface ItemCredentials {
             protected ItemCredentials credentialsForNonPublicItem(IsItem item) {
                 return new UserPassword();
             }
-        }, ANONYMOUS {
+        },
+        PENDING {
+            @Override
+            protected ItemCredentials credentialsForNonPublicItem(IsItem item) {
+                return ANONYMOUS.credentialsForNonPublicItem(item);
+            }
+        },
+        ANONYMOUS {
             @Override
             protected ItemCredentials credentialsForNonPublicItem(IsItem item) {
                 return new ItemKey(item.getChecksum());
@@ -80,6 +95,11 @@ public interface ItemCredentials {
             matcher.when(this);
         }
 
+        @Override
+        public <R> R map(Mapper<R> mapper) {
+            return mapper.when(this);
+        }
+
         public String getPassword() {
             if (password == null) {
                 throw new IllegalStateException("No password available");
@@ -116,6 +136,11 @@ public interface ItemCredentials {
         @Override
         public <E extends Throwable> void match(Matcher<E> matcher) throws E {
             matcher.when(this);
+        }
+
+        @Override
+        public <R> R map(Mapper<R> mapper) {
+            return mapper.when(this);
         }
 
         @Override
@@ -186,6 +211,11 @@ public interface ItemCredentials {
         }
 
         @Override
+        public <R> R map(Mapper<R> mapper) {
+            return mapper.when(this);
+        }
+
+        @Override
         public AuthenticationStatus getAuthStatus() {
             return AuthenticationStatus.ANONYMOUS;
         }
@@ -220,6 +250,11 @@ public interface ItemCredentials {
         @Override
         public <E extends Throwable> void match(Matcher<E> matcher) throws E {
             matcher.when(this);
+        }
+
+        @Override
+        public <R> R map(Mapper<R> mapper) {
+            return mapper.when(this);
         }
 
         @Override

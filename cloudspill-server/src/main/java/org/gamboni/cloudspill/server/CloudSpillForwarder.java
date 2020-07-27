@@ -17,6 +17,7 @@ import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.domain.UserAuthToken;
 import org.gamboni.cloudspill.server.config.ForwarderConfiguration;
 import org.gamboni.cloudspill.server.html.GalleryListPage;
+import org.gamboni.cloudspill.server.html.LoginPage;
 import org.gamboni.cloudspill.server.query.GalleryPartReference;
 import org.gamboni.cloudspill.server.query.ItemQueryLoader;
 import org.gamboni.cloudspill.server.query.ItemSet;
@@ -160,51 +161,56 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
-    protected void verifyUserToken(IsUser user, long id, String secret) throws InvalidPasswordException {
-
-        transactedOrError(session -> {
+    protected LoginPage.State getUserTokenState(IsUser user, long id, String secret) {
+        return this.<LoginPage.State>transactedOrError(session -> {
             final RemoteUserAuthToken token = session.get(RemoteUserAuthToken.class, id);
-            if (token == null || !token.getValid()) {
-                boolean verified[] = new boolean[1];
-                remoteApi.ping(ResponseHandlers.withCredentials(new ItemCredentials.UserToken(user, id, secret), Base64.getEncoder()::encodeToString,
-                        connection -> {
-                    if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
-                        /* Try saving token in database, ignoring failures */
-                        try {
-                            transacted(nested -> {
-                                RemoteUserAuthToken newToken = new RemoteUserAuthToken();
-                                User userEntity = this.getUserFromDB(user.getName(), nested).orElse(() -> {
-                                    User newUser = new User();
-                                    newUser.setName(user.getName());
-                                    nested.persist(newUser);
-                                    return newUser;
-                                });
-                                newToken.setUser(userEntity);
-                                newToken.setValid(true);
-                                newToken.setValue(secret);
-                                newToken.setId(id);
-                                nested.persist(newToken);
 
-                                return newToken;
-                            });
-                        } catch (Exception e) {
-                            Log.warn("Failed saving UserAuthToken after successful connection", e);
-                        }
-                        verified[0] = true;
-                    } else {
-                        Log.error("Failed verifying user token: server returned HTTP status code "+ connection.getResponseCode());
-                    }
-                        }));
-                if (!verified[0]) {
-                    throw new InvalidPasswordException();
-                }
-            } else if (!token.getValue().equals(secret) ||
-                    !token.getUser().getName().equals(user.getName())) {
-                throw new InvalidPasswordException();
+            if (token != null && (!token.getValue().equals(secret) || !token.getUser().getName().equals(user.getName()))) {
+                return LoginPage.State.INVALID_TOKEN;
             }
 
-            return null;
-        }, InvalidPasswordException.class);
+            if (token == null || !token.getValid()) {
+                boolean[] verified = new boolean[1];
+                remoteApi.ping(ResponseHandlers.withCredentials(new ItemCredentials.UserToken(user, id, secret), Base64.getEncoder()::encodeToString,
+                        connection -> {
+                            if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
+                                /* Try saving token in database, ignoring failures */
+                                try {
+                                    transacted(nested -> {
+                                        RemoteUserAuthToken newToken = new RemoteUserAuthToken();
+                                        User userEntity = this.getUserFromDB(user.getName(), nested).orElse(() -> {
+                                            User newUser = new User();
+                                            newUser.setName(user.getName());
+                                            nested.persist(newUser);
+                                            return newUser;
+                                        });
+                                        newToken.setUser(userEntity);
+                                        newToken.setValid(true);
+                                        newToken.setValue(secret);
+                                        newToken.setId(id);
+                                        nested.persist(newToken);
+
+                                        return null; // unused return value required by transacted()
+                                    });
+                                } catch (Exception e) {
+                                    Log.warn("Failed saving UserAuthToken after successful connection", e);
+                                }
+                                verified[0] = true;
+                            } else {
+                                Log.error("Failed verifying user token: server returned HTTP status code " + connection.getResponseCode());
+                            }
+                        }));
+                if (verified[0]) {
+                    return LoginPage.State.LOGGED_IN;
+                } else {
+                    // either invalid or waiting (maybe we could use different status code to distinguish?)
+                    // waiting is expected to be the most common case, if 'invalid' then the login() call will notify
+                    return LoginPage.State.WAITING_FOR_VALIDATION;
+                }
+            }
+
+            return LoginPage.State.LOGGED_IN;
+        }).orElse(()-> LoginPage.State.INVALID_TOKEN);
     }
 
     @Override

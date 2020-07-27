@@ -1,7 +1,6 @@
 package org.gamboni.cloudspill.server;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -34,9 +33,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -215,7 +212,37 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             return upload(req, res, session, credentials, folder, path);
         }));
 
-        get("/", (req, res) -> title().get(res, title -> new LoginPage(configuration, title).getHtml(publicAccess)));
+        get("/", (req, res) -> title().get(res, title -> transacted(session -> getUnverifiedCredentials(req, session)).map(credentials ->
+                credentials.map(new ItemCredentials.Mapper<LoginPage>() {
+                    @Override
+                    public LoginPage when(ItemCredentials.UserPassword password) {
+                        try {
+                            verifyCredentials(password, null);
+                        } catch (InvalidPasswordException e) {
+                            /* Wrong password supplied */
+                            return new LoginPage(configuration, title, LoginPage.State.DISCONNECTED, null);
+                        }
+
+                        return new LoginPage(configuration, title, LoginPage.State.LOGGED_IN, password);
+                    }
+
+                    @Override
+                    public LoginPage when(ItemCredentials.UserToken token) {
+                        return new LoginPage(configuration, title, getUserTokenState(token.user, token.id, token.secret), token);
+                    }
+
+                    @Override
+                    public LoginPage when(ItemCredentials.PublicAccess pub) {
+                        return new LoginPage(configuration, title, LoginPage.State.DISCONNECTED, null);
+                    }
+
+                    @Override
+                    public LoginPage when(ItemCredentials.ItemKey key) {
+                        return new LoginPage(configuration, title, LoginPage.State.DISCONNECTED, null);
+
+                    }
+                }).getHtml(publicAccess))
+            .get(res)));
 
         /* Login, step 1: request a new authentication token */
         post(api.newToken(":name"), (req, res) -> {
@@ -292,7 +319,10 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
             @Override
             public void when(ItemCredentials.UserToken token) throws InvalidPasswordException {
-                verifyUserToken(token.user, token.id, token.secret);
+                final LoginPage.State state = getUserTokenState(token.user, token.id, token.secret);
+                if (state != LoginPage.State.LOGGED_IN) {
+                    throw new InvalidPasswordException();
+                }
             }
 
             @Override

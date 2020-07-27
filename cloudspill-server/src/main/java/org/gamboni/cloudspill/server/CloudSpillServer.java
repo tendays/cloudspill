@@ -25,6 +25,7 @@ import org.gamboni.cloudspill.domain.UserAuthToken_;
 import org.gamboni.cloudspill.domain.User_;
 import org.gamboni.cloudspill.server.config.ServerConfiguration;
 import org.gamboni.cloudspill.server.html.GalleryListPage;
+import org.gamboni.cloudspill.server.html.LoginPage;
 import org.gamboni.cloudspill.server.query.ItemQueryLoader;
 import org.gamboni.cloudspill.server.query.ItemSet;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
@@ -429,20 +430,19 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 
 
 	@Override
-	protected void verifyUserToken(IsUser user, long id, String secret) throws InvalidPasswordException {
-    	transactedOrError(session -> {
+	protected LoginPage.State getUserTokenState(IsUser user, long id, String secret) {
+    	return transactedOrError(session -> {
 			final UserAuthToken token = session.get(UserAuthToken.class, id);
 			if (token == null ||
 					!token.getValue().equals(secret) ||
 					!token.getUser().getName().equals(user.getName())) {
-				throw new InvalidPasswordException();
+				return LoginPage.State.INVALID_TOKEN;
+			} else if (!token.getValid()) {
+				return LoginPage.State.WAITING_FOR_VALIDATION;
+			} else {
+				return LoginPage.State.LOGGED_IN;
 			}
-
-			if (!token.getValid() || !token.getValue().equals(secret)) {
-				throw new InvalidPasswordException();
-			}
-			return null;
-		}, InvalidPasswordException.class);
+		}).orElse(() -> LoginPage.State.INVALID_TOKEN);
 	}
 
 

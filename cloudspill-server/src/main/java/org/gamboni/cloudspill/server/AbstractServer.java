@@ -1,7 +1,6 @@
 package org.gamboni.cloudspill.server;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 
 import java.io.File;
@@ -18,6 +17,7 @@ import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
 import org.gamboni.cloudspill.domain.ServerDomain;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.domain.User_;
+import org.gamboni.cloudspill.server.html.LoginPage;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.domain.ClientUser;
 import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
@@ -85,7 +85,10 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 
 						@Override
 						public void when(ItemCredentials.UserToken token) throws InvalidPasswordException {
-							verifyUserToken(token.user, token.id, token.secret);
+							final LoginPage.State state = getUserTokenState(token.user, token.id, token.secret);
+							if (state != LoginPage.State.LOGGED_IN) {
+								throw new InvalidPasswordException();
+							}
 						}
 
 						@Override
@@ -107,7 +110,7 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 		});
 	}
 
-	protected abstract void verifyUserToken(IsUser user, long id, String secret) throws InvalidPasswordException;
+	protected abstract LoginPage.State getUserTokenState(IsUser user, long id, String secret);
 
 	protected OrHttpError<ItemCredentials.UserCredentials> getUnverifiedCredentials(Request req, S session) {
 		final String authHeader = req.headers("Authorization");
@@ -248,7 +251,7 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 		}
 	}
 
-	protected <R, E extends Throwable> OrHttpError<R> transactedOrError(TransactionBody<S, R> task) {
+	protected <R> OrHttpError<R> transactedOrError(TransactionBody<S, R> task) {
 		try {
 			return new OrHttpError<>(transacted(task));
 		} catch (Throwable t) {
