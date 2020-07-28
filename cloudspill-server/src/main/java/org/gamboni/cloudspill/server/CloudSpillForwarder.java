@@ -26,6 +26,7 @@ import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.Csv;
 import org.gamboni.cloudspill.shared.api.CsvEncoding;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.api.LoginState;
 import org.gamboni.cloudspill.shared.client.ResponseHandler;
 import org.gamboni.cloudspill.shared.client.ResponseHandlers;
 import org.gamboni.cloudspill.shared.domain.ClientUser;
@@ -113,7 +114,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
-    protected OrHttpError<Boolean> login(ItemCredentials.UserToken credentials) {
+    protected OrHttpError<LoginState> login(ItemCredentials.UserToken credentials) {
         try {
             final HttpURLConnection connection = (HttpURLConnection) new URL(remoteApi.login(credentials.user.getName())).openConnection();
             connection.setRequestMethod("POST");
@@ -126,11 +127,9 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
                 response = CharStreams.toString(in);
             }
 
-            if (response.equals(CloudSpillApi.loginResult(true))) {
-                return new OrHttpError<>(true);
-            } else if (response.equals(CloudSpillApi.loginResult(false))) {
-                return new OrHttpError<>(false);
-            } else {
+            try {
+                return new OrHttpError<>(LoginState.valueOf(response));
+            } catch (IllegalArgumentException e) {
                 Log.warn("Unexpected response '"+ response +"' after login");
                 return gatewayTimeout();
             }
@@ -161,12 +160,12 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
-    protected LoginPage.State getUserTokenState(IsUser user, long id, String secret) {
-        return this.<LoginPage.State>transactedOrError(session -> {
+    protected LoginState getUserTokenState(IsUser user, long id, String secret) {
+        return this.<LoginState>transactedOrError(session -> {
             final RemoteUserAuthToken token = session.get(RemoteUserAuthToken.class, id);
 
             if (token != null && (!token.getValue().equals(secret) || !token.getUser().getName().equals(user.getName()))) {
-                return LoginPage.State.INVALID_TOKEN;
+                return LoginState.INVALID_TOKEN;
             }
 
             if (token == null || !token.getValid()) {
@@ -201,16 +200,16 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
                             }
                         }));
                 if (verified[0]) {
-                    return LoginPage.State.LOGGED_IN;
+                    return LoginState.LOGGED_IN;
                 } else {
                     // either invalid or waiting (maybe we could use different status code to distinguish?)
                     // waiting is expected to be the most common case, if 'invalid' then the login() call will notify
-                    return LoginPage.State.WAITING_FOR_VALIDATION;
+                    return LoginState.WAITING_FOR_VALIDATION;
                 }
             }
 
-            return LoginPage.State.LOGGED_IN;
-        }).orElse(()-> LoginPage.State.INVALID_TOKEN);
+            return LoginState.LOGGED_IN;
+        }).orElse(()-> LoginState.INVALID_TOKEN);
     }
 
     @Override

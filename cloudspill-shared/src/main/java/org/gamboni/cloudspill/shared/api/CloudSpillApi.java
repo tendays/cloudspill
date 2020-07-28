@@ -146,15 +146,11 @@ public class CloudSpillApi<T> {
     }
 
     public String login(String userName) {
-        return serverUrl +"user/"+ userName +"/login";
+        return serverUrl +"user/"+ encodePathPart(userName) +"/login";
     }
 
     public String newToken(String username) {
-        return serverUrl +"user/"+ username +"/new-token";
-    }
-
-    public static String loginResult(boolean result) {
-        return result ? "ok" : "invalid";
+        return serverUrl +"user/"+ encodePathPart(username) +"/new-token";
     }
 
     public String listInvalidTokens(String username) {

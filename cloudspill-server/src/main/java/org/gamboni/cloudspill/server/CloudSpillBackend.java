@@ -22,6 +22,7 @@ import org.gamboni.cloudspill.shared.api.ApiElementMatcher;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.Csv;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.api.LoginState;
 import org.gamboni.cloudspill.shared.domain.ClientUser;
 import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
 import org.gamboni.cloudspill.shared.domain.IsItem;
@@ -220,10 +221,10 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                             verifyCredentials(password, null);
                         } catch (InvalidPasswordException e) {
                             /* Wrong password supplied */
-                            return new LoginPage(configuration, title, LoginPage.State.DISCONNECTED, null);
+                            return new LoginPage(configuration, title, LoginState.DISCONNECTED, null);
                         }
 
-                        return new LoginPage(configuration, title, LoginPage.State.LOGGED_IN, password);
+                        return new LoginPage(configuration, title, LoginState.LOGGED_IN, password);
                     }
 
                     @Override
@@ -233,12 +234,12 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
                     @Override
                     public LoginPage when(ItemCredentials.PublicAccess pub) {
-                        return new LoginPage(configuration, title, LoginPage.State.DISCONNECTED, null);
+                        return new LoginPage(configuration, title, LoginState.DISCONNECTED, null);
                     }
 
                     @Override
                     public LoginPage when(ItemCredentials.ItemKey key) {
-                        return new LoginPage(configuration, title, LoginPage.State.DISCONNECTED, null);
+                        return new LoginPage(configuration, title, LoginState.DISCONNECTED, null);
 
                     }
                 }).getHtml(publicAccess))
@@ -276,12 +277,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             ItemCredentials.UserToken credentials = new ItemCredentials.UserToken(
                     new ClientUser(username),
                     secret);
-            return login(credentials).get(res, ok -> {
-                if (ok) {
-                return api.loginResult(true);
-            } else {
-                return api.loginResult(false);
-            }});
+            return login(credentials).get(res, LoginState::name);
         });
 
         /* List authentication tokens that haven't been validated yet */
@@ -304,7 +300,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
     protected abstract OrHttpError<Object> validateToken(D session, String username, long tokenId);
 
-    protected abstract OrHttpError<Boolean> login(ItemCredentials.UserToken credentials) throws InvalidPasswordException;
+    protected abstract OrHttpError<LoginState> login(ItemCredentials.UserToken credentials) throws InvalidPasswordException;
 
     protected abstract OrHttpError<List<UserAuthToken>> listInvalidTokens(D session, ItemCredentials.UserCredentials user);
 
@@ -319,8 +315,8 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
             @Override
             public void when(ItemCredentials.UserToken token) throws InvalidPasswordException {
-                final LoginPage.State state = getUserTokenState(token.user, token.id, token.secret);
-                if (state != LoginPage.State.LOGGED_IN) {
+                final LoginState state = getUserTokenState(token.user, token.id, token.secret);
+                if (state != LoginState.LOGGED_IN) {
                     throw new InvalidPasswordException();
                 }
             }

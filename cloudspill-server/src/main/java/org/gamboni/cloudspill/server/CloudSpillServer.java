@@ -32,6 +32,7 @@ import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.api.LoginState;
 import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
 import org.gamboni.cloudspill.shared.domain.IsUser;
 import org.gamboni.cloudspill.shared.domain.ItemType;
@@ -373,7 +374,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	}
 
 	@Override
-	protected OrHttpError<Boolean> login(ItemCredentials.UserToken credentials) {
+	protected OrHttpError<LoginState> login(ItemCredentials.UserToken credentials) {
 		return transactedOrError(session -> {
 			final UserAuthToken token = session.get(UserAuthToken.class, credentials.id);
 			if (token == null ||
@@ -382,7 +383,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 				throw new InvalidPasswordException();
 			}
 			if (token.getValid()) {
-				return true;
+				return LoginState.LOGGED_IN;
 			}
 			synchronized (watchedTokens) {
 				TokenWatch watch = watchedTokens.compute(token.getId(), (__, w) -> {
@@ -403,7 +404,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 				if (watch.watchCount == 0) {
 					watchedTokens.remove(token.getId());
 				}
-				return watch.valid;
+				return watch.valid ? LoginState.LOGGED_IN : LoginState.WAITING_FOR_VALIDATION;
 			}
 		});
 	}
@@ -430,19 +431,19 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 
 
 	@Override
-	protected LoginPage.State getUserTokenState(IsUser user, long id, String secret) {
+	protected LoginState getUserTokenState(IsUser user, long id, String secret) {
     	return transactedOrError(session -> {
 			final UserAuthToken token = session.get(UserAuthToken.class, id);
 			if (token == null ||
 					!token.getValue().equals(secret) ||
 					!token.getUser().getName().equals(user.getName())) {
-				return LoginPage.State.INVALID_TOKEN;
+				return LoginState.INVALID_TOKEN;
 			} else if (!token.getValid()) {
-				return LoginPage.State.WAITING_FOR_VALIDATION;
+				return LoginState.WAITING_FOR_VALIDATION;
 			} else {
-				return LoginPage.State.LOGGED_IN;
+				return LoginState.LOGGED_IN;
 			}
-		}).orElse(() -> LoginPage.State.INVALID_TOKEN);
+		}).orElse(() -> LoginState.INVALID_TOKEN);
 	}
 
 

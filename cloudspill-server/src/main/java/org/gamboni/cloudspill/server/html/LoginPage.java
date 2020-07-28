@@ -1,24 +1,19 @@
 package org.gamboni.cloudspill.server.html;
 
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
+import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.api.LoginState;
 
 /**
  * @author tendays
  */
 public class LoginPage extends AbstractPage {
     private final String title;
-    private final State state;
+    private final LoginState state;
     private final ItemCredentials.UserCredentials credentials;
 
-    public enum State {
-        DISCONNECTED,
-        INVALID_TOKEN,
-        WAITING_FOR_VALIDATION,
-        LOGGED_IN
-    }
-
-    public LoginPage(BackendConfiguration configuration, String title, State state, ItemCredentials.UserCredentials credentials) {
+    public LoginPage(BackendConfiguration configuration, String title, LoginState state, ItemCredentials.UserCredentials credentials) {
         super(configuration);
         this.title = title;
         this.state = state;
@@ -41,30 +36,55 @@ public class LoginPage extends AbstractPage {
     }
 
     @Override
+    protected String bodyAttributes() {
+        if (state == LoginState.WAITING_FOR_VALIDATION) {
+            return "onload="+ quote("waitForValidation('"+ ((ItemCredentials.UserToken)credentials).encodeLoginParam() +"', '"+
+                    this.api.login(credentials.user.getName())
+                    +"')");
+        } else {
+            return super.bodyAttributes();
+        }
+    }
+
+    @Override
     protected HtmlFragment getBody(ItemCredentials.AuthenticationStatus authStatus) {
-        if (state == State.DISCONNECTED || state == State.INVALID_TOKEN) {
-            return tag("form", "class='login' onsubmit=" + quote("login(getElementById('username').value, '" +
+        HtmlFragment nameElement = tag("span", "name='name'", (credentials == null) ? "stranger" : credentials.user.getName());
+        HtmlFragment tokenIdElement = tag("span", "name='tokenId'",
+                (credentials instanceof ItemCredentials.UserToken) ? String.valueOf(((ItemCredentials.UserToken)credentials).id) : "unknown");
+        return HtmlFragment.concatenate(
+            tag("form", hiddenUnless(state == LoginState.DISCONNECTED || state == LoginState.INVALID_TOKEN) +
+                            "id='disconnected' class='login' onsubmit=" + quote("login(getElementById('username').value, '" +
                             api.newToken("%s") + "', '" + api.login("%s") + "'); event.preventDefault()"),
                     loginMessage("Enter your username to log in"),
                     unclosedTag("input type='text' id='username'"),
                     unclosedTag("input type='submit' value='GO'")
-            );
-        } else if (state == State.WAITING_FOR_VALIDATION) {
-            return HtmlFragment.concatenate(
-                    tag("div", "class='login-message'", "Hello "+ credentials.user.getName() +
-                    ", your personal token number is "+ ((ItemCredentials.UserToken)credentials).id +"."),
+            ),
+                tag("div", hiddenUnless(state == LoginState.WAITING_FOR_VALIDATION) +"id='waiting'",
+                    tag("div", "class='login-message'",
+                            HtmlFragment.escape("Hello "),
+                            nameElement,
+                            HtmlFragment.escape(", your personal token number is "),
+                            tokenIdElement,
+                            HtmlFragment.escape(".")),
                     loginMessage("Please ask an administrator to let you in."),
-                    loginMessage("Alternatively, if you're already logged in on another device, you can validate this token yourself from there"));
-        } else if (state == State.LOGGED_IN) {
-            return HtmlFragment.concatenate(
-                    loginMessage("Hello "+ credentials.user.getName() +", you are now successfully logged in."),
-                    loginMessage("Please make sure your browser is set up to save cookies to avoid getting logged out when you close your browser."));
-        } else {
-            throw new IllegalStateException();
-        }
+                    loginMessage("Alternatively, if you're already logged in on another device, you can validate this token yourself from there")),
+        tag("div", hiddenUnless(state == LoginState.LOGGED_IN) +"id='logged_in'",
+                    loginMessage(
+                            HtmlFragment.escape("Hello "),
+                            nameElement,
+                            HtmlFragment.escape(", you are now successfully logged in.")),
+                    loginMessage("Please make sure your browser is set up to save cookies to ensure you stay logged in when you close your browser.")));
+    }
+
+    private String hiddenUnless(boolean condition) {
+        return (condition) ? "" : "style='display:none' ";
     }
 
     private HtmlFragment loginMessage(String message) {
-        return tag("div", "class='login-message'", message);
+        return loginMessage(HtmlFragment.escape(message));
+    }
+
+    private HtmlFragment loginMessage(HtmlFragment... content) {
+        return tag("div", "class='login-message'", content);
     }
 }

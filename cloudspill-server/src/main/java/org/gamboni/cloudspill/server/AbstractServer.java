@@ -19,6 +19,7 @@ import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.domain.User_;
 import org.gamboni.cloudspill.server.html.LoginPage;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.api.LoginState;
 import org.gamboni.cloudspill.shared.domain.ClientUser;
 import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
 import org.gamboni.cloudspill.shared.domain.IsUser;
@@ -85,8 +86,8 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 
 						@Override
 						public void when(ItemCredentials.UserToken token) throws InvalidPasswordException {
-							final LoginPage.State state = getUserTokenState(token.user, token.id, token.secret);
-							if (state != LoginPage.State.LOGGED_IN) {
+							final LoginState state = getUserTokenState(token.user, token.id, token.secret);
+							if (state != LoginState.LOGGED_IN) {
 								throw new InvalidPasswordException();
 							}
 						}
@@ -110,7 +111,7 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 		});
 	}
 
-	protected abstract LoginPage.State getUserTokenState(IsUser user, long id, String secret);
+	protected abstract LoginState getUserTokenState(IsUser user, long id, String secret);
 
 	protected OrHttpError<ItemCredentials.UserCredentials> getUnverifiedCredentials(Request req, S session) {
 		final String authHeader = req.headers("Authorization");
