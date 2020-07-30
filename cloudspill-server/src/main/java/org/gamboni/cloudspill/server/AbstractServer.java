@@ -194,6 +194,10 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 		return "Bad Request";
 	}
 
+	protected <T> OrHttpError<T> badRequest() {
+		return new OrHttpError<>(this::badRequest);
+	}
+
 	private String unauthorized(Response res) {
 		res.status(HttpServletResponse.SC_UNAUTHORIZED);
 		loginPrompt(res);

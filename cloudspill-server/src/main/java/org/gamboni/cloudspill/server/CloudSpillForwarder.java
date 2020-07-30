@@ -22,6 +22,7 @@ import org.gamboni.cloudspill.server.query.GalleryPartReference;
 import org.gamboni.cloudspill.server.query.ItemQueryLoader;
 import org.gamboni.cloudspill.server.query.ItemSet;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
+import org.gamboni.cloudspill.shared.api.Base64Encoder;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.Csv;
 import org.gamboni.cloudspill.shared.api.CsvEncoding;
@@ -72,6 +73,7 @@ import static org.gamboni.cloudspill.shared.util.Files.append;
  */
 public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
 
+    public static final Base64Encoder BASE_64_ENCODER = Base64.getEncoder()::encodeToString;
     private final ForwarderConfiguration configuration;
     private final CloudSpillApi<ResponseHandler> remoteApi;
 
@@ -116,12 +118,9 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     @Override
     protected OrHttpError<LoginState> login(ItemCredentials.UserToken credentials) {
         try {
-            final HttpURLConnection connection = (HttpURLConnection) new URL(remoteApi.login(credentials.user.getName())).openConnection();
+            final HttpURLConnection connection = (HttpURLConnection) new URL(remoteApi.login()).openConnection();
             connection.setRequestMethod("POST");
-            connection.setDoOutput(true);
-            try (final OutputStreamWriter output = new OutputStreamWriter(connection.getOutputStream())) {
-                output.write(credentials.encodeLoginParam());
-            }
+            credentials.setHeaders(connection, BASE_64_ENCODER);
             final String response;
             try (final InputStreamReader in = new InputStreamReader(connection.getInputStream())) {
                 response = CharStreams.toString(in);
@@ -133,6 +132,38 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
                 Log.warn("Unexpected response '"+ response +"' after login");
                 return gatewayTimeout();
             }
+        } catch (IOException e) {
+            Log.warn("Error communicating with remote server", e);
+            return gatewayTimeout();
+        }
+    }
+
+    @Override
+    protected OrHttpError<String> logout(ForwarderDomain session, ItemCredentials.UserToken credentials) {
+        try {
+            final HttpURLConnection connection = (HttpURLConnection) new URL(remoteApi.logout()).openConnection();
+            connection.setRequestMethod("POST");
+            credentials.setHeaders(connection, BASE_64_ENCODER);
+            final String response;
+            try (final InputStreamReader in = new InputStreamReader(connection.getInputStream())) {
+                response = CharStreams.toString(in);
+            }
+
+            int responseCode = connection.getResponseCode();
+            if (responseCode != HttpURLConnection.HTTP_OK) {
+                return new OrHttpError<>(res -> {
+                    res.status(responseCode);
+                    return response;
+                });
+            }
+
+            /* Token was accepted for deletion by remote instance so delete it directly here */
+            final UserAuthToken token = session.get(UserAuthToken.class, credentials.id);
+            if (token != null) {
+                session.remove(token);
+            }
+
+            return new OrHttpError<>(response);
         } catch (IOException e) {
             Log.warn("Error communicating with remote server", e);
             return gatewayTimeout();
@@ -170,7 +201,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
 
             if (token == null || !token.getValid()) {
                 boolean[] verified = new boolean[1];
-                remoteApi.ping(ResponseHandlers.withCredentials(new ItemCredentials.UserToken(user, id, secret), Base64.getEncoder()::encodeToString,
+                remoteApi.ping(ResponseHandlers.withCredentials(new ItemCredentials.UserToken(user, id, secret), BASE_64_ENCODER,
                         connection -> {
                             if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
                                 /* Try saving token in database, ignoring failures */

@@ -145,8 +145,12 @@ public class CloudSpillApi<T> {
         return sliceParameters(new StringBuilder(serverUrl + "public/gallery/"+ id), offset, limit);
     }
 
-    public String login(String userName) {
-        return serverUrl +"user/"+ encodePathPart(userName) +"/login";
+    public String login() {
+        return serverUrl +"session/login";
+    }
+
+    public String logout() {
+        return serverUrl +"session/delete-token";
     }
 
     public String newToken(String username) {

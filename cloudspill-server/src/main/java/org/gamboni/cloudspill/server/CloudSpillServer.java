@@ -25,7 +25,6 @@ import org.gamboni.cloudspill.domain.UserAuthToken_;
 import org.gamboni.cloudspill.domain.User_;
 import org.gamboni.cloudspill.server.config.ServerConfiguration;
 import org.gamboni.cloudspill.server.html.GalleryListPage;
-import org.gamboni.cloudspill.server.html.LoginPage;
 import org.gamboni.cloudspill.server.query.ItemQueryLoader;
 import org.gamboni.cloudspill.server.query.ItemSet;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
@@ -105,7 +104,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 
 	private static class TokenWatch {
 		int watchCount = 0;
-		boolean valid = false;
+		LoginState state = LoginState.WAITING_FOR_VALIDATION;
 	}
 
 	private final Semaphore heavyTask = new Semaphore(6, true);
@@ -395,7 +394,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 				});
 				/* "Long-polling": wait at most one minute */
 				final long deadline = System.currentTimeMillis() + 60_000;
-				while (System.currentTimeMillis() < deadline && !watch.valid) {
+				while (System.currentTimeMillis() < deadline && watch.state == LoginState.WAITING_FOR_VALIDATION) {
 					//  max() needed in case the deadline expires right after above condition check
 					watchedTokens.wait(Math.max(1, deadline - System.currentTimeMillis()));
 				}
@@ -404,10 +403,30 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 				if (watch.watchCount == 0) {
 					watchedTokens.remove(token.getId());
 				}
-				return watch.valid ? LoginState.LOGGED_IN : LoginState.WAITING_FOR_VALIDATION;
+				return watch.state;
 			}
 		});
 	}
+
+    @Override
+    protected OrHttpError<String> logout(ServerDomain session, ItemCredentials.UserToken credentials) {
+        final UserAuthToken token = session.get(UserAuthToken.class, credentials.id);
+        if (token == null || !token.getValue().equals(credentials.secret)) {
+            return forbidden(false);
+        }
+
+        session.remove(token);
+        session.flush(); // to acquire lock (would be better to do a for update earlier)
+        synchronized(watchedTokens) {
+            /* If anybody's waiting for this to be validated, let them deny access. */
+            final TokenWatch tokenWatch = watchedTokens.get(credentials.id);
+            if (tokenWatch != null) {
+                tokenWatch.state = LoginState.INVALID_TOKEN;
+                watchedTokens.notifyAll();
+            }
+        }
+        return new OrHttpError<>( "ok");
+    }
 
 	@Override
 	protected OrHttpError<Object> validateToken(ServerDomain session, String username, long tokenId) {
@@ -422,7 +441,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 			/* If anybody's waiting for this to be validated, let them grant access. */
 			final TokenWatch tokenWatch = watchedTokens.get(tokenId);
 			if (tokenWatch != null) {
-				tokenWatch.valid = true;
+				tokenWatch.state = LoginState.LOGGED_IN;
 				watchedTokens.notifyAll();
 			}
 		}

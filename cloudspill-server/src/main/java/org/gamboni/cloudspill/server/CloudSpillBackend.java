@@ -23,7 +23,6 @@ import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.Csv;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.api.LoginState;
-import org.gamboni.cloudspill.shared.domain.ClientUser;
 import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
 import org.gamboni.cloudspill.shared.domain.IsItem;
 import org.gamboni.cloudspill.shared.domain.IsUser;
@@ -214,6 +213,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         }));
 
         get("/", (req, res) -> title().get(res, title -> transacted(session -> getUnverifiedCredentials(req, session)).map(credentials ->
+                        (credentials == null ? new LoginPage(configuration, title, LoginState.DISCONNECTED, null) :
                 credentials.map(new ItemCredentials.Mapper<LoginPage>() {
                     @Override
                     public LoginPage when(ItemCredentials.UserPassword password) {
@@ -242,7 +242,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                         return new LoginPage(configuration, title, LoginState.DISCONNECTED, null);
 
                     }
-                }).getHtml(publicAccess))
+                })).getHtml(publicAccess))
             .get(res)));
 
         /* Login, step 1: request a new authentication token */
@@ -267,18 +267,70 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         });
 
         /* Login, step 2: wait for an authentication token to be validated */
-        post(api.login(":name"), (req, res) -> {
-            // NOTE: using ClientUser so that Forwarder may create it after a token is validated
-            final String username = req.params("name");
+        post(api.login(), (req, res) ->  transacted(session -> getUnverifiedCredentials(req, session))
+                .flatMap(credentials ->
+                    (credentials == null ?
+                            badRequest() :
+                            credentials.map(new ItemCredentials.Mapper<OrHttpError<LoginState>>() {
+                                @Override
+                                public OrHttpError<LoginState> when(ItemCredentials.UserPassword password) {
+                                    // Basic authentication shouldn't use login() calls...
+                                    return badRequest();
+                                }
 
-            final String secret = req.body();
-            Log.debug("Handling login request for "+ username +" with credentials "+ secret);
+                                @Override
+                                public OrHttpError<LoginState> when(ItemCredentials.UserToken token) {
+                                    String username = token.user.getName();
+                                    Log.debug("Handling login request for " + username + " with credentials " +
+                                            extract(token.secret));
 
-            ItemCredentials.UserToken credentials = new ItemCredentials.UserToken(
-                    new ClientUser(username),
-                    secret);
-            return login(credentials).get(res, LoginState::name);
-        });
+                                    return login(token);
+                                }
+
+                                @Override
+                                public OrHttpError<LoginState> when(ItemCredentials.PublicAccess pub) {
+                                    return badRequest();
+                                }
+
+                                @Override
+                                public OrHttpError<LoginState> when(ItemCredentials.ItemKey key) {
+                                    return badRequest();
+                                }
+                            })))
+                    .get(res, LoginState::name));
+
+        post(api.logout(), (req, res) -> transacted(session ->
+            getUnverifiedCredentials(req, session).flatMap(credentials -> {
+                if (credentials == null) {
+                    Log.error("logout without credentials");
+                    return badRequest();
+                }
+
+                return credentials.map(new ItemCredentials.Mapper<OrHttpError<String>>() {
+                    @Override
+                    public OrHttpError<String> when(ItemCredentials.UserPassword password) {
+                        return badRequest();
+                    }
+
+                    @Override
+                    public OrHttpError<String> when(ItemCredentials.UserToken token) {
+                        return logout(session, token);
+                    }
+
+                    @Override
+                    public OrHttpError<String> when(ItemCredentials.PublicAccess pub) {
+                        return badRequest();
+                    }
+
+                    @Override
+                    public OrHttpError<String> when(ItemCredentials.ItemKey key) {
+                        return badRequest();
+                    }
+                });
+            })).get(res, v -> {
+            res.removeCookie("/", LOGIN_COOKIE_NAME);
+            return v;
+        }));
 
         /* List authentication tokens that haven't been validated yet */
         get(api.listInvalidTokens(":name"), secured((req, res, session, user) ->
@@ -298,9 +350,20 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         }));
     }
 
+    /** Input: "abcdefghijklmnopqrstuvwxyz". Output: "abc...xyz". */
+    private String extract(String text) {
+        if (text == null || text.length() <= 6) {
+            return text;
+        } else {
+            return text.substring(0, 3) +"..."+ text.substring(text.length() - 3);
+        }
+    }
+
     protected abstract OrHttpError<Object> validateToken(D session, String username, long tokenId);
 
-    protected abstract OrHttpError<LoginState> login(ItemCredentials.UserToken credentials) throws InvalidPasswordException;
+    protected abstract OrHttpError<LoginState> login(ItemCredentials.UserToken credentials);
+
+    protected abstract OrHttpError<String> logout(D session, ItemCredentials.UserToken credentials);
 
     protected abstract OrHttpError<List<UserAuthToken>> listInvalidTokens(D session, ItemCredentials.UserCredentials user);
 
