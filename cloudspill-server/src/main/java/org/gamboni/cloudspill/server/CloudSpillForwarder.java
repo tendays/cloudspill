@@ -158,7 +158,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
             }
 
             /* Token was accepted for deletion by remote instance so delete it directly here */
-            final UserAuthToken token = session.get(UserAuthToken.class, credentials.id);
+            final RemoteUserAuthToken token = session.get(RemoteUserAuthToken.class, credentials.id);
             if (token != null) {
                 session.remove(token);
             }

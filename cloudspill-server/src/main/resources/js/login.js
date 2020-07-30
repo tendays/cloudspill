@@ -22,7 +22,7 @@ function login(newUsername, tokenUrlPattern, loginUrl) {
     tokenQuery.send();
 }
 
-function logout(logoutUrlPattern) {
+function logout(logoutUrl) {
     let logoutQuery = new XMLHttpRequest();
     logoutQuery.onreadystatechange = () => {
         if (logoutQuery.readyState != 4) return;
@@ -30,12 +30,14 @@ function logout(logoutUrlPattern) {
         document.getElementById('waiting').style.display='none';
         document.getElementById('logged_in').style.display='none';
     };
+    logoutQuery.open("POST", logoutUrl);
+    logoutQuery.send();
 }
 
 function waitForValidation(token, loginUrl) {
     let validationQuery = new XMLHttpRequest();
     validationQuery.onreadystatechange = () => {
-        if (validationQuery.readyState === 4 && validationQuery.status === 0) {
+        if (validationQuery.readyState === 4 && validationQuery.status !== 0) {
             let status = validationQuery.responseText;
             console.log("token is: "+ status);
             if (status === 'WAITING_FOR_VALIDATION') {

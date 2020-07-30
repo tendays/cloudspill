@@ -245,7 +245,7 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 			tx = null;
 			/* Routes may return null in case of non-2xx HTTP status code */
 			final String resultString = String.valueOf(result);
-			Log.debug("Return value: "+ (resultString.length() > 100 ? resultString.substring(0, 100).replace('\n', ' ') +"..." : resultString));
+			Log.debug("Transaction outcome: "+ (resultString.length() > 100 ? resultString.substring(0, 100).replace('\n', ' ') +"..." : resultString));
 			return result;
 		} catch (Throwable t) {
 			t.printStackTrace();

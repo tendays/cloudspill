@@ -50,32 +50,32 @@ public class LoginPage extends AbstractPage {
     protected HtmlFragment getBody(ItemCredentials.AuthenticationStatus authStatus) {
         HtmlFragment nameElement = tag("span", "name='name'", (credentials == null) ? "stranger" : credentials.user.getName());
         HtmlFragment tokenIdElement = tag("span", "name='tokenId'",
-                (credentials instanceof ItemCredentials.UserToken) ? String.valueOf(((ItemCredentials.UserToken)credentials).id) : "unknown");
+                (credentials instanceof ItemCredentials.UserToken) ? String.valueOf(((ItemCredentials.UserToken) credentials).id) : "unknown");
         return HtmlFragment.concatenate(
-            tag("form", hiddenUnless(state == LoginState.DISCONNECTED || state == LoginState.INVALID_TOKEN) +
-                            "id='disconnected' class='login' onsubmit=" + quote("login(getElementById('username').value, '" +
-                            api.newToken("{username}") + "', '" + api.login() + "'); event.preventDefault()"),
-                    loginMessage("Enter your username to log in"),
-                    unclosedTag("input type='text' id='username'"),
-                    unclosedTag("input type='submit' value='GO'")
-            ),
-                tag("div", hiddenUnless(state == LoginState.WAITING_FOR_VALIDATION) +"id='waiting'",
-                    tag("div", "class='login-message'",
-                            HtmlFragment.escape("Hello "),
-                            nameElement,
-                            HtmlFragment.escape(", your personal token number is "),
-                            tokenIdElement,
-                            HtmlFragment.escape(".")),
-                    loginMessage("Please ask an administrator to let you in."),
-                    loginMessage("Alternatively, if you're already logged in on another device, you can validate this token yourself from there"),
-                        unclosedTag("input type='button' value='CANCEL' onclick='logout()")),
-        tag("div", hiddenUnless(state == LoginState.LOGGED_IN) +"id='logged_in'",
-                    loginMessage(
-                            HtmlFragment.escape("Hello "),
-                            nameElement,
-                            HtmlFragment.escape(", you are now successfully logged in.")),
-                    loginMessage("Please make sure your browser is set up to save cookies to ensure you stay logged in when you close your browser."),
-                unclosedTag("input type='button' value='LOG OUT' onclick='logout()")));
+                tag("form", hiddenUnless(state == LoginState.DISCONNECTED || state == LoginState.INVALID_TOKEN) +
+                                "id='disconnected' class='login' onsubmit=" + quote("login(getElementById('username').value, '" +
+                                api.newToken("{username}") + "', '" + api.login() + "'); event.preventDefault()"),
+                        loginMessage("Enter your username to log in"),
+                        unclosedTag("input type='text' id='username'"),
+                        unclosedTag("input type='submit' value='GO'")
+                ),
+                tag("div", hiddenUnless(state == LoginState.WAITING_FOR_VALIDATION) + "id='waiting'",
+                        tag("div", "class='login-message'",
+                                HtmlFragment.escape("Hello "),
+                                nameElement,
+                                HtmlFragment.escape(", your personal token number is "),
+                                tokenIdElement,
+                                HtmlFragment.escape(".")),
+                        loginMessage("Please ask an administrator to let you in."),
+                        loginMessage("Alternatively, if you're already logged in on another device, you can validate this token yourself from there"),
+                        unclosedTag("input type='button' value='CANCEL' onclick="+ quote("logout('"+ api.logout() +"')"))),
+                tag("div", hiddenUnless(state == LoginState.LOGGED_IN) + "id='logged_in'",
+                        loginMessage(
+                                HtmlFragment.escape("Hello "),
+                                nameElement,
+                                HtmlFragment.escape(", you are now successfully logged in.")),
+                        loginMessage("Please make sure your browser is set up to save cookies to ensure you stay logged in when you close your browser."),
+                        unclosedTag("input type='button' value='LOG OUT' onclick="+ quote("logout('"+ api.logout() +"')"))));
     }
 
     private String hiddenUnless(boolean condition) {

@@ -213,36 +213,39 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         }));
 
         get("/", (req, res) -> title().get(res, title -> transacted(session -> getUnverifiedCredentials(req, session)).map(credentials ->
-                        (credentials == null ? new LoginPage(configuration, title, LoginState.DISCONNECTED, null) :
-                credentials.map(new ItemCredentials.Mapper<LoginPage>() {
-                    @Override
-                    public LoginPage when(ItemCredentials.UserPassword password) {
-                        try {
-                            verifyCredentials(password, null);
-                        } catch (InvalidPasswordException e) {
-                            /* Wrong password supplied */
+        {
+            final LoginPage loginPage = credentials == null ? new LoginPage(configuration, title, LoginState.DISCONNECTED, null) :
+                    credentials.map(new ItemCredentials.Mapper<LoginPage>() {
+                        @Override
+                        public LoginPage when(ItemCredentials.UserPassword password) {
+                            try {
+                                verifyCredentials(password, null);
+                            } catch (InvalidPasswordException e) {
+                                /* Wrong password supplied */
+                                return new LoginPage(configuration, title, LoginState.DISCONNECTED, null);
+                            }
+
+                            return new LoginPage(configuration, title, LoginState.LOGGED_IN, password);
+                        }
+
+                        @Override
+                        public LoginPage when(ItemCredentials.UserToken token) {
+                            return new LoginPage(configuration, title, getUserTokenState(token.user, token.id, token.secret), token);
+                        }
+
+                        @Override
+                        public LoginPage when(ItemCredentials.PublicAccess pub) {
                             return new LoginPage(configuration, title, LoginState.DISCONNECTED, null);
                         }
 
-                        return new LoginPage(configuration, title, LoginState.LOGGED_IN, password);
-                    }
+                        @Override
+                        public LoginPage when(ItemCredentials.ItemKey key) {
+                            return new LoginPage(configuration, title, LoginState.DISCONNECTED, null);
 
-                    @Override
-                    public LoginPage when(ItemCredentials.UserToken token) {
-                        return new LoginPage(configuration, title, getUserTokenState(token.user, token.id, token.secret), token);
-                    }
-
-                    @Override
-                    public LoginPage when(ItemCredentials.PublicAccess pub) {
-                        return new LoginPage(configuration, title, LoginState.DISCONNECTED, null);
-                    }
-
-                    @Override
-                    public LoginPage when(ItemCredentials.ItemKey key) {
-                        return new LoginPage(configuration, title, LoginState.DISCONNECTED, null);
-
-                    }
-                })).getHtml(publicAccess))
+                        }
+                    });
+            return loginPage.getHtml(publicAccess);
+        })
             .get(res)));
 
         /* Login, step 1: request a new authentication token */
