@@ -43,7 +43,12 @@ function waitForValidation(token, loginUrl) {
             if (status === 'WAITING_FOR_VALIDATION') {
                 waitForValidation(token, loginUrl);
             } else if (status === 'LOGGED_IN') {
-                console.log('Successfully logged as ', username);
+                if (username) {
+                    console.log('Successfully logged as ', username);
+                } else {
+                    // TODO when opening page in state WAITING_FOR_VALIDATION, username is not set
+                    console.log('Successfully logged in');
+                }
 
                 document.getElementById('waiting').style.display='none';
                 document.getElementById('logged_in').style.display='block';

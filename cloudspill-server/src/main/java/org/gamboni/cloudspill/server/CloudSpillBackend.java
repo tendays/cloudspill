@@ -381,7 +381,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             @Override
             public void when(ItemCredentials.UserPassword password) throws AccessDeniedException {
                 password.user.verifyPassword(password.getPassword());
-                if (!item.getUser().equals(password.user.getName())) {
+                if (item != null && !item.getUser().equals(password.user.getName())) {
                     password.user.verifyGroup(User.ADMIN_GROUP);
                 }
             }
@@ -393,7 +393,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                     throw new InvalidPasswordException();
                 }
 
-                if (!item.getUser().equals(token.user.getName())) {
+                if (item != null && !item.getUser().equals(token.user.getName())) {
                     token.user.verifyGroup(User.ADMIN_GROUP);
                 }
             }
