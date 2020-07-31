@@ -348,8 +348,10 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         /* Authorise an authentication token */
         post("/user/:name/tokens/:id/validate", secured((req, res, session, user) -> {
             final String username = req.params("name");
-            // In future, one user will be allowed to validate a token for a different "guest" user
-            Preconditions.checkArgument(user.user.getName().equals(username));
+            if (!user.user.getName().equals(username)) {
+                // admins can validate tokens for other users
+                user.user.verifyGroup(User.ADMIN_GROUP);
+            }
             final long tokenId = Long.parseLong(req.params("id"));
             return validateToken(session, username, tokenId).get(res);
         }));
