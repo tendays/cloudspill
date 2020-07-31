@@ -7,6 +7,7 @@ import com.google.gson.JsonObject;
 
 import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
+import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.domain.UserAuthToken;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
 import org.gamboni.cloudspill.server.html.AbstractPage;
@@ -23,6 +24,7 @@ import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.Csv;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.api.LoginState;
+import org.gamboni.cloudspill.shared.domain.AccessDeniedException;
 import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
 import org.gamboni.cloudspill.shared.domain.IsItem;
 import org.gamboni.cloudspill.shared.domain.IsUser;
@@ -220,7 +222,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                         public LoginPage when(ItemCredentials.UserPassword password) {
                             try {
                                 verifyCredentials(password, null);
-                            } catch (InvalidPasswordException e) {
+                            } catch (AccessDeniedException e) {
                                 /* Wrong password supplied */
                                 return new LoginPage(configuration, title, LoginState.DISCONNECTED, null);
                             }
@@ -372,18 +374,25 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
     protected abstract OrHttpError<ItemCredentials.UserToken> newToken(String username, String userAgent, String client);
 
-    protected void verifyCredentials(ItemCredentials credentials, IsItem item) throws InvalidPasswordException {
-        credentials.match(new ItemCredentials.Matcher<InvalidPasswordException>() {
+    protected void verifyCredentials(ItemCredentials credentials, IsItem item) throws AccessDeniedException {
+        credentials.match(new ItemCredentials.Matcher<AccessDeniedException>() {
             @Override
-            public void when(ItemCredentials.UserPassword password) throws InvalidPasswordException {
+            public void when(ItemCredentials.UserPassword password) throws AccessDeniedException {
                 password.user.verifyPassword(password.getPassword());
+                if (!item.getUser().equals(password.user.getName())) {
+                    password.user.verifyGroup(User.ADMIN_GROUP);
+                }
             }
 
             @Override
-            public void when(ItemCredentials.UserToken token) throws InvalidPasswordException {
+            public void when(ItemCredentials.UserToken token) throws AccessDeniedException {
                 final LoginState state = getUserTokenState(token.user, token.id, token.secret);
                 if (state != LoginState.LOGGED_IN) {
                     throw new InvalidPasswordException();
+                }
+
+                if (!item.getUser().equals(token.user.getName())) {
+                    token.user.verifyGroup(User.ADMIN_GROUP);
                 }
             }
 

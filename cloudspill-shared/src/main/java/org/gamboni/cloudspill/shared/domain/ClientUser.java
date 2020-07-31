@@ -25,4 +25,14 @@ public class ClientUser implements IsUser {
         /* This object is used in the forwarder for users which aren't in the database, so we should reject logins using such a user */
         throw new InvalidPasswordException();
     }
+
+    @Override
+    public void verifyGroup(String group) throws PermissionDeniedException {
+        throw new PermissionDeniedException();
+    }
+
+    @Override
+    public boolean hasGroup(String group) {
+        return false;
+    }
 }

@@ -5,16 +5,12 @@ package org.gamboni.cloudspill.domain;
 
 import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
 import org.gamboni.cloudspill.shared.domain.IsUser;
+import org.gamboni.cloudspill.shared.domain.PermissionDeniedException;
 import org.gamboni.cloudspill.shared.util.Log;
-import org.gamboni.cloudspill.shared.util.Supplier;
 import org.mindrot.jbcrypt.BCrypt;
 
-import java.util.List;
-
-import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
-import javax.persistence.OneToMany;
 
 /**
  * @author tendays
@@ -22,9 +18,12 @@ import javax.persistence.OneToMany;
  */
 @Entity
 public class User implements IsUser {
+	public static final String DEFAULT_GROUP = "user";
+	public static final String ADMIN_GROUP = "admin";
 	private String name;
 	private String salt;
 	private String pass;
+	private String group;
 
 	@Id
 	public String getName() {
@@ -59,9 +58,28 @@ public class User implements IsUser {
 		this.pass = pass;
 	}
 
+	public String getGroup() {
+		return group;
+	}
+
+	public void setGroup(String group) {
+		this.group = group;
+	}
+
+	public boolean hasGroup(String group) {
+		return this.group.equals(group);
+	}
+
+	public void verifyGroup(String group) throws PermissionDeniedException {
+		if (!hasGroup(group)) {
+			throw new PermissionDeniedException();
+		}
+	}
+
 	public static User withName(String name) {
 		User result = new User();
 		result.setName(name);
+		result.setGroup(DEFAULT_GROUP);
 		return result;
 	}
 }

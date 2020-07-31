@@ -30,6 +30,7 @@ import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.api.LoginState;
 import org.gamboni.cloudspill.shared.client.ResponseHandler;
 import org.gamboni.cloudspill.shared.client.ResponseHandlers;
+import org.gamboni.cloudspill.shared.domain.AccessDeniedException;
 import org.gamboni.cloudspill.shared.domain.ClientUser;
 import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
 import org.gamboni.cloudspill.shared.domain.IsUser;
@@ -209,8 +210,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
                                     transacted(nested -> {
                                         RemoteUserAuthToken newToken = new RemoteUserAuthToken();
                                         User userEntity = this.getUserFromDB(user.getName(), nested).orElse(() -> {
-                                            User newUser = new User();
-                                            newUser.setName(user.getName());
+                                            User newUser = User.withName(user.getName());
                                             nested.persist(newUser);
                                             return newUser;
                                         });
@@ -274,7 +274,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
         } else {
             try {
                 verifyCredentials(credentials, item);
-            } catch (InvalidPasswordException e) {
+            } catch (AccessDeniedException e) {
                 return forbidden(false);
             }
             return new OrHttpError<>(item);
@@ -454,8 +454,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
                 final OrHttpError<User> userFromDB = getUserFromDB(credentials.user.getName(), session);
 
                 if (!userFromDB.hasValue()) {
-                    User u = new User();
-                    u.setName(credentials.user.getName());
+                    User u = User.withName(credentials.user.getName());
 
                     credentials.match(new ItemCredentials.Matcher<RuntimeException>() {
                         @Override

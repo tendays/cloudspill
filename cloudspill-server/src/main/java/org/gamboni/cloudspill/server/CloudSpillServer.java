@@ -32,9 +32,11 @@ import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.api.LoginState;
+import org.gamboni.cloudspill.shared.domain.AccessDeniedException;
 import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
 import org.gamboni.cloudspill.shared.domain.IsUser;
 import org.gamboni.cloudspill.shared.domain.ItemType;
+import org.gamboni.cloudspill.shared.domain.Items;
 import org.gamboni.cloudspill.shared.util.ImageOrientationUtil;
 import org.gamboni.cloudspill.shared.util.Log;
 import org.mindrot.jbcrypt.BCrypt;
@@ -191,8 +193,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 		setupRoutes(configuration);
     	
 		SecuredBody<ServerDomain> createUser = (req, res, session, user) -> {
-			User u = new User();
-			u.setName(requireNotNull(req.params(CloudSpillApi.CREATE_USER_NAME)));
+			User u = User.withName(requireNotNull(req.params(CloudSpillApi.CREATE_USER_NAME)));
 
 			String salt = BCrypt.gensalt();
 			u.setSalt(salt);
@@ -219,7 +220,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 		} else {
 			try {
 				verifyCredentials(credentials, item);
-			} catch (InvalidPasswordException e) {
+			} catch (AccessDeniedException e) {
 				return forbidden(false);
 			}
 			return new OrHttpError<>(item);
@@ -336,7 +337,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	protected OrHttpError<String> ping(ServerDomain session, ItemCredentials.UserCredentials credentials) {
     	try {
     		verifyCredentials(credentials, null);
-		} catch (InvalidPasswordException e) {
+		} catch (AccessDeniedException e) {
     		return forbidden(false);
 		}
 		// WARN: currently the frontend requires precisely this syntax, spaces included
@@ -478,6 +479,19 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	protected ItemQueryLoader getQueryLoader(ServerDomain session, ItemCredentials credentials) {
 		return criteria -> {
 			final CloudSpillEntityManagerDomain.Query<Item> query = criteria.applyTo(session.selectItem(), credentials.getAuthStatus());
+			if (credentials instanceof ItemCredentials.UserCredentials &&
+					!((ItemCredentials.UserCredentials)credentials).user.hasGroup(User.ADMIN_GROUP) &&
+					!Items.isPublic(criteria)) {
+				query.add(root ->
+						session.criteriaBuilder.or(
+						criteria.tagQuery(session.criteriaBuilder, "public", root),
+								session.criteriaBuilder.equal(
+										root.get(Item_.user),
+										((ItemCredentials.UserCredentials)credentials).user.getName())
+								)
+				);
+			}
+			// TODO check credentials to add user filtering
 			return new OrHttpError<>(new ItemSet(
 					query.getTotalCount(),
 					query.offset(criteria.getOffset()).limit(criteria.getLimit()).list(),
