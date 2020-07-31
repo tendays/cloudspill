@@ -524,12 +524,19 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 
 	@Override
 	protected OrHttpError<GalleryListData> dayList(ItemCredentials credentials, ServerDomain domain, int year) {
+		final boolean isAdmin = credentials.hasGroup(User.ADMIN_GROUP);
 		final Query query = domain.getEntityManager().createNativeQuery(
 				"select id, date(date) as date, checksum from Item " +
-						"where id in (select max(id) from Item where date >= ? && date < ? group by date(date)) " +
+						"where id in (select max(id) from Item where date >= ? and date < ? "+
+						(isAdmin ? "" :
+								" and ('public' in (select it.tags from Item_tags it where Item.id=it.Item_id) or Item.user=?)")
+						+" group by date(date)) " +
 						"order by date");
 		query.setParameter(1, LocalDate.ofYearDay(year, 1));
 		query.setParameter(2, LocalDate.ofYearDay(year+1, 1));
+		if (!isAdmin) {
+			query.setParameter(3, ((ItemCredentials.UserCredentials)credentials).user.getName());
+		}
 		return new OrHttpError<>(new GalleryListData("Year "+ year, Lists.transform((List<Object[]>)query.getResultList(), row -> {
 			long id = ((Number) row[0]).longValue();
 			LocalDate date = ((java.sql.Date) row[1]).toLocalDate();

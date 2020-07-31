@@ -38,6 +38,9 @@ public interface ItemCredentials {
 
     AuthenticationStatus getAuthStatus();
 
+    /** True if these credentials identify a user belonging to the given group. */
+    boolean hasGroup(String groupName);
+
     /** If these credentials work by setting an HTTP header, do so in this method. Otherwise,
      * this method should just do nothing.
      */
@@ -189,6 +192,11 @@ public interface ItemCredentials {
         }
 
         @Override
+        public boolean hasGroup(String groupName) {
+            return this.user != null && this.user.hasGroup(groupName);
+        }
+
+        @Override
         public String getQueryString() {
             return "";
         }
@@ -221,6 +229,11 @@ public interface ItemCredentials {
         }
 
         @Override
+        public boolean hasGroup(String groupName) {
+            return false;
+        }
+
+        @Override
         public void setHeaders(URLConnection connection, Base64Encoder b64) {
         }
 
@@ -241,6 +254,11 @@ public interface ItemCredentials {
         @Override
         public AuthenticationStatus getAuthStatus() {
             return AuthenticationStatus.ANONYMOUS;
+        }
+
+        @Override
+        public boolean hasGroup(String groupName) {
+            return false;
         }
 
         @Override
