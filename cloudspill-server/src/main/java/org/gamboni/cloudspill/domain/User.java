@@ -35,6 +35,10 @@ public class User implements IsUser {
 
 	@Override
 	public void verifyPassword(String password) throws InvalidPasswordException {
+		if (this.salt == null || this.pass == null) {
+			Log.error("User "+ this.getName() +" has no password");
+			throw new InvalidPasswordException();
+		}
 		final String queryHash = BCrypt.hashpw(password, this.getSalt());
 		if (!queryHash.equals(this.getPass())) {
 			Log.error("Invalid credentials for user "+ this.getName());
