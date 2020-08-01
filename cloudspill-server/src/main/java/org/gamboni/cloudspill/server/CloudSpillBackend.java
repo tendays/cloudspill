@@ -29,6 +29,7 @@ import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
 import org.gamboni.cloudspill.shared.domain.IsItem;
 import org.gamboni.cloudspill.shared.domain.IsUser;
 import org.gamboni.cloudspill.shared.domain.Items;
+import org.gamboni.cloudspill.shared.domain.PermissionDeniedException;
 import org.gamboni.cloudspill.shared.util.Log;
 
 import java.io.IOException;
@@ -381,9 +382,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             @Override
             public void when(ItemCredentials.UserPassword password) throws AccessDeniedException {
                 password.user.verifyPassword(password.getPassword());
-                if (item != null && !item.getUser().equals(password.user.getName())) {
-                    password.user.verifyGroup(User.ADMIN_GROUP);
-                }
+                authorise(password.user, item);
             }
 
             @Override
@@ -392,10 +391,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                 if (state != LoginState.LOGGED_IN) {
                     throw new InvalidPasswordException();
                 }
-
-                if (item != null && !item.getUser().equals(token.user.getName())) {
-                    token.user.verifyGroup(User.ADMIN_GROUP);
-                }
+                authorise(token.user, item);
             }
 
             @Override
@@ -413,6 +409,12 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                 }
             }
         });
+    }
+
+    protected void authorise(IsUser user, IsItem item) throws PermissionDeniedException {
+        if (item != null && !item.getUser().equals(user.getName()) && !Items.isPublic(item)) {
+            user.verifyGroup(User.ADMIN_GROUP);
+        }
     }
 
     private void exposeResource(String url, String fileName, String mime) {
