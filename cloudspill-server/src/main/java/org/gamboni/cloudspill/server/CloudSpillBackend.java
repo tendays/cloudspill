@@ -493,7 +493,10 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             if (key != null) {
                 credentialsOrError = new OrHttpError<>(new ItemCredentials.ItemKey(key));
             } else if (authStatus == ItemCredentials.AuthenticationStatus.ANONYMOUS) {
-                credentialsOrError = new OrHttpError<>(new ItemCredentials.PublicAccess());
+                credentialsOrError = new OrHttpError<>(
+                        optionalAuthenticate(req, session)
+                                .<ItemCredentials>map(x -> x)
+                                .orElse(ItemCredentials.PublicAccess::new));
             } else {
                 credentialsOrError = authenticate(req, session);
             }

@@ -66,8 +66,6 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 		return authenticate(req, session, false);
 	}
 
-
-
 	private OrHttpError<ItemCredentials.UserCredentials> authenticate(Request req, S session, boolean required) {
 		return getUnverifiedCredentials(req, session).flatMap(credentials -> {
 			if (required && credentials == null) {
