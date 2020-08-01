@@ -11,7 +11,9 @@ import java.net.MalformedURLException;
 import java.net.ProtocolException;
 import java.net.URL;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -187,12 +189,20 @@ public class CloudSpillApi<T> {
         return serverUrl + credentials.getUrlPrefix() +"thumbs/"+ pixels +"/"+ id + credentials.getQueryString();
     }
 
-    public String getImageUrl(long id, ItemCredentials credentials) {
-        return serverUrl + credentials.getUrlPrefix() + "item/"+ id + credentials.getQueryString();
+    public String getImageUrl(long id, List<ItemCredentials> credentials) {
+        StringBuilder url = new StringBuilder(serverUrl);
+        for (ItemCredentials c : credentials) {
+            url.append(c.getUrlPrefix());
+        }
+        url.append("item/").append(id);
+        for (ItemCredentials c : credentials) {
+            url.append(c.getQueryString());
+        }
+        return url.toString();
     }
 
     public String getImageUrl(IsItem item) {
-        return getImageUrl(item.getServerId(), credentialsForItem(item));
+        return getImageUrl(item.getServerId(), Collections.singletonList(credentialsForItem(item)));
     }
 
     public String getPublicImagePageUrl(IsItem item) {

@@ -10,6 +10,8 @@ import com.android.volley.toolbox.HttpHeaderParser;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 
+import java.util.Collections;
+
 /**
  * @author tendays
  */
@@ -24,7 +26,7 @@ public class MediaDownloadRequest extends AuthenticatingRequest<byte[]> {
 
     private static String buildUrl(CloudSpillApi api, long serverId, CloudSpillApi.Size thumbnailSize) {
         if (thumbnailSize == null) { // full image
-            return api.getImageUrl(serverId, new ItemCredentials.UserPassword());
+            return api.getImageUrl(serverId, Collections.singletonList(new ItemCredentials.UserPassword()));
         } else { // thumbnail
             return api.getThumbnailUrl(serverId, new ItemCredentials.UserPassword(), thumbnailSize);
         }

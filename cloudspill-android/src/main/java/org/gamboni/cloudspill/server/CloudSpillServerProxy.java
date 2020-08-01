@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.util.Collections;
 import java.util.Date;
 
 /**
@@ -208,7 +209,7 @@ public class CloudSpillServerProxy {
         Log.d(TAG, "Streaming item#"+ serverId);
         try {
             new AuthenticatingConnection(context, AuthenticatingConnection.RequestMethod.GET,
-                    api.getImageUrl(serverId, new ItemCredentials.UserPassword()))
+                    api.getImageUrl(serverId, Collections.singletonList(new ItemCredentials.UserPassword())))
                     .connect(new AuthenticatingConnection.Session() {
                         @Override
                         public void run(AuthenticatingConnection.Connected connected) throws IOException {

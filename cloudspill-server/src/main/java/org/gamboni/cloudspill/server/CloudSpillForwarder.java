@@ -1,6 +1,7 @@
 package org.gamboni.cloudspill.server;
 
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.io.ByteStreams;
@@ -173,7 +174,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
 
     @Override
     protected OrHttpError<List<UserAuthToken>> listInvalidTokens(ForwarderDomain session, ItemCredentials.UserCredentials user) {
-        return this.deserialiseStream(remoteApi.listInvalidTokens(user.user.getName()), user, UserAuthToken.CSV, UserAuthToken::new, (rows, reader) -> rows);
+        return this.deserialiseStream(remoteApi.listInvalidTokens(user.user.getName()), ImmutableList.of(user), UserAuthToken.CSV, UserAuthToken::new, (rows, reader) -> rows);
     }
 
     @Override
@@ -244,7 +245,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
-    protected OrHttpError<? extends BackendItem> loadItem(ForwarderDomain session, long id, ItemCredentials credentials) {
+    protected OrHttpError<? extends BackendItem> loadItem(ForwarderDomain session, long id, List<ItemCredentials> credentials) {
         RemoteItem item = session.get(RemoteItem.class, id);
         if (item == null) {
             // item not found locally, try from remote server
@@ -273,7 +274,9 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
                     });
         } else {
             try {
-                verifyCredentials(credentials, item);
+                for (ItemCredentials c : credentials) {
+                    verifyCredentials(c, item);
+                }
             } catch (AccessDeniedException e) {
                 return forbidden(false);
             }
@@ -285,11 +288,11 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
         R buildResult(List<T> rows, LineNumberReader reader) throws IOException;
     }
 
-    private <T, R> OrHttpError<R> deserialiseStream(String url, ItemCredentials credentials,
+    private <T, R> OrHttpError<R> deserialiseStream(String url, List<ItemCredentials> credentials,
                                                     Csv<? super T> csv, Supplier<T> factory, ExtraDataReader<T, R> extra) {
         try {
             final URLConnection connection = new URL(url).openConnection();
-            credentials.setHeaders(connection, Base64.getEncoder()::encodeToString);
+            credentials.forEach(c -> c.setHeaders(connection, BASE_64_ENCODER));
             connection.setRequestProperty("Accept", "text/csv");
             try (Reader reader = new InputStreamReader(connection.getInputStream())) {
                 final int responseCode = ((HttpURLConnection) connection).getResponseCode();
@@ -329,7 +332,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
         });
     }
 
-    private OrHttpError<ItemSet> deserialiseStream(String url, ItemCredentials credentials) {
+    private OrHttpError<ItemSet> deserialiseStream(String url, List<ItemCredentials> credentials) {
         return deserialiseStream(url, credentials, BackendItem.CSV, RemoteItem::new, (rows, reader) -> {
             String title = "";
             String description = "";
@@ -371,7 +374,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
                         item.getUser()),
                         item.getFolder()),
                         item.getPath()),
-                remoteApi.getImageUrl(item.getServerId(), credentials),
+                remoteApi.getImageUrl(item.getServerId(), ImmutableList.of(credentials)),
                 item.getType().asMime());
     }
 
@@ -493,7 +496,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
 
     @Override
     protected ItemQueryLoader getQueryLoader(ForwarderDomain session, ItemCredentials credentials) {
-        return criteria -> deserialiseStream(criteria.getUrl(remoteApi), credentials);
+        return criteria -> deserialiseStream(criteria.getUrl(remoteApi), ImmutableList.of(credentials));
     }
 
     @Override
@@ -520,7 +523,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     private OrHttpError<GalleryListData> deserialiseGalleryList(ItemCredentials credentials, String url) {
         return deserialiseStream(
                 url,
-                credentials,
+                ImmutableList.of(credentials),
                 GalleryListPage.Element.CSV,
                 GalleryListPage.Element::new,
                 (elements, reader) -> {

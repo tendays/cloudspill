@@ -1,6 +1,8 @@
 package org.gamboni.cloudspill.server;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -36,7 +38,10 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -489,29 +494,41 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         return (req, res) -> transacted(session -> {
             String key = restorePluses(req.queryParams("key"));
             String idParam = dropHtmlSuffix(req.params("id"));
-            OrHttpError<? extends ItemCredentials> credentialsOrError;
-            if (key != null) {
-                credentialsOrError = new OrHttpError<>(new ItemCredentials.ItemKey(key));
-            } else if (authStatus == ItemCredentials.AuthenticationStatus.ANONYMOUS) {
-                credentialsOrError = new OrHttpError<>(
-                        optionalAuthenticate(req, session)
-                                .<ItemCredentials>map(x -> x)
-                                .orElse(ItemCredentials.PublicAccess::new));
-            } else {
-                credentialsOrError = authenticate(req, session);
-            }
+            OrHttpError<List<ItemCredentials>> credentialsOrError =
+            optionalAuthenticate(req, session)
+                    .map(login -> {
+                        List<ItemCredentials> credentials = new ArrayList<>();
+                        if (login != null) {
+                            credentials.add(login);
+                        }
+                        if (key != null) {
+                            credentials.add(new ItemCredentials.ItemKey(key));
+                        }
+                        if (authStatus == ItemCredentials.AuthenticationStatus.ANONYMOUS) {
+                            credentials.add(new ItemCredentials.PublicAccess());
+                        }
+                        return credentials;
+                    });
 
             return credentialsOrError.get(res, credentials -> {
             /* Either we have a key, or user must be authenticated. */
             final long id = Long.parseLong(idParam);
-            return loadItem(session, id, credentials)
-                    .get(res, item -> task.handle(req, res, session, credentials, item));
+
+                final Optional<ItemCredentials> mostPowerful = credentials.stream().max(Comparator.comparing(ItemCredentials::getPower));
+
+                if (!mostPowerful.isPresent()) {
+                    return forbidden(res, true);
+                }
+
+                return loadItem(session, id, credentials)
+                    .get(res, item -> task.handle(req, res, session, mostPowerful.get(), item));
             });
         });
     }
 
-    /** Acquire the item with the given id. */
-    protected abstract OrHttpError<? extends BackendItem> loadItem(D session, long id, ItemCredentials credentials);
+    /** Acquire the item with the given id. If multiple credentials are provided, they must all be valid. If no credentials
+     * are provided, access must be denied. */
+    protected abstract OrHttpError<? extends BackendItem> loadItem(D session, long id, List<ItemCredentials> credentials);
 
     protected abstract Long upload(Request req, Response res, D session, ItemCredentials.UserCredentials user, String folder, String path) throws IOException;
 

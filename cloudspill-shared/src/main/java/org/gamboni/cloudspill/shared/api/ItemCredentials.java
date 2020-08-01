@@ -19,6 +19,10 @@ import java.util.function.Function;
  */
 public interface ItemCredentials {
 
+    public enum Power {
+        SINGLE, PUBLIC, USER
+    }
+
     public interface Matcher<E extends Throwable> {
         void when(UserPassword password) throws E;
         void when(UserToken token) throws E;
@@ -45,6 +49,8 @@ public interface ItemCredentials {
      * this method should just do nothing.
      */
     void setHeaders(URLConnection connection, Base64Encoder b64);
+
+    Power getPower();
 
     public enum AuthenticationStatus {
         LOGGED_IN {
@@ -205,6 +211,10 @@ public interface ItemCredentials {
         public String getUrlPrefix() {
             return "";
         }
+
+        public Power getPower() {
+            return Power.USER;
+        }
     }
 
     class ItemKey implements ItemCredentials {
@@ -238,6 +248,11 @@ public interface ItemCredentials {
         }
 
         @Override
+        public Power getPower() {
+            return Power.SINGLE;
+        }
+
+        @Override
         public String getQueryString() {
             return "?key="+ checksum.replace("+", "%2B");
         }
@@ -263,6 +278,11 @@ public interface ItemCredentials {
 
         @Override
         public void setHeaders(URLConnection connection, Base64Encoder b64) {
+        }
+
+        @Override
+        public Power getPower() {
+            return Power.PUBLIC;
         }
 
         @Override

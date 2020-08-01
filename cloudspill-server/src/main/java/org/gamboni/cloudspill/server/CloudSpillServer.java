@@ -212,14 +212,16 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
     }
 
 	@Override
-	protected OrHttpError<Item> loadItem(ServerDomain session, long id, ItemCredentials credentials) {
+	protected OrHttpError<Item> loadItem(ServerDomain session, long id, List<ItemCredentials> credentials) {
 		Item item = session.get(Item.class, id);
 		// NOTE: even if user is authenticated, refuse incorrect keys
 		if (item == null) {
 			return notFound(id);
 		} else {
 			try {
-				verifyCredentials(credentials, item);
+				for (ItemCredentials c : credentials) {
+					verifyCredentials(c, item);
+				}
 			} catch (AccessDeniedException e) {
 				return forbidden(false);
 			}
