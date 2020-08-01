@@ -23,7 +23,7 @@ public class User implements IsUser {
 	private String name;
 	private String salt;
 	private String pass;
-	private String group;
+	private String userGroup;
 
 	@Id
 	public String getName() {
@@ -58,16 +58,16 @@ public class User implements IsUser {
 		this.pass = pass;
 	}
 
-	public String getGroup() {
-		return group;
+	public String getUserGroup() {
+		return userGroup;
 	}
 
-	public void setGroup(String group) {
-		this.group = group;
+	public void setUserGroup(String userGroup) {
+		this.userGroup = userGroup;
 	}
 
 	public boolean hasGroup(String group) {
-		return this.group.equals(group);
+		return this.userGroup.equals(group);
 	}
 
 	public void verifyGroup(String group) throws PermissionDeniedException {
@@ -79,7 +79,7 @@ public class User implements IsUser {
 	public static User withName(String name) {
 		User result = new User();
 		result.setName(name);
-		result.setGroup(DEFAULT_GROUP);
+		result.setUserGroup(DEFAULT_GROUP);
 		return result;
 	}
 }
