@@ -35,6 +35,7 @@ import org.gamboni.cloudspill.shared.domain.AccessDeniedException;
 import org.gamboni.cloudspill.shared.domain.ClientUser;
 import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
 import org.gamboni.cloudspill.shared.domain.IsUser;
+import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.shared.util.Log;
 import org.mindrot.jbcrypt.BCrypt;
 
@@ -51,6 +52,7 @@ import java.io.Reader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -379,7 +381,8 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
-    protected Long upload(Request req, Response res, ForwarderDomain session, ItemCredentials.UserCredentials user, String folder, String path) throws IOException {
+    protected Long upload(Request req, Response res, ForwarderDomain session, ItemCredentials.UserCredentials user, String folder, String path,
+                          LocalDateTime utcTimestamp, ItemType itemType) throws IOException {
         throw new UnsupportedOperationException();
     }
 

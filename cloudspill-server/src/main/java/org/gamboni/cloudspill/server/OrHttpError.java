@@ -96,4 +96,8 @@ public class OrHttpError<T> {
     public boolean hasValue() {
         return (error == null);
     }
+
+    public String toString() {
+        return (error == null) ? getClass().getSimpleName() +"("+ item +")" : getClass().getSimpleName() +".error()";
+    }
 }

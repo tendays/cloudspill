@@ -16,6 +16,7 @@ import org.gamboni.cloudspill.server.html.AbstractPage;
 import org.gamboni.cloudspill.server.html.GalleryListPage;
 import org.gamboni.cloudspill.server.html.GalleryPage;
 import org.gamboni.cloudspill.server.html.ImagePage;
+import org.gamboni.cloudspill.server.html.LabPage;
 import org.gamboni.cloudspill.server.html.LoginPage;
 import org.gamboni.cloudspill.server.query.ItemQueryLoader;
 import org.gamboni.cloudspill.server.query.ItemSet;
@@ -30,20 +31,28 @@ import org.gamboni.cloudspill.shared.domain.AccessDeniedException;
 import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
 import org.gamboni.cloudspill.shared.domain.IsItem;
 import org.gamboni.cloudspill.shared.domain.IsUser;
+import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.shared.domain.Items;
 import org.gamboni.cloudspill.shared.domain.PermissionDeniedException;
 import org.gamboni.cloudspill.shared.util.Log;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import javax.servlet.MultipartConfigElement;
+import javax.servlet.http.Part;
 
 import spark.Request;
 import spark.Response;
@@ -105,6 +114,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         exposeResource(api.lazyLoadJS(), "js/lazy-load.js", "application/javascript");
         exposeResource(api.editorJS(), "js/editor.js", "application/javascript");
         exposeResource(api.loginJS(), "js/login.js", "application/javascript");
+        exposeResource(api.uploadJS(), "js/upload.js", "application/javascript");
 
         get("/robots.txt", (req, res)->
                 "User-agent: *\n" +
@@ -217,7 +227,24 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             }
             String path = req.splat()[0];
             Log.debug("user is "+ username +", folder is "+ folder +" and path is "+ path);
-            return upload(req, res, session, credentials, folder, path);
+
+            final String timestampHeader = req.headers(CloudSpillApi.UPLOAD_TIMESTAMP_HEADER);
+            LocalDateTime timestamp = (timestampHeader == null) ? null : Instant.ofEpochMilli(Long.valueOf(timestampHeader))
+                    .atOffset(ZoneOffset.UTC)
+                    .toLocalDateTime();
+            final String typeHeader = req.headers(CloudSpillApi.UPLOAD_TYPE_HEADER);
+
+            ItemType itemType = null;
+            if (typeHeader != null) {
+                try {
+                    itemType = ItemType.valueOf(typeHeader);
+                } catch (IllegalArgumentException e) {
+                    Log.warn("Received invalid item type "+ typeHeader);
+                    // Then just leave it blank
+                }
+            }
+
+            return upload(req, res, session, credentials, folder, path, timestamp, itemType);
         }));
 
         get("/", (req, res) -> title().get(res, title -> transacted(session -> getUnverifiedCredentials(req, session)).map(credentials ->
@@ -360,6 +387,24 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             }
             final long tokenId = Long.parseLong(req.params("id"));
             return validateToken(session, username, tokenId).get(res);
+        }));
+
+        /* Page for experimenting new stuff */
+        get("/lab", secured((req, res, session, user) -> new LabPage(configuration).getHtml(user)));
+        post("/lab", secured((req, res, session, user) -> {
+            final File dir = new File("/tmp/c");
+            dir.mkdir();
+            req.attribute("org.eclipse.jetty.multipartConfig", new MultipartConfigElement("/tmp"));
+            for (Part part : req.raw().getParts()) {
+                if (part.getName().equals("files[]") && part.getSize() > 0) {
+                    final File out = new File(dir, part.getSubmittedFileName());
+                    Log.info("Writing "+ part.getSize() +" bytes to "+ out);
+                    ByteStreams.copy(part.getInputStream(), new FileOutputStream(out));
+                } else {
+                    Log.info("Skipping "+ part);
+                }
+            }
+            return "ok";
         }));
     }
 
@@ -530,7 +575,8 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
      * are provided, access must be denied. */
     protected abstract OrHttpError<? extends BackendItem> loadItem(D session, long id, List<ItemCredentials> credentials);
 
-    protected abstract Long upload(Request req, Response res, D session, ItemCredentials.UserCredentials user, String folder, String path) throws IOException;
+    protected abstract Long upload(Request req, Response res, D session, ItemCredentials.UserCredentials user, String folder, String path,
+                                   LocalDateTime utcTimestamp, ItemType itemType) throws IOException;
 
     public static class GalleryListData {
         public final String title;

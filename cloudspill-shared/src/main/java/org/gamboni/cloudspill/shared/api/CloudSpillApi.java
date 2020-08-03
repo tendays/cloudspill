@@ -135,6 +135,8 @@ public class CloudSpillApi<T> {
 
     public String loginJS() { return serverUrl +"login.js"; }
 
+    public String uploadJS() { return serverUrl +"upload.js"; }
+
     public String galleryListPage(ItemCredentials credentials) {
         return serverUrl + credentials.getUrlPrefix() + "gallery/";
     }

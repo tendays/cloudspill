@@ -59,6 +59,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
@@ -230,7 +231,8 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	}
 
 	@Override
-	protected Long upload(Request req, Response res, ServerDomain session, ItemCredentials.UserCredentials credentials, String folder, String path) throws IOException {
+	protected Long upload(Request req, Response res, ServerDomain session, ItemCredentials.UserCredentials credentials, String folder, String path,
+						  LocalDateTime utcTimestamp, ItemType itemType) throws IOException {
 		// Normalise given path
 		File folderPath = append(append(configuration.getRepositoryPath(), credentials.user.getName()), folder);
 		File requestedTarget = append(folderPath, path);
@@ -261,22 +263,14 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 				item.setFolder(folder);
 				item.setPath(normalisedPath);
 				item.setUser(credentials.user.getName());
-				final String timestampHeader = req.headers(CloudSpillApi.UPLOAD_TIMESTAMP_HEADER);
-				if (timestampHeader != null) {
-					item.setDate(Instant.ofEpochMilli(Long.valueOf(timestampHeader))
-							.atOffset(ZoneOffset.UTC)
-							.toLocalDateTime());
+				if (utcTimestamp != null) {
+					item.setDate(utcTimestamp);
 					item.setDatePrecision("s");
 				}
-				final String typeHeader = req.headers(CloudSpillApi.UPLOAD_TYPE_HEADER);
-				if (typeHeader != null) {
-					try {
-						item.setType(ItemType.valueOf(typeHeader));
-					} catch (IllegalArgumentException e) {
-						Log.warn("Received invalid item type "+ typeHeader);
-						// Then just leave it blank
-					}
+				if (itemType != null) {
+					item.setType(itemType);
 				}
+
 				//session.persist(item);
 				// TODO checksum update below fails if we do this: session.flush(); // flush before writing to disk
 
