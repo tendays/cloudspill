@@ -48,8 +48,8 @@ public class GalleryListPage extends AbstractPage {
         }
     }
 
-    public GalleryListPage(BackendConfiguration configuration, String title, List<Element> elements) {
-        super(configuration);
+    public GalleryListPage(BackendConfiguration configuration, String title, List<Element> elements, ItemCredentials credentials) {
+        super(configuration, credentials);
         this.title = title;
         this.elements = elements;
     }

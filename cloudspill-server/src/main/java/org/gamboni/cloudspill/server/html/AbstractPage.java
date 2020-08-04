@@ -2,6 +2,7 @@ package org.gamboni.cloudspill.server.html;
 
 import com.google.common.base.Stopwatch;
 
+import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
 import org.gamboni.cloudspill.server.config.ServerConfiguration;
@@ -64,10 +65,12 @@ public abstract class AbstractPage {
 
     protected final BackendConfiguration configuration;
     protected final CloudSpillApi api;
+    protected final ItemCredentials credentials;
 
-    protected AbstractPage(BackendConfiguration configuration) {
+    protected AbstractPage(BackendConfiguration configuration, ItemCredentials credentials) {
         this.configuration = configuration;
         this.api = new CloudSpillApi(configuration.getPublicUrl());
+        this.credentials = credentials;
     }
 
     protected abstract String getTitle();
@@ -80,26 +83,36 @@ public abstract class AbstractPage {
         return Optional.empty();
     }
 
-    public HtmlFragment getHtml(ItemCredentials user) {
+    public HtmlFragment getHtml() {
         return tag("html", "prefix=\"og: http://ogp.me/ns#\"",
                 tag("head",
                         slashedTag("meta name='robots' content='noindex'"),
                         tag("title", getTitle()),
-                                meta("og:title", getTitle()),
-                                meta("og:type", "article"),
-                                meta("og:url", getPageUrl()),
-                                getThumbnailUrl().map(url -> meta("og:image", url)).orElse(HtmlFragment.EMPTY),
-                                slashedTag("link rel=\"stylesheet\" type=\"text/css\" href=" +
-                                        quote(api.css())),
+                        meta("og:title", getTitle()),
+                        meta("og:type", "article"),
+                        meta("og:url", getPageUrl()),
+                        getThumbnailUrl().map(url -> meta("og:image", url)).orElse(HtmlFragment.EMPTY),
+                        slashedTag("link rel=\"stylesheet\" type=\"text/css\" href=" +
+                                quote(api.css())),
+                        (credentials.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN ?
+                        tag("script", "type='text/javascript' src=" + quote(api.uploadJS()), "") : HtmlFragment.EMPTY),
                         scripts()
                 ),
-                        tag("body", bodyAttributes(),
-                                tag("h1", getTitle()),
-                                getBody(user.getAuthStatus()),
-                                tag("div", "class='debug'", "Page rendered in "+ requestStart.get())));
+                tag("body", bodyAttributes(credentials),
+                        tag("h1", getTitle()),
+                        getBody(credentials.getAuthStatus()),
+                        tag("div", "class='debug'", "Page rendered in " + requestStart.get())));
     }
 
-    protected String bodyAttributes() {
+    private String bodyAttributes(ItemCredentials user) {
+        String onLoad = onLoad(user);
+        if (user.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN) {
+            onLoad += (onLoad.isEmpty() ? "" : "; ") + "setupDnd()";
+        }
+        return onLoad.isEmpty() ? "" : "onLoad="+ quote(onLoad);
+    }
+
+    protected String onLoad(ItemCredentials user) {
         return "";
     }
 
@@ -107,4 +120,7 @@ public abstract class AbstractPage {
         return HtmlFragment.EMPTY;
     }
 
+    public String toString() {
+        return getHtml().toString();
+    }
 }

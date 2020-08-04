@@ -11,13 +11,11 @@ import org.gamboni.cloudspill.shared.api.LoginState;
 public class LoginPage extends AbstractPage {
     private final String title;
     private final LoginState state;
-    private final ItemCredentials.UserCredentials credentials;
 
-    public LoginPage(BackendConfiguration configuration, String title, LoginState state, ItemCredentials.UserCredentials credentials) {
-        super(configuration);
+    public LoginPage(BackendConfiguration configuration, String title, LoginState state, ItemCredentials credentials) {
+        super(configuration, credentials);
         this.title = title;
         this.state = state;
-        this.credentials = credentials;
     }
 
     @Override
@@ -36,19 +34,20 @@ public class LoginPage extends AbstractPage {
     }
 
     @Override
-    protected String bodyAttributes() {
+    protected String onLoad(ItemCredentials c) {
         if (state == LoginState.WAITING_FOR_VALIDATION) {
-            return "onload="+ quote("waitForValidation('"+ ((ItemCredentials.UserToken)credentials).encodeLoginParam() +"', '"+
+            return "waitForValidation('"+ ((ItemCredentials.UserToken)credentials).encodeLoginParam() +"', '"+
                     this.api.login()
-                    +"')");
+                    +"')";
         } else {
-            return super.bodyAttributes();
+            return super.onLoad(c);
         }
     }
 
     @Override
     protected HtmlFragment getBody(ItemCredentials.AuthenticationStatus authStatus) {
-        HtmlFragment nameElement = tag("span", "name='name'", (credentials == null) ? "stranger" : credentials.user.getName());
+        HtmlFragment nameElement = tag("span", "name='name'",
+                (credentials instanceof ItemCredentials.UserCredentials) ? ((ItemCredentials.UserCredentials) credentials).user.getName() : "stranger");
         HtmlFragment tokenIdElement = tag("span", "name='tokenId'",
                 (credentials instanceof ItemCredentials.UserToken) ? String.valueOf(((ItemCredentials.UserToken) credentials).id) : "unknown");
         return HtmlFragment.concatenate(

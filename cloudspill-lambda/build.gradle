@@ -1,0 +1,17 @@
+apply plugin: 'java-library'
+
+repositories {
+    jcenter()
+}
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+dependencies {
+
+    implementation project(':cloudspill-shared')
+    implementation 'com.google.guava:guava:24.1-jre'
+
+    implementation 'com.drewnoakes:metadata-extractor:2.12.0'
+
+}

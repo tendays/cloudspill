@@ -32,6 +32,7 @@
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="cloudspill-shared" exported="" />
+    <orderEntry type="module" module-name="cloudspill-lambda" exported="" />
     <orderEntry type="library" exported="" name="Gradle: guice-4.1.0" level="project" />
     <orderEntry type="library" exported="" name="Gradle: deeplearning4j-nn-1.0.0-beta" level="project" />
     <orderEntry type="library" exported="" name="Gradle: deeplearning4j-utility-iterators-1.0.0-beta" level="project" />

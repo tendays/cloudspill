@@ -13,10 +13,14 @@ import com.drew.metadata.exif.ExifSubIFDDirectory;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CharStreams;
 
+import org.gamboni.cloudspill.lambda.MetadataExtractor;
+import org.gamboni.cloudspill.lambda.client.ApiInvokers;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
+import org.gamboni.cloudspill.shared.api.ItemMetadata;
 import org.gamboni.cloudspill.shared.api.PingResponseHandler;
 import org.gamboni.cloudspill.shared.api.ServerInfo;
 import org.gamboni.cloudspill.shared.client.ResponseHandler;
+import org.gamboni.cloudspill.shared.client.ResponseHandlers;
 import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.shared.util.FileTypeChecker;
 
@@ -35,15 +39,6 @@ import java.util.function.Consumer;
  *
  */
 public class CloudSpill {
-
-	private static class ItemMetadata {
-		final Date itemDate;
-		final ItemType itemType;
-		ItemMetadata(Date itemDate, ItemType itemType) {
-			this.itemDate = itemDate;
-			this.itemType = itemType;
-		}
-	}
 
 	public static void main(String[] args) {
 		OptionParser optionParser = new OptionParser(args);
@@ -76,24 +71,13 @@ public class CloudSpill {
 					String path = optionParser.next();
 					System.out.println(path);
 
-					try {
-						ItemMetadata metadata = getItemMetadata(path);
-						try (final FileInputStream fileInput = new FileInputStream(path)) {
-							api.upload(config.require(config.user, "User parameter not set"),
-									folder,
-									unprefix(path, "./", "/"), connection -> {
-										connection.setDoOutput(true);
-										connection.setRequestMethod("PUT");
-										connection.setRequestProperty(CloudSpillApi.UPLOAD_TIMESTAMP_HEADER, Long.toString(metadata.itemDate.getTime()));
-										connection.setRequestProperty(CloudSpillApi.UPLOAD_TYPE_HEADER, metadata.itemType.name());
-
-										ByteStreams.copy(fileInput, connection.getOutputStream());
-
-										final String response = CharStreams.toString(new InputStreamReader(connection.getInputStream()));
-
-										System.out.println("Created new item with id " + Long.parseLong(response));
-									});
-						}
+					try (final BufferedInputStream fileInput = new BufferedInputStream(new FileInputStream(path))) {
+						ItemMetadata metadata = MetadataExtractor.getItemMetadata(fileInput, new File(path));
+						api.upload(config.require(config.user, "User parameter not set"),
+								folder,
+								unprefix(path, "./", "/"), ApiInvokers.upload(metadata, fileInput, id -> {
+									System.out.println("Created new item with id " + id);
+								}));
 					} catch (IOException e) {
 						System.err.println(e.getMessage());
 					}
@@ -103,38 +87,6 @@ public class CloudSpill {
 				System.err.println("No command provided"); // error if no command at all
 				System.exit(255);
 			}
-	}
-
-	private static ItemMetadata getItemMetadata(String path) throws IOException {
-		Date itemDate;
-		ItemType itemType;
-		try (BufferedInputStream in = new BufferedInputStream(new FileInputStream(path))) {
-			final FileType fileType = FileTypeDetector.detectFileType(in);
-			final String mimeType = fileType.getMimeType();
-			if (mimeType != null && mimeType.startsWith("image/")) {
-				itemType = ItemType.IMAGE;
-			} else if (mimeType != null && mimeType.startsWith("video/")) {
-				itemType = ItemType.VIDEO;
-			} else {
-				itemType = ItemType.UNKNOWN;
-			}
-
-			final Metadata metadata = ImageMetadataReader.readMetadata(new File(path));
-			final ExifSubIFDDirectory exif = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
-			if (exif != null && exif.getDateDigitized() != null) {
-				itemDate = exif.getDateDigitized();
-			} else {
-				itemDate = new Date(new File(path).lastModified());
-			}
-		} catch (ImageProcessingException e) {
-			e.printStackTrace();
-			System.err.println("Failed reading image metadata");
-			itemDate = new Date(new File(path).lastModified());
-			itemType = new FileTypeChecker(ByteStreams.toByteArray(
-					ByteStreams.limit(new FileInputStream(path), FileTypeChecker.PREAMBLE_LENGTH))).getType();
-		}
-
-		return new ItemMetadata(itemDate, itemType);
 	}
 
 	private static String unprefix(String path, String... prefixes) {

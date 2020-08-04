@@ -2,6 +2,7 @@ package org.gamboni.cloudspill.server;
 
 import com.google.common.base.Preconditions;
 
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -82,6 +83,12 @@ public class OrHttpError<T> {
             return this.item;
         } else {
             return supplier.get();
+        }
+    }
+
+    public void ifPresent(Consumer<T> consumer) {
+        if (error == null) {
+            consumer.accept(this.item);
         }
     }
 

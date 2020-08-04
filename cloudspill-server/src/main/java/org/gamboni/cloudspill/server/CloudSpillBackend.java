@@ -26,6 +26,7 @@ import org.gamboni.cloudspill.shared.api.ApiElementMatcher;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.Csv;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.api.ItemMetadata;
 import org.gamboni.cloudspill.shared.api.LoginState;
 import org.gamboni.cloudspill.shared.domain.AccessDeniedException;
 import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
@@ -39,6 +40,7 @@ import org.gamboni.cloudspill.shared.util.Log;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -46,8 +48,11 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Date;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -229,9 +234,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             Log.debug("user is "+ username +", folder is "+ folder +" and path is "+ path);
 
             final String timestampHeader = req.headers(CloudSpillApi.UPLOAD_TIMESTAMP_HEADER);
-            LocalDateTime timestamp = (timestampHeader == null) ? null : Instant.ofEpochMilli(Long.valueOf(timestampHeader))
-                    .atOffset(ZoneOffset.UTC)
-                    .toLocalDateTime();
+            Date timestamp = (timestampHeader == null) ? null : new Date(Long.valueOf(timestampHeader));
             final String typeHeader = req.headers(CloudSpillApi.UPLOAD_TYPE_HEADER);
 
             ItemType itemType = null;
@@ -244,12 +247,12 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                 }
             }
 
-            return upload(req, res, session, credentials, folder, path, timestamp, itemType);
+            return upload(session, credentials, req.raw().getInputStream(), folder, path, new ItemMetadata(timestamp, itemType)).get(res);
         }));
 
         get("/", (req, res) -> title().get(res, title -> transacted(session -> getUnverifiedCredentials(req, session)).map(credentials ->
         {
-            final LoginPage loginPage = credentials == null ? new LoginPage(configuration, title, LoginState.DISCONNECTED, null) :
+            final LoginPage loginPage = credentials == null ? new LoginPage(configuration, title, LoginState.DISCONNECTED, new ItemCredentials.PublicAccess()) :
                     credentials.map(new ItemCredentials.Mapper<LoginPage>() {
                         @Override
                         public LoginPage when(ItemCredentials.UserPassword password) {
@@ -257,7 +260,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                                 verifyCredentials(password, null);
                             } catch (AccessDeniedException e) {
                                 /* Wrong password supplied */
-                                return new LoginPage(configuration, title, LoginState.DISCONNECTED, null);
+                                return new LoginPage(configuration, title, LoginState.DISCONNECTED, new ItemCredentials.PublicAccess());
                             }
 
                             return new LoginPage(configuration, title, LoginState.LOGGED_IN, password);
@@ -270,16 +273,16 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
                         @Override
                         public LoginPage when(ItemCredentials.PublicAccess pub) {
-                            return new LoginPage(configuration, title, LoginState.DISCONNECTED, null);
+                            return new LoginPage(configuration, title, LoginState.DISCONNECTED, credentials);
                         }
 
                         @Override
                         public LoginPage when(ItemCredentials.ItemKey key) {
-                            return new LoginPage(configuration, title, LoginState.DISCONNECTED, null);
+                            return new LoginPage(configuration, title, LoginState.DISCONNECTED, credentials);
 
                         }
                     });
-            return loginPage.getHtml(publicAccess);
+            return loginPage;
         })
             .get(res)));
 
@@ -390,16 +393,16 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         }));
 
         /* Page for experimenting new stuff */
-        get("/lab", secured((req, res, session, user) -> new LabPage(configuration).getHtml(user)));
+        get("/lab", secured((req, res, session, user) -> new LabPage(configuration, user)));
         post("/lab", secured((req, res, session, user) -> {
-            final File dir = new File("/tmp/c");
-            dir.mkdir();
             req.attribute("org.eclipse.jetty.multipartConfig", new MultipartConfigElement("/tmp"));
+            Set<Long> ids = new LinkedHashSet<>();
             for (Part part : req.raw().getParts()) {
                 if (part.getName().equals("files[]") && part.getSize() > 0) {
-                    final File out = new File(dir, part.getSubmittedFileName());
-                    Log.info("Writing "+ part.getSize() +" bytes to "+ out);
-                    ByteStreams.copy(part.getInputStream(), new FileOutputStream(out));
+                    final OrHttpError<Long> newId = upload(session, user, part.getInputStream(), "web", part.getSubmittedFileName(),
+                            new ItemMetadata(null,
+                            ItemType.fromMime(part.getContentType())));
+                    newId.ifPresent(ids::add);
                 } else {
                     Log.info("Skipping "+ part);
                 }
@@ -487,14 +490,15 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             if (isCsvRequested(req) || isJsonRequested(req)) {
                 return dump(req, res, offset, itemSet, format);
             } else {
-                return new GalleryPage(configuration, offset, itemSet, req.queryParamOrDefault("experimental", "").equals("true")).getHtml(credentials);
+                return new GalleryPage(configuration, offset, itemSet, req.queryParamOrDefault("experimental", "").equals("true"),
+                        credentials);
             }
         });
     }
 
     private Object itemPage(BackendConfiguration configuration, Request req, Response res, D session, ItemCredentials credentials, BackendItem item) throws IOException {
         if (req.params("id").endsWith(ID_HTML_SUFFIX)) {
-            return new ImagePage(configuration, item).getHtml(credentials);
+            return new ImagePage(configuration, item, credentials);
         } else {
             if (isCsvRequested(req) || isJsonRequested(req)) {
                 return dump(req, res, null, ItemSet.of(item), DumpFormat.WITH_TOTAL);
@@ -575,8 +579,9 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
      * are provided, access must be denied. */
     protected abstract OrHttpError<? extends BackendItem> loadItem(D session, long id, List<ItemCredentials> credentials);
 
-    protected abstract Long upload(Request req, Response res, D session, ItemCredentials.UserCredentials user, String folder, String path,
-                                   LocalDateTime utcTimestamp, ItemType itemType) throws IOException;
+    protected abstract OrHttpError<Long> upload(D session, ItemCredentials.UserCredentials user, InputStream inputStream,
+                                   String folder, String path,
+                                   ItemMetadata metadata) throws IOException;
 
     public static class GalleryListData {
         public final String title;
@@ -768,7 +773,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                         // TODO: escape \ and \n in title
                         return dumpCsv(res, data.elements.stream(), GalleryListPage.Element.CSV) + "\n" + "Title:" + data.title;
                     } else {
-                        return new GalleryListPage(configuration, data.title, data.elements).getHtml(credentials);
+                        return new GalleryListPage(configuration, data.title, data.elements, credentials);
                     }
                 };
     }

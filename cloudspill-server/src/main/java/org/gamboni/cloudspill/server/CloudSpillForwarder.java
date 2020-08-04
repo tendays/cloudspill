@@ -16,9 +16,9 @@ import org.gamboni.cloudspill.domain.RemoteItem;
 import org.gamboni.cloudspill.domain.RemoteUserAuthToken;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.domain.UserAuthToken;
+import org.gamboni.cloudspill.lambda.client.ApiInvokers;
 import org.gamboni.cloudspill.server.config.ForwarderConfiguration;
 import org.gamboni.cloudspill.server.html.GalleryListPage;
-import org.gamboni.cloudspill.server.html.LoginPage;
 import org.gamboni.cloudspill.server.query.GalleryPartReference;
 import org.gamboni.cloudspill.server.query.ItemQueryLoader;
 import org.gamboni.cloudspill.server.query.ItemSet;
@@ -28,12 +28,12 @@ import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.Csv;
 import org.gamboni.cloudspill.shared.api.CsvEncoding;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.api.ItemMetadata;
 import org.gamboni.cloudspill.shared.api.LoginState;
 import org.gamboni.cloudspill.shared.client.ResponseHandler;
 import org.gamboni.cloudspill.shared.client.ResponseHandlers;
 import org.gamboni.cloudspill.shared.domain.AccessDeniedException;
 import org.gamboni.cloudspill.shared.domain.ClientUser;
-import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
 import org.gamboni.cloudspill.shared.domain.IsUser;
 import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.shared.util.Log;
@@ -47,7 +47,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.LineNumberReader;
 import java.io.OutputStream;
-import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -62,7 +61,6 @@ import javax.inject.Inject;
 import javax.persistence.EntityManager;
 import javax.servlet.http.HttpServletResponse;
 
-import spark.Request;
 import spark.Response;
 
 import static org.gamboni.cloudspill.shared.util.Files.append;
@@ -381,9 +379,19 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
-    protected Long upload(Request req, Response res, ForwarderDomain session, ItemCredentials.UserCredentials user, String folder, String path,
-                          LocalDateTime utcTimestamp, ItemType itemType) throws IOException {
-        throw new UnsupportedOperationException();
+    protected OrHttpError<Long> upload(ForwarderDomain session, ItemCredentials.UserCredentials user, InputStream data, String folder, String path,
+                                       ItemMetadata metadata) throws IOException {
+        long[] id = new long[1];
+        remoteApi.upload(user.user.getName(), folder, path,
+                ResponseHandlers.withCredentials(user, BASE_64_ENCODER,
+                ApiInvokers.upload(metadata, data, result -> id[0] = result)));
+        if (id[0] > 0) {
+            return new OrHttpError<>(id[0]);
+        } else {
+            // TODO retrieve remote status in the last parameter of the ApiInvokers method.
+            // as it's all actually synchronous that should really be returned by the remoteApi.upload() call instead!
+            return internalServerError();
+        }
     }
 
     @Override

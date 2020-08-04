@@ -17,8 +17,8 @@ public class GalleryPage extends AbstractPage {
     private final ItemSet itemSet;
     private final boolean experimental;
 
-    public GalleryPage(BackendConfiguration configuration, GalleryRequest criteria, ItemSet itemSet, boolean experimental) {
-        super(configuration);
+    public GalleryPage(BackendConfiguration configuration, GalleryRequest criteria, ItemSet itemSet, boolean experimental, ItemCredentials credentials) {
+        super(configuration, credentials);
         this.criteria = criteria;
         this.itemSet = itemSet;
         this.experimental = experimental;
@@ -40,14 +40,14 @@ public class GalleryPage extends AbstractPage {
     }
 
     @Override
-    protected String bodyAttributes() {
+    protected String onLoad(ItemCredentials credentials) {
         if (itemSet.totalCount > PAGE_SIZE && criteria.getOffset() == 0) {
-            return "onload="+ quote("createPlaceholders('"+ criteria.getUrl(api) +"', '"+
+            return "createPlaceholders('"+ criteria.getUrl(api) +"', '"+
                     api.getThumbnailUrl("%d", new ItemCredentials.ItemKey("%s"), CloudSpillApi.Size.IMAGE_THUMBNAIL.pixels) +"', '"+
                     api.getImagePageUrl("%d", new ItemCredentials.ItemKey("%s")) +"', "+
-                    PAGE_SIZE +", "+ itemSet.totalCount +")");
+                    PAGE_SIZE +", "+ itemSet.totalCount +")";
         } else {
-            return super.bodyAttributes();
+            return super.onLoad(credentials);
         }
     }
 

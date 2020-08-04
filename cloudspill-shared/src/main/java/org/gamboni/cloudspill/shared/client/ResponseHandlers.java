@@ -1,7 +1,9 @@
 package org.gamboni.cloudspill.shared.client;
 
 import org.gamboni.cloudspill.shared.api.Base64Encoder;
+import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.api.ItemMetadata;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;

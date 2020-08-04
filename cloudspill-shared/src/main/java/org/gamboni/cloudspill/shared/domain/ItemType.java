@@ -29,4 +29,13 @@ public enum ItemType {
         }
         throw new IllegalArgumentException("Unsupported type "+ this);
     }
+
+    public static ItemType fromMime(String mimeType) {
+        for (ItemType candidate : values()) {
+            if (candidate.asMime().equals(mimeType)) {
+                return candidate;
+            }
+        }
+        return UNKNOWN;
+    }
 }

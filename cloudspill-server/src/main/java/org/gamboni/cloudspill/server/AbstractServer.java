@@ -6,6 +6,8 @@ import com.google.common.collect.Iterables;
 import java.io.File;
 import java.util.Base64;
 import java.util.List;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import javax.inject.Inject;
 import javax.persistence.EntityManager;
@@ -14,9 +16,11 @@ import javax.persistence.EntityTransaction;
 import javax.servlet.http.HttpServletResponse;
 
 import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
+import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.ServerDomain;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.domain.User_;
+import org.gamboni.cloudspill.server.html.AbstractPage;
 import org.gamboni.cloudspill.server.html.LoginPage;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.api.LoginState;
@@ -49,6 +53,33 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 		} else {
 			return value;
 		}
+	}
+
+	protected interface QueryExecutor<I, S, O> {
+		O execute(I input, ItemCredentials credentials, S session);
+	}
+
+	/** Proposed common abstraction to use for all pages.
+	 *
+	 * This decomposition should allow the Forwarder to work automatically (aside from caching), after adding supporting
+	 * methods in I/O and/or an additional {@link org.gamboni.cloudspill.shared.api.Csv} parameter
+	 *
+	 * @param parser extract all request parameters from the request into an "input model". If this stage fails, a 400 error will be returned
+	 * @param executor actually process the request. This component has access to the input model, user credentials and database transaction, and returns
+	 *                 a "model" in the MVC sense
+	 * @param formatter convert the model into an HTML page. This step might be skipped if a CSV/JSON output is requested
+	 * @param <I> input model type
+	 * @param <O> view model type
+	 * @return a Route suitable for passing to a callback-style method in CloudSpillApi
+	 */
+	protected <I, O> Route page(Function<Request, I> parser, QueryExecutor<I, S, O> executor, Function<O, AbstractPage> formatter) {
+		return (req, res) -> transacted(session -> {
+			I input = parser.apply(req); // TODO badRequest if exception
+			return optionalAuthenticate(req, session).map(credentials -> {
+				O model = executor.execute(input, credentials, session);
+				return formatter.apply(model);
+			}).get(res);
+		});
 	}
 
 	protected Route secured(SecuredBody<S> task) {

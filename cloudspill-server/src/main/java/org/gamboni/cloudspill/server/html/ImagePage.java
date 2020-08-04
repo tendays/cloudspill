@@ -23,8 +23,8 @@ import java.util.stream.Collectors;
 public class ImagePage extends AbstractPage {
 	private final BackendItem item;
 
-	public ImagePage(BackendConfiguration configuration, BackendItem item) {
-		super(configuration);
+	public ImagePage(BackendConfiguration configuration, BackendItem item, ItemCredentials credentials) {
+		super(configuration, credentials);
 
 		this.item = item;
 	}

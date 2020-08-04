@@ -10,6 +10,7 @@
 
 
 // To declare projects as part of a multi-project build use the 'include' method
+include ':cloudspill-lambda'
 include ':cloudspill-shared'
 include ':cloudspill-server'
 include ':cloudspill-client'

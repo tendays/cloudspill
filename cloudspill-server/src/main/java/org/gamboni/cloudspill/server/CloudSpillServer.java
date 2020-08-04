@@ -23,6 +23,7 @@ import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.domain.UserAuthToken;
 import org.gamboni.cloudspill.domain.UserAuthToken_;
 import org.gamboni.cloudspill.domain.User_;
+import org.gamboni.cloudspill.lambda.MetadataExtractor;
 import org.gamboni.cloudspill.server.config.ServerConfiguration;
 import org.gamboni.cloudspill.server.html.GalleryListPage;
 import org.gamboni.cloudspill.server.query.ItemQueryLoader;
@@ -31,6 +32,7 @@ import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.api.ItemMetadata;
 import org.gamboni.cloudspill.shared.api.LoginState;
 import org.gamboni.cloudspill.shared.domain.AccessDeniedException;
 import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
@@ -46,6 +48,7 @@ import java.awt.Image;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.awt.image.ImageObserver;
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -58,6 +61,7 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Base64;
@@ -231,15 +235,14 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	}
 
 	@Override
-	protected Long upload(Request req, Response res, ServerDomain session, ItemCredentials.UserCredentials credentials, String folder, String path,
-						  LocalDateTime utcTimestamp, ItemType itemType) throws IOException {
+	protected OrHttpError<Long> upload(ServerDomain session, ItemCredentials.UserCredentials credentials, InputStream inputStream, String folder, String path,
+						  ItemMetadata metadata) throws IOException {
 		// Normalise given path
 		File folderPath = append(append(configuration.getRepositoryPath(), credentials.user.getName()), folder);
 		File requestedTarget = append(folderPath, path);
 
 		if (requestedTarget == null) {
-			res.status(400);
-			return null;
+			return badRequest();
 		}
 
 		// Path to put into the database
@@ -263,25 +266,30 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 				item.setFolder(folder);
 				item.setPath(normalisedPath);
 				item.setUser(credentials.user.getName());
-				if (utcTimestamp != null) {
-					item.setDate(utcTimestamp);
-					item.setDatePrecision("s");
-				}
-				if (itemType != null) {
-					item.setType(itemType);
-				}
-
-				//session.persist(item);
-				// TODO checksum update below fails if we do this: session.flush(); // flush before writing to disk
-
 
 				requestedTarget.getParentFile().mkdirs();
 				// TODO return 40x error in case content-length is missing or invalid
 				/*long contentLength = Long.parseLong(req.headers("Content-Length")); */
 				final MessageDigest md5 = getMessageDigest();
 				Log.debug("Writing bytes to " + requestedTarget);
-				try (InputStream in = req.raw().getInputStream();
+				try (BufferedInputStream in = new BufferedInputStream(inputStream);
 					 FileOutputStream out = new FileOutputStream(requestedTarget)) {
+
+					if (metadata.itemDate == null || metadata.itemType == null) {
+						final ItemMetadata inferredMetadata = MetadataExtractor.getItemMetadata(in, null);
+						// client-provided metadata has higher priority
+						metadata = inferredMetadata.overrideWith(metadata);
+					}
+
+					if (metadata.itemDate != null) {
+						item.setDate(metadata.itemDate.toInstant().atZone(ZoneOffset.UTC).toLocalDateTime());
+					}
+					item.setDatePrecision("s");
+					if (metadata.itemType != null) {
+						item.setType(metadata.itemType);
+					}
+					//session.persist(item);
+					// TODO checksum update below fails if we do this: session.flush(); // flush before writing to disk
 
 					byte[] buf = new byte[8192];
 					long copied = 0;
@@ -306,18 +314,17 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 				session.persist(item);
 
 				Log.debug("Returning id "+ item.getId());
-				return item.getId();
+				return new OrHttpError<>(item.getId());
 
 			case 1:
 				// throw away input data.
 				// TODO we should ideally just return early but it makes Java clients crash
-				ByteStreams.exhaust(req.raw().getInputStream());
-				return existing.get(0).getId();
+				ByteStreams.exhaust(inputStream);
+				return new OrHttpError<>(existing.get(0).getId());
 
 			default:
-				res.status(500);
 				Log.warn("Collision detected: " + existing);
-				return null;
+				return internalServerError();
 		}
 	}
 
