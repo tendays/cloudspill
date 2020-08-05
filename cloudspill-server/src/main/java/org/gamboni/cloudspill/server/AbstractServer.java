@@ -3,6 +3,8 @@ package org.gamboni.cloudspill.server;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.Iterables;
 
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
 import org.gamboni.cloudspill.domain.ServerDomain;
 import org.gamboni.cloudspill.domain.User;
@@ -24,12 +26,18 @@ import javax.inject.Inject;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.EntityTransaction;
+import javax.servlet.FilterConfig;
 import javax.servlet.http.HttpServletResponse;
 
 import spark.Request;
 import spark.Response;
 import spark.Route;
 import spark.embeddedserver.EmbeddedServers;
+import spark.embeddedserver.jetty.EmbeddedJettyServer;
+import spark.embeddedserver.jetty.JettyHandler;
+import spark.http.matching.MatcherFilter;
+import spark.route.Routes;
+import spark.staticfiles.StaticFilesConfiguration;
 
 public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 
@@ -303,5 +311,28 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 				return internalServerError();
 			}
 		}
+	}
+
+	protected AbstractServer() {
+		/* Experimental: starting work on setting up Jetty server. Ultimate purpose is to disable getRemoteAddr() checking X-Forwarded-For.
+		EmbeddedServers.add(EmbeddedServers.Identifiers.JETTY,
+				(Routes routeMatcher, StaticFilesConfiguration staticFilesConfiguration, boolean hasMultipleHandler) -> {
+			MatcherFilter matcherFilter = new MatcherFilter(routeMatcher, staticFilesConfiguration, false, hasMultipleHandler);
+			matcherFilter.init(null);
+			JettyHandler handler = new JettyHandler(matcherFilter);
+			return new EmbeddedJettyServer((int maxThreads, int minThreads, int threadTimeoutMillis) -> {
+						Server server;
+						if (maxThreads > 0 || minThreads > 0 || threadTimeoutMillis > 0) {
+							int max = maxThreads > 0 ? maxThreads : 200;
+							int min = minThreads > 0 ? minThreads : 8;
+							int idleTimeout = threadTimeoutMillis > 0 ? threadTimeoutMillis : '\uea60';
+							server = new Server(new QueuedThreadPool(max, min, idleTimeout));
+						} else {
+							server = new Server();
+						}
+
+						return server;
+					}, handler);
+		}); */
 	}
 }
