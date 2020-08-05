@@ -1,8 +1,5 @@
 package org.gamboni.cloudspill.server;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -37,15 +34,11 @@ import org.gamboni.cloudspill.shared.domain.Items;
 import org.gamboni.cloudspill.shared.domain.PermissionDeniedException;
 import org.gamboni.cloudspill.shared.util.Log;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
@@ -295,13 +288,10 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                             (forwarded == null ? req.ip() :
                             (forwarded +" (connecting through "+ req.ip() +")")))
                     .get(res, token -> {
-
-                        res.cookie("/",
-                                LOGIN_COOKIE_NAME,
-                                token.encodeCookie(),
-                                (int)Duration.ofDays(365).getSeconds(),
-                                false, // TODO configuration value. On my localhost testing it's false, elsewhere it's true
-                                true);
+                        /* "Lax" SameSite to allow people to link to pages. We don't do state changes in GET requests. */
+                        res.header("Set-Cookie", LOGIN_COOKIE_NAME +"="+ token.encodeCookie() +
+                                "; Path=/; Max-Age="+ (int)Duration.ofDays(365).getSeconds() +"; HttpOnly"+
+                                (configuration.insecureAuthentication() ? "" : "; Secure")+"; SameSite=Lax");
 
                         return token.encodeLoginParam();
                     });

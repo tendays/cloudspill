@@ -3,10 +3,21 @@ package org.gamboni.cloudspill.server;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.Iterables;
 
+import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
+import org.gamboni.cloudspill.domain.ServerDomain;
+import org.gamboni.cloudspill.domain.User;
+import org.gamboni.cloudspill.domain.User_;
+import org.gamboni.cloudspill.server.html.AbstractPage;
+import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.api.LoginState;
+import org.gamboni.cloudspill.shared.domain.ClientUser;
+import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
+import org.gamboni.cloudspill.shared.domain.IsUser;
+import org.gamboni.cloudspill.shared.util.Log;
+
 import java.io.File;
 import java.util.Base64;
 import java.util.List;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import javax.inject.Inject;
@@ -15,23 +26,10 @@ import javax.persistence.EntityManagerFactory;
 import javax.persistence.EntityTransaction;
 import javax.servlet.http.HttpServletResponse;
 
-import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
-import org.gamboni.cloudspill.domain.Item;
-import org.gamboni.cloudspill.domain.ServerDomain;
-import org.gamboni.cloudspill.domain.User;
-import org.gamboni.cloudspill.domain.User_;
-import org.gamboni.cloudspill.server.html.AbstractPage;
-import org.gamboni.cloudspill.server.html.LoginPage;
-import org.gamboni.cloudspill.shared.api.ItemCredentials;
-import org.gamboni.cloudspill.shared.api.LoginState;
-import org.gamboni.cloudspill.shared.domain.ClientUser;
-import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
-import org.gamboni.cloudspill.shared.domain.IsUser;
-import org.gamboni.cloudspill.shared.util.Log;
-
 import spark.Request;
 import spark.Response;
 import spark.Route;
+import spark.embeddedserver.EmbeddedServers;
 
 public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 
@@ -306,9 +304,4 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 			}
 		}
 	}
-
-	public AbstractServer() {
-		super();
-	}
-
 }

@@ -36,6 +36,11 @@ public abstract class BackendConfiguration implements SharedConfiguration {
         return requireProperty("publicUrl");
     }
 
+    @Override
+    public boolean insecureAuthentication() {
+        return Boolean.valueOf(prop.getProperty("insecureAuthentication", "false"));
+    }
+
     protected String requireProperty(String name) {
         return Preconditions.checkNotNull(prop.getProperty(name), "Missing required property '"+ name +"'");
     }
