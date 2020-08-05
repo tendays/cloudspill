@@ -275,19 +275,6 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 				try (BufferedInputStream in = new BufferedInputStream(inputStream);
 					 FileOutputStream out = new FileOutputStream(requestedTarget)) {
 
-					if (metadata.itemDate == null || metadata.itemType == null) {
-						final ItemMetadata inferredMetadata = MetadataExtractor.getItemMetadata(in, null);
-						// client-provided metadata has higher priority
-						metadata = inferredMetadata.overrideWith(metadata);
-					}
-
-					if (metadata.itemDate != null) {
-						item.setDate(metadata.itemDate.toInstant().atZone(ZoneOffset.UTC).toLocalDateTime());
-					}
-					item.setDatePrecision("s");
-					if (metadata.itemType != null) {
-						item.setType(metadata.itemType);
-					}
 					//session.persist(item);
 					// TODO checksum update below fails if we do this: session.flush(); // flush before writing to disk
 
@@ -308,6 +295,22 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 						throw new IllegalArgumentException("Expected "+ contentLength +" bytes, got "+ copied);
 					}*/
 				}
+
+
+				if (metadata.itemDate == null || metadata.itemType == null) {
+					final ItemMetadata inferredMetadata = MetadataExtractor.getItemMetadata(null, requestedTarget);
+					// client-provided metadata has higher priority
+					metadata = inferredMetadata.overrideWith(metadata);
+				}
+
+				if (metadata.itemDate != null) {
+					item.setDate(metadata.itemDate.toInstant().atZone(ZoneOffset.UTC).toLocalDateTime());
+				}
+				item.setDatePrecision("s");
+				if (metadata.itemType != null) {
+					item.setType(metadata.itemType);
+				}
+
 				item.setChecksum(
 						new String(Base64.getEncoder().encode(md5.digest()), StandardCharsets.ISO_8859_1));
 

@@ -14,6 +14,7 @@ import org.gamboni.cloudspill.shared.util.FileTypeChecker;
 
 import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Date;
 
@@ -22,6 +23,12 @@ import java.util.Date;
  */
 public abstract class MetadataExtractor {
     public static ItemMetadata getItemMetadata(BufferedInputStream stream, File file) throws IOException {
+        if (stream == null) {
+            try (BufferedInputStream fileStream = new BufferedInputStream(new FileInputStream(file))) {
+                return getItemMetadata(fileStream, file);
+            }
+        }
+
         Date itemDate;
         ItemType itemType;
         try {

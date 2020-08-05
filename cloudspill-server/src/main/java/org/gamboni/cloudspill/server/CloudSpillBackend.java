@@ -168,12 +168,12 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
         /* Download a file */
         get("/item/:id", securedItem(ItemCredentials.AuthenticationStatus.LOGGED_IN, (req, res, session, credentials, item) -> {
-            return itemPage(configuration, req, res, session, credentials, item);
+            return itemPage(configuration, req, res, session, credentials, item).toString();
         }));
 
         /* Download a public file */
         get("/public/item/:id", securedItem(ItemCredentials.AuthenticationStatus.ANONYMOUS, (req, res, session, credentials, item) -> {
-                return itemPage(configuration, req, res, session, credentials, item);
+                return itemPage(configuration, req, res, session, credentials, item).toString();
         }));
 
         /* Download a thumbnail */
@@ -397,7 +397,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                     Log.info("Skipping "+ part);
                 }
             }
-            return "ok";
+            return ids;
         }));
     }
 
