@@ -101,13 +101,19 @@ public abstract class AbstractPage {
                 tag("body", bodyAttributes(credentials),
                         tag("h1", getTitle()),
                         getBody(credentials.getAuthStatus()),
+                        tag("div", "id='drawer' class='drawer' style='display:none'",
+                                tag("div", "class='drawer-title'", "Newly added items")),
                         tag("div", "class='debug'", "Page rendered in " + requestStart.get())));
     }
 
     private String bodyAttributes(ItemCredentials user) {
         String onLoad = onLoad(user);
         if (user.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN) {
-            onLoad += (onLoad.isEmpty() ? "" : "; ") + "setupDnd()";
+            onLoad += (onLoad.isEmpty() ? "" : "; ") + "setupDnd('"+
+                    /* imageUrlPattern, hrefPattern */
+                    api.getThumbnailUrl("%d", user, CloudSpillApi.Size.GALLERY_THUMBNAIL) +"', '"+
+                    api.getImagePageUrl("%d", user)
+                    +"')";
         }
         return onLoad.isEmpty() ? "" : "onLoad="+ quote(onLoad);
     }

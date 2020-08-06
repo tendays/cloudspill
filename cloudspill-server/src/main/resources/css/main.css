@@ -14,8 +14,34 @@ h1 {
     color: gray;
 }
 
+.drawer {
+    position: fixed;
+    right: 1em;
+    bottom: 1em;
+    padding: 1em;
+    border: white 1px solid;
+    border-radius: 1em;
+    max-height: 70vh;
+    background-color: black;
+    overflow: auto;
+}
+
+.drawer-title {
+    text-align: center;
+    padding-bottom: 1em;
+    text-transform: uppercase;
+    color: #aaa;
+}
+
+.drawer-thumb {
+    image-orientation: from-image;
+    float: left;
+    width: 150px;
+    height: 150px;
+}
+
 .galleryLink  {
-    position: relative; /* for absolute positionning of caption */
+    position: relative; /* for absolute positioning of caption */
     display: block;
     color: white;
     text-decoration: none;
@@ -23,6 +49,7 @@ h1 {
     width: 150px;
     float: left;
 
+    image-orientation: from-image;
     font-family: sans;
     font-size: 11px;
 }

@@ -26,9 +26,10 @@ public class LabPage extends AbstractPage {
     protected HtmlFragment getBody(ItemCredentials.AuthenticationStatus authStatus) {
         long itemId = 49201;
         return tag("div", HtmlFragment.escape("page used for experimental stuff"),
-                tag("div", "class='drawer'",
+                tag("div", "id='drawer' class='drawer'",
+                        HtmlFragment.escape("Newly added items"),
                         tag("a", "href=" + quote(
-                                api.getImagePageUrl(itemId, new ItemCredentials.UserPassword())),
+                                api.getImagePageUrl(itemId, new ItemCredentials.UserPassword())) +" target='_blank'",
                                 unclosedTag("img src="+ quote(
                                         api.getThumbnailUrl(
                                                 itemId,

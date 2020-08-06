@@ -275,7 +275,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
                         }
                     });
-            return loginPage;
+            return loginPage.toString();
         })
             .get(res)));
 
