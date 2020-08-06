@@ -763,13 +763,18 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                         // TODO: escape \ and \n in title
                         return dumpCsv(res, data.elements.stream(), GalleryListPage.Element.CSV) + "\n" + "Title:" + data.title;
                     } else {
-                        return new GalleryListPage(configuration, data.title, data.elements, credentials);
+                        return new GalleryListPage(configuration, data.title, data.elements, credentials).toString();
                     }
                 };
     }
 
     private Object galleryListPage(Response res, BackendConfiguration configuration, D domain, ItemCredentials credentials, Request req) throws Exception {
-        return galleryList(credentials, domain).get(res, galleryListFunction(req, res, configuration, credentials));
+        try {
+            return galleryList(credentials, domain).get(res, galleryListFunction(req, res, configuration, credentials));
+        } catch (Throwable e) {
+            e.printStackTrace();
+            throw e;
+        }
     }
 
     protected interface SecuredItemBody<D extends CloudSpillEntityManagerDomain> {

@@ -1,6 +1,7 @@
 package org.gamboni.cloudspill.server.html;
 
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
+import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 
 /**
@@ -23,6 +24,17 @@ public class LabPage extends AbstractPage {
 
     @Override
     protected HtmlFragment getBody(ItemCredentials.AuthenticationStatus authStatus) {
-        return tag("div", "page used for experimental stuff");
+        long itemId = 49201;
+        return tag("div", HtmlFragment.escape("page used for experimental stuff"),
+                tag("div", "class='drawer'",
+                        tag("a", "href=" + quote(
+                                api.getImagePageUrl(itemId, new ItemCredentials.UserPassword())),
+                                unclosedTag("img src="+ quote(
+                                        api.getThumbnailUrl(
+                                                itemId,
+                                                new ItemCredentials.UserPassword(),
+                                                CloudSpillApi.Size.GALLERY_THUMBNAIL)))
+                        )
+                        ));
     }
 }
