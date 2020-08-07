@@ -481,7 +481,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                 return dump(req, res, offset, itemSet, format);
             } else {
                 return new GalleryPage(configuration, offset, itemSet, req.queryParamOrDefault("experimental", "").equals("true"),
-                        credentials);
+                        credentials).toString();
             }
         });
     }
