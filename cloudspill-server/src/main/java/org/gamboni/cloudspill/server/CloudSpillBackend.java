@@ -118,12 +118,11 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                 "User-agent: *\n" +
                 "Disallow: /");
 
-        get("/tag/:tag", secured((req, res, domain, credentials) ->
-        {
-            return galleryPage(configuration, req, res, domain, credentials,
+        get("/tag-list", secured((req, res, domain, credentials) -> tagList(domain, req.attribute("string"))));
+
+        get("/tag/:tag", secured((req, res, domain, credentials) -> galleryPage(configuration, req, res, domain, credentials,
                     ServerSearchCriteria.ALL.withTag(req.params("tag")),
-                    DumpFormat.WITH_TOTAL);
-        }));
+                    DumpFormat.WITH_TOTAL)));
 
         get(api.dayListPage(":year"), secured((req, res, domain, credentials) ->
             dayList(credentials, domain, Integer.parseInt(req.params("year")))
@@ -584,6 +583,8 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
     }
 
     protected abstract OrHttpError<GalleryListData> galleryList(ItemCredentials credentials, D domain);
+
+    protected abstract List<String> tagList(D domain, String searchString);
 
     protected abstract OrHttpError<String> title();
 

@@ -521,6 +521,11 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
+    protected List<String> tagList(ForwarderDomain domain, String searchString) {
+        return ImmutableList.of();
+    }
+
+    @Override
     protected OrHttpError<String> title() {
         // TODO load actual title
         return new OrHttpError<>("Welcome to CloudSpill");

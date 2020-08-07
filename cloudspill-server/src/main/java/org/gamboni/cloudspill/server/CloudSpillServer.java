@@ -524,6 +524,14 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	}
 
 	@Override
+	protected List<String> tagList(ServerDomain domain, String searchString) {
+		final Query query = domain.getEntityManager().createNativeQuery(
+				"select distinct tags from Item_tags where tags like ? order by tags");
+		query.setParameter(1, "%"+ searchString +"%");
+		return (List<String>)query.getResultList();
+	}
+
+	@Override
 	protected OrHttpError<String> title() {
 		return new OrHttpError<>(configuration.getRepositoryName());
 	}
