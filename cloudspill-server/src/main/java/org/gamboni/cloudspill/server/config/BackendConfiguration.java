@@ -36,9 +36,12 @@ public abstract class BackendConfiguration implements SharedConfiguration {
         return requireProperty("publicUrl");
     }
 
-    @Override
     public boolean insecureAuthentication() {
         return Boolean.valueOf(prop.getProperty("insecureAuthentication", "false"));
+    }
+
+    public String copyrightNotice() {
+        return prop.getProperty("copyrightNotice", "All work is copyrighted to their respective owners. All rights reserved.");
     }
 
     protected String requireProperty(String name) {

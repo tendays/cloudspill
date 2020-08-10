@@ -56,7 +56,8 @@ public class ImagePage extends AbstractPage {
 						"class='image' src=" + quote(getImageUrl())),
 				tag("div", "class='metadata'",
 						(authStatus == ItemCredentials.AuthenticationStatus.LOGGED_IN ?
-								tag("div", "class='button' id='edit' onclick='edit()'", "edit") : HtmlFragment.EMPTY),
+								tag("div", "class='button' id='edit' onclick="+
+										quote("edit('"+ api.knownTags() +"')"), "edit") : HtmlFragment.EMPTY),
 						tag("div", "By: " + item.getUser()),
 						dateLine(authStatus),
 						tag("div", MoreObjects.firstNonNull(item.getDescription(), "")),

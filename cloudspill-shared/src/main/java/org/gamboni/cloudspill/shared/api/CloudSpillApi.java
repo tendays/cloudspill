@@ -81,6 +81,10 @@ public class CloudSpillApi<T> {
         return serverUrl + "ping";
     }
 
+    public String knownTags() {
+        return serverUrl + "known-tags";
+    }
+
     public void ping(T consumer) {
         matcher.match(ApiElementMatcher.HttpMethod.GET, ping(), consumer);
     }

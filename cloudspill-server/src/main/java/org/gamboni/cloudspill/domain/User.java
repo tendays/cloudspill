@@ -24,6 +24,7 @@ public class User implements IsUser {
 	private String salt;
 	private String pass;
 	private String userGroup;
+	private String fullName;
 
 	@Id
 	public String getName() {
@@ -33,6 +34,14 @@ public class User implements IsUser {
 		this.name = name;
 	}
 
+	public String getFullName() {
+		return fullName;
+	}
+	
+	public void setFullName(String fullName) {
+		this.fullName = fullName;
+	}
+	
 	@Override
 	public void verifyPassword(String password) throws InvalidPasswordException {
 		if (this.salt == null || this.pass == null) {

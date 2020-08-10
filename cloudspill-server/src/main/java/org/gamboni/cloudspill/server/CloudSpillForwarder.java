@@ -59,6 +59,7 @@ import java.util.function.Supplier;
 
 import javax.inject.Inject;
 import javax.persistence.EntityManager;
+import javax.persistence.Query;
 import javax.servlet.http.HttpServletResponse;
 
 import spark.Response;
@@ -518,11 +519,6 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     @Override
     protected OrHttpError<GalleryListData> galleryList(ItemCredentials credentials, ForwarderDomain domain) {
         return deserialiseGalleryList(credentials, remoteApi.galleryListPage(credentials));
-    }
-
-    @Override
-    protected List<String> tagList(ForwarderDomain domain, String searchString) {
-        return ImmutableList.of();
     }
 
     @Override

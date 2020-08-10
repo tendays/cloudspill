@@ -148,6 +148,11 @@ h1 {
     color: darkgray;
 }
 
+.copyright {
+    clear: both;
+    color: gray;
+}
+
 /* Login */
 
 .login {
@@ -221,4 +226,38 @@ h1 {
   50%, 100% {
     opacity: 0%;
   }
+}
+
+.stub {
+    position: relative;
+}
+
+.pop-up-holder {
+    display: inline-block;
+    width: 0;
+    height: 0;
+    position: relative;
+    vertical-align: bottom;
+}
+
+.pop-up {
+    max-height: 15em;
+    overflow: auto;
+    position: relative;
+    width: max-content;
+    background-color: #0008;
+    border: #f99 1px solid;
+    padding: 3px;
+}
+
+.pop-up div {
+    margin: 0;
+}
+
+.pop-up div:hover {
+    background-color: #888;
+    cursor: pointer;
+}
+.selected-option {
+    background-color: #c52;
 }

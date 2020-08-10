@@ -1,5 +1,6 @@
 package org.gamboni.cloudspill.server;
 
+import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -40,6 +41,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.LinkedHashSet;
@@ -49,6 +51,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import javax.persistence.Query;
 import javax.servlet.MultipartConfigElement;
 import javax.servlet.http.Part;
 
@@ -118,8 +121,9 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                 "User-agent: *\n" +
                 "Disallow: /");
 
-        get("/tag-list", secured((req, res, domain, credentials) -> tagList(domain, req.attribute("string"))));
-
+        get(api.knownTags(), secured((req, res, domain, credentials) -> Lists.transform(tagList(domain),
+                this::toJsonString
+        )));
         get("/tag/:tag", secured((req, res, domain, credentials) -> galleryPage(configuration, req, res, domain, credentials,
                     ServerSearchCriteria.ALL.withTag(req.params("tag")),
                     DumpFormat.WITH_TOTAL)));
@@ -400,6 +404,10 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         }));
     }
 
+    private String toJsonString(String string) {
+        return "\""+ string.replace("\\", "\\\\").replace("\"", "\\\"") +"\"";
+    }
+
     /** Input: "abcdefghijklmnopqrstuvwxyz". Output: "abc...xyz". */
     private String extract(String text) {
         if (text == null || text.length() <= 6) {
@@ -584,7 +592,11 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
     protected abstract OrHttpError<GalleryListData> galleryList(ItemCredentials credentials, D domain);
 
-    protected abstract List<String> tagList(D domain, String searchString);
+    protected List<String> tagList(D domain) {
+        final Query query = domain.getEntityManager().createNativeQuery(
+                "select distinct tags from Item_tags order by tags");
+        return (List<String>) query.getResultList();
+    }
 
     protected abstract OrHttpError<String> title();
 

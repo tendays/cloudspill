@@ -103,7 +103,12 @@ public abstract class AbstractPage {
                         getBody(credentials.getAuthStatus()),
                         tag("div", "id='drawer' class='drawer' style='display:none'",
                                 tag("div", "class='drawer-title'", "Newly added items")),
+                        tag("div", "class='copyright'", copyrightNotice()),
                         tag("div", "class='debug'", "Page rendered in " + requestStart.get())));
+    }
+
+    protected String copyrightNotice() {
+        return configuration.copyrightNotice();
     }
 
     private String bodyAttributes(ItemCredentials user) {
