@@ -57,7 +57,7 @@ public class ImagePage extends AbstractPage {
 				tag("div", "class='metadata'",
 						(authStatus == ItemCredentials.AuthenticationStatus.LOGGED_IN ?
 								tag("div", "class='button' id='edit' onclick="+
-										quote("edit('"+ api.knownTags() +"')"), "edit") : HtmlFragment.EMPTY),
+										quote("edit('"+ api.knownTags() +"', '"+ api.getTagUrl(item.getServerId()) +"')"), "edit") : HtmlFragment.EMPTY),
 						tag("div", "By: " + item.getUser()),
 						dateLine(authStatus),
 						tag("div", MoreObjects.firstNonNull(item.getDescription(), "")),
@@ -71,7 +71,7 @@ public class ImagePage extends AbstractPage {
 		if (authStatus == ItemCredentials.AuthenticationStatus.ANONYMOUS) {
 			return tag("span class='tag'", tag);
 		} else {
-			return tag("a class='tag' href="+ quote(
+			return tag("a class='tag' data-tag="+ quote(tag) +" href="+ quote(
 					ServerSearchCriteria.ALL.withTag(tag).getUrl(api)),
 					tag);
 		}

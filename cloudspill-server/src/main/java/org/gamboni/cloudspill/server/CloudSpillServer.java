@@ -551,29 +551,6 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 		})));
 	}
 
-	protected void putTags(ServerDomain session, long id, String tags) {
-		final Item item = itemForUpdate(session, id);
-
-		final Set<String> existingTags = item.getTags();
-		Splitter.on(',').split(tags).forEach(t -> {
-			if (t.startsWith("-")) {
-				existingTags.remove(t.substring(1).trim());
-			} else {
-				existingTags.add(t.trim());
-			}
-		});
-	}
-
-	private Item itemForUpdate(ServerDomain session, long id) {
-		final ServerDomain.Query<Item> itemQuery = session.selectItem();
-		final Item item = Iterables.getOnlyElement(
-				itemQuery.add(root -> session.criteriaBuilder.equal(root.get(Item_.id), id)).forUpdate().list());
-		Log.debug("Loaded item "+ id +" for update, at timestamp "+ item.getUpdated().toString());
-		session.reload(item);
-		Log.debug("After reload, item "+ id +" has timestamp "+ item.getUpdated().toString());
-		return item;
-	}
-
 	@Override
 	protected void download(Response res, ServerDomain session, ItemCredentials credentials, final BackendItem item)
 			throws IOException {

@@ -47,10 +47,13 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.LineNumberReader;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.Reader;
+import java.io.Writer;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -396,8 +399,16 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
-    protected void putTags(ForwarderDomain session, long id, String body) {
-        throw new UnsupportedOperationException();
+    protected void putTags(ForwarderDomain session, long id, String tags, ItemCredentials credentials) throws IOException {
+        remoteApi.putTags(id, ResponseHandlers.withCredentials(credentials, BASE_64_ENCODER, connection -> {
+            connection.setDoOutput(true);
+            try (Writer w = new OutputStreamWriter(connection.getOutputStream(), StandardCharsets.UTF_8)) {
+                w.write(tags);
+            }
+            if (connection.getResponseCode() >= 200 && connection.getResponseCode() <= 299) {
+                super.putTags(session, id, tags, credentials);
+            }
+        }));
     }
 
 

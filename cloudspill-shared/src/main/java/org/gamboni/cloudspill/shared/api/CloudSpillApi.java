@@ -125,6 +125,10 @@ public class CloudSpillApi<T> {
         return serverUrl +"item/"+ itemId +"/tags";
     }
 
+    public void putTags(Object itemId, T consumer) {
+        matcher.match(ApiElementMatcher.HttpMethod.PUT, getTagUrl(itemId), consumer);
+    }
+
     public String css() {
         return serverUrl +"main.css";
     }

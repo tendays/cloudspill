@@ -1,4 +1,4 @@
-function edit(knownTagUrl) {
+function edit(knownTagUrl, submitTagUrl) {
     /* Hide "EDIT" button */
     document.getElementById('edit').style.display='none';
     /* "tags" Element */
@@ -20,6 +20,9 @@ function edit(knownTagUrl) {
 
     let currentTag = "";
     let suffix = "";
+    /* Set to an empty array if a tag submission query is running. Additional submissions should be added to the array rather
+     * than sending a parallel query to avoid race conditions. When a query returns, whatever is in the array is sent in a follow-up query. */
+    let tagSubmissionQueue = null;
 
     let knownTags = [];
     let knownTagReq = new XMLHttpRequest();
@@ -30,6 +33,37 @@ function edit(knownTagUrl) {
     knownTagReq.open("GET", knownTagUrl);
     knownTagReq.send();
 
+
+    function submitTag(spec /*: string[]*/ ) {
+        if (tagSubmissionQueue !== null) {
+            spec.forEach(newTag => {
+                /* Cancel contradicting tags x and -x */
+                let negation = newTag.startsWith('-') ? newTag.substring(1) : ('-'+ newTag);
+                let negationIndex = tagSubmissionQueue.indexOf(negation);
+                if (negation !== -1) {
+                    tagSubmissionQueue.splice(negationIndex, 1);
+                } else {
+                    tagSubmissionQueue.push(newTag);
+                }
+            });
+            Array.prototype.push.apply(tagSubmissionQueue, spec);
+            return;
+        }
+
+        tagSubmissionQueue = [];
+        let req = new XMLHttpRequest();
+        req.onreadystatechange = () => {
+            if (req.readyState != 4) return;
+            let followUp = tagSubmissionQueue;
+            tagSubmissionQueue = null;
+            if (followUp.length > 0) {
+                submitTag(followUp);
+            }
+        };
+        req.open("PUT", submitTagUrl);
+        req.send(spec.join());
+    }
+
     function placeCursor() {
         if (cursorPos === tagElts.length) {
             container.appendChild(cursorElt);
@@ -39,19 +73,24 @@ function edit(knownTagUrl) {
     }
 
     function createTag(first, second) {
+        let tagSpec = [];
         if (first.length > 0) {
             stubElt.textContent = first;
             stubElt.className = 'tag';
+            stubElt.dataset.tag = first;
             tagElts.splice(cursorPos, 0, stubElt);
             cursorPos++;
+            tagSpec.push(first);
         } else if (stubElt) {
             /* User typed only spaces */
             container.removeChild(stubElt);
         }
         if (second && second.length > 0) {
             suffixElt.textContent = second;
+            suffixElt.dataset.tag = second;
             suffixElt.className = 'tag';
             tagElts.splice(cursorPos, 0, suffixElt);
+            tagSpec.push(second);
         } else {
             container.removeChild(suffixElt);
         }
@@ -69,6 +108,10 @@ function edit(knownTagUrl) {
         suffixElt = null;
 
         placeCursor();
+
+        if (tagSpec.length > 0) {
+            submitTag(tagSpec);
+        }
     }
 
     function hasStub() {
@@ -76,6 +119,15 @@ function edit(knownTagUrl) {
     }
 
     function updateStub() {
+        /* Don't allow tags to start with '-' because that means deleting a tag */
+        while (currentTag.trim().startsWith('-')) {
+            // note: this remove initial spaces
+            currentTag = currentTag.substring(1);
+        }
+        while ((currentTag + suffix).trim().startsWith('-')) {
+            suffix = suffix.substring(1);
+        }
+
         if (hasStub()) {
             if (!stubElt) {
                 stubElt = document.createElement("span");
@@ -140,83 +192,92 @@ function edit(knownTagUrl) {
     placeCursor();
 
     document.onkeydown = event => {
-        if (event.key === "ArrowLeft") {
-            if (hasStub()) {
-                if (currentTag.length > 0) {
-                    suffix = currentTag.substring(currentTag.length - 1) + suffix;
-                    currentTag = currentTag.substring(0, currentTag.length - 1);
-                    updateStub();
+        // (Trigger events when shift is pressed)
+        if (!event.altKey && !event.ctrlKey && !event.metaKey) {
+            if (event.key === "ArrowLeft") {
+                if (hasStub()) {
+                    if (currentTag.length > 0) {
+                        suffix = currentTag.substring(currentTag.length - 1) + suffix;
+                        currentTag = currentTag.substring(0, currentTag.length - 1);
+                        updateStub();
+                    }
+                } else if (cursorPos > 0) {
+                    cursorPos--;
+                    placeCursor();
                 }
-            } else if (cursorPos > 0) {
-                cursorPos--;
-                placeCursor();
-            }
-        } else if (event.key === "ArrowRight") {
-            if (hasStub()) {
-                if (suffix.length > 0) {
-                    currentTag = currentTag + suffix.substring(0, 1);
-                    suffix = suffix.substring(1);
-                    updateStub();
+            } else if (event.key === "ArrowRight") {
+                if (hasStub()) {
+                    if (suffix.length > 0) {
+                        currentTag = currentTag + suffix.substring(0, 1);
+                        suffix = suffix.substring(1);
+                        updateStub();
+                    }
+                } else if (cursorPos < tagElts.length) {
+                    cursorPos++;
+                    placeCursor();
                 }
-            } else if (cursorPos < tagElts.length) {
-                cursorPos++;
-                placeCursor();
-            }
-        } else if (event.key === "ArrowUp") {
-            if (selectedOption && selectedOption.previousSibling) {
-                selectedOption.className = '';
-                selectedOption = selectedOption.previousSibling;
-                selectedOption.className = 'selected-option';
-            }
-        } else if (event.key === "ArrowDown") {
-            if (selectedOption && selectedOption.nextSibling) {
-                selectedOption.className = '';
-                selectedOption = selectedOption.nextSibling;
-                selectedOption.className = 'selected-option';
-            }
-        } else if (event.key === "Backspace") {
-            if (hasStub()) {
-                if (currentTag.length > 0) {
-                    currentTag = currentTag.substring(0, currentTag.length - 1);
-                    updateStub();
+            } else if (event.key === "ArrowUp") {
+                if (selectedOption && selectedOption.previousSibling) {
+                    selectedOption.className = '';
+                    selectedOption = selectedOption.previousSibling;
+                    selectedOption.className = 'selected-option';
                 }
-            } else if (cursorPos > 0) {
-                /* Remove previous tag */
-                container.removeChild(tagElts[cursorPos - 1]);
-                tagElts.splice(cursorPos - 1, 1);
-                cursorPos--;
-            }
-        } else if (event.key === "Delete") {
-            if (hasStub()) {
-                if (suffix.length > 0) {
-                    suffix = suffix.substring(1);
-                    updateStub();
+            } else if (event.key === "ArrowDown") {
+                if (selectedOption && selectedOption.nextSibling) {
+                    selectedOption.className = '';
+                    selectedOption = selectedOption.nextSibling;
+                    selectedOption.className = 'selected-option';
                 }
-            } else if (cursorPos < tagElts.length) {
-                /* Remove next tag */
-                container.removeChild(tagElts[cursorPos]);
-                tagElts.splice(cursorPos, 1);
+            } else if (event.key === "Backspace") {
+                if (hasStub()) {
+                    if (currentTag.length > 0) {
+                        currentTag = currentTag.substring(0, currentTag.length - 1);
+                        updateStub();
+                    }
+                } else if (cursorPos > 0) {
+                    /* Remove previous tag */
+                    let tagElt = tagElts[cursorPos - 1];
+                    submitTag(['-'+ tagElt.dataset.tag]);
+                    container.removeChild(tagElt);
+                    tagElts.splice(cursorPos - 1, 1);
+                    cursorPos--;
+                }
+            } else if (event.key === "Delete") {
+                if (hasStub()) {
+                    if (suffix.length > 0) {
+                        suffix = suffix.substring(1);
+                        updateStub();
+                    }
+                } else if (cursorPos < tagElts.length) {
+                    /* Remove next tag */
+                    let tagElt = tagElts[cursorPos];
+                    submitTag(['-'+ tagElt.dataset.tag]);
+                    container.removeChild(tagElt);
+                    tagElts.splice(cursorPos, 1);
+                }
+            } else if (event.key === "Enter") {
+                if (hasStub()) {
+                    createTag(selectedOption && selectedOption.dataset.tag || (currentTag + suffix).trim());
+                }
+            } else if (event.key === "Escape") {
+                if (popupHolderElt) {
+                    container.removeChild(popupHolderElt);
+                    popupHolderElt = null;
+                    popupElt = null;
+                    selectedOption = null;
+                }
+            } else if (event.key === ",") {
+                if (hasStub()) {
+                    createTag(currentTag.trim(), suffix.trim());
+                }
+            } else if (event.key.length === 1) {
+                currentTag += event.key;
+                updateStub();
+            } else {
+                console.log("Unhandled key code ", event.key);
+                return; // keep default behaviour for non-handled keys
             }
-        } else if (event.key === "Enter") {
-            if (hasStub()) {
-                createTag(selectedOption && selectedOption.dataset.tag || (currentTag + suffix).trim());
-            }
-        } else if (event.key === "Escape") {
-            if (popupHolderElt) {
-                container.removeChild(popupHolderElt);
-                popupHolderElt = null;
-                popupElt = null;
-                selectedOption = null;
-            }
-        } else if (event.key === ",") {
-            if (hasStub()) {
-                createTag(currentTag.trim(), suffix.trim());
-            }
-        } else if (event.key.length === 1) {
-            currentTag += event.key;
-            updateStub();
-        } else {
-            console.log("Unhandled key code ", event.key);
-        }
+            event.preventDefault();
+        } // else: do nothing when ctrl/alt/meta is pressed
     };
 }

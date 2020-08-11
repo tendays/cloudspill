@@ -1,5 +1,7 @@
 package org.gamboni.cloudspill.server;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
 import com.google.gson.JsonArray;
@@ -7,6 +9,7 @@ import com.google.gson.JsonObject;
 
 import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
+import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.domain.UserAuthToken;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
@@ -41,7 +44,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.LinkedHashSet;
@@ -208,7 +210,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         /* Add the tags specified in body to the given item. */
         put(api.getTagUrl(":id"), secured((req, res, session, user) -> {
             Log.debug("Tag query for item "+ req.params("id") +": '"+ req.body() +"'");
-            putTags(session, Long.parseLong(req.params("id")), req.body());
+            putTags(session, Long.parseLong(req.params("id")), req.body(), user);
             return true;
         }));
 
@@ -606,7 +608,29 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
      * <p>
      * NOTE: anybody can change tags of anybody's item.
      */
-    protected abstract void putTags(D session, long id, String body);
+    protected void putTags(D session, long id, String tags, ItemCredentials credentials) throws IOException {
+        final BackendItem item = itemForUpdate(session, id);
+
+        final Set<String> existingTags = item.getTags();
+        Splitter.on(',').split(tags).forEach(t -> {
+            if (t.startsWith("-")) {
+                existingTags.remove(t.substring(1).trim());
+            } else {
+                existingTags.add(t.trim());
+            }
+        });
+    }
+
+    private BackendItem itemForUpdate(D session, long id) {
+        final CloudSpillEntityManagerDomain.Query<? extends BackendItem> itemQuery = session.selectItem();
+        final BackendItem item = Iterables.getOnlyElement(
+                itemQuery.add(root -> session.criteriaBuilder.equal(root.get("id"), id)).forUpdate().list());
+        Log.debug("Loaded item "+ id +" for update, at timestamp "+ item.getUpdated().toString());
+        session.reload(item);
+        Log.debug("After reload, item "+ id +" has timestamp "+ item.getUpdated().toString());
+        return item;
+    }
+
 
     protected static String csvMetadata(String attribute, Object value) {
         return (value == null) ? null :
