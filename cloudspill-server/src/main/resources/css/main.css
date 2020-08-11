@@ -105,6 +105,7 @@ h1 {
 }
 
 .tag::before {
+    /* Note: tag emoji between quotes */
     content: "🏷️";
 }
 
@@ -121,8 +122,13 @@ h1 {
 }
 
 .date::before {
-    /*Note: calendar emoji between quotes */
+    /* Note: calendar emoji between quotes */
     content: "📅";
+}
+
+.busy::after {
+    /* Note: hourglass emoji between quotes */
+    content: "⏳";
 }
 
 .metadata div {

@@ -497,7 +497,8 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
     private Object itemPage(BackendConfiguration configuration, Request req, Response res, D session, ItemCredentials credentials, BackendItem item) throws IOException {
         if (req.params("id").endsWith(ID_HTML_SUFFIX)) {
-            return new ImagePage(configuration, item, credentials);
+            User user = session.get(User.class, item.getUser());
+            return new ImagePage(configuration, item, user, credentials);
         } else {
             if (isCsvRequested(req) || isJsonRequested(req)) {
                 return dump(req, res, null, ItemSet.of(item), DumpFormat.WITH_TOTAL);

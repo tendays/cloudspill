@@ -3,15 +3,18 @@
  */
 package org.gamboni.cloudspill.server.html;
 
+import com.google.common.base.CaseFormat;
 import com.google.common.base.MoreObjects;
 
 import org.gamboni.cloudspill.domain.BackendItem;
+import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
 import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.domain.ItemType;
 
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -22,10 +25,12 @@ import java.util.stream.Collectors;
  */
 public class ImagePage extends AbstractPage {
 	private final BackendItem item;
+	private final User user;
 
-	public ImagePage(BackendConfiguration configuration, BackendItem item, ItemCredentials credentials) {
+	public ImagePage(BackendConfiguration configuration, BackendItem item, User user, ItemCredentials credentials) {
 		super(configuration, credentials);
 
+		this.user = user;
 		this.item = item;
 	}
 
@@ -75,6 +80,18 @@ public class ImagePage extends AbstractPage {
 					ServerSearchCriteria.ALL.withTag(tag).getUrl(api)),
 					tag);
 		}
+	}
+
+	@Override
+	protected String copyrightNotice() {
+		return capitalise(item.getType().name()) +" © "+
+				(this.item.getDate() == null ? LocalDateTime.now() : this.item.getDate()).getYear() +" "+
+				(this.user == null ? capitalise(this.item.getUser()) : this.user.getFullName()) +
+				". All rights reserved.";
+	}
+
+	private String capitalise(String value) {
+		return value.substring(0, 1).toUpperCase() + value.substring(1).toLowerCase();
 	}
 
 	private HtmlFragment dateLine(ItemCredentials.AuthenticationStatus authStatus) {

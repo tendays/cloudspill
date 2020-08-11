@@ -51,11 +51,13 @@ function edit(knownTagUrl, submitTagUrl) {
         }
 
         tagSubmissionQueue = [];
+        container.classList.add('busy');
         let req = new XMLHttpRequest();
         req.onreadystatechange = () => {
             if (req.readyState != 4) return;
             let followUp = tagSubmissionQueue;
             tagSubmissionQueue = null;
+            container.classList.remove('busy');
             if (followUp.length > 0) {
                 submitTag(followUp);
             }
