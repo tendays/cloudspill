@@ -208,9 +208,14 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         }));
 
         /* Add the tags specified in body to the given item. */
-        put(api.getTagUrl(":id"), secured((req, res, session, user) -> {
+        api.putTags(":id", secured((req, res, session, user) -> {
             Log.debug("Tag query for item "+ req.params("id") +": '"+ req.body() +"'");
             putTags(session, Long.parseLong(req.params("id")), req.body(), user);
+            return true;
+        }));
+
+        api.setItemDescription(":id", secured((req, res, session, user) -> {
+            setItemDescription(session, Long.parseLong(req.params("id")), req.body(), user);
             return true;
         }));
 
@@ -620,6 +625,11 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                 existingTags.add(t.trim());
             }
         });
+    }
+
+    protected void setItemDescription(D session, long id, String description, ItemCredentials credentials) throws IOException {
+        final BackendItem item = itemForUpdate(session, id);
+        item.setDescription(description);
     }
 
     private BackendItem itemForUpdate(D session, long id) {

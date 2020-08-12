@@ -65,7 +65,7 @@ public class ImagePage extends AbstractPage {
 										quote("edit('"+ api.knownTags() +"', '"+ api.getTagUrl(item.getServerId()) +"')"), "edit") : HtmlFragment.EMPTY),
 						tag("div", "By: " + item.getUser()),
 						dateLine(authStatus),
-						tag("div", MoreObjects.firstNonNull(item.getDescription(), "")),
+						tag("div", "id='description'", MoreObjects.firstNonNull(item.getDescription(), "")),
 						tag("div", "class='tags'",
 								new HtmlFragment(item.getTags().stream()
 										.map(tag -> tagElement(tag, authStatus).toString())

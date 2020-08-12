@@ -7,10 +7,7 @@ import org.gamboni.cloudspill.shared.domain.Items;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.ProtocolException;
 import java.net.URL;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -127,6 +124,10 @@ public class CloudSpillApi<T> {
 
     public void putTags(Object itemId, T consumer) {
         matcher.match(ApiElementMatcher.HttpMethod.PUT, getTagUrl(itemId), consumer);
+    }
+
+    public void setItemDescription(Object itemId, T consumer) {
+        matcher.match(ApiElementMatcher.HttpMethod.POST, serverUrl +"item/"+ itemId +"/description", consumer);
     }
 
     public String css() {
