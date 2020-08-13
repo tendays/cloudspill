@@ -9,6 +9,7 @@ import com.google.common.base.MoreObjects;
 import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
+import org.gamboni.cloudspill.server.html.js.EditorSubmissionJs;
 import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
@@ -37,7 +38,9 @@ public class ImagePage extends AbstractPage {
 
 	@Override
 	protected HtmlFragment scripts() {
-		return tag("script", "type='text/javascript' src=" + quote(api.editorJS()), "");
+		return HtmlFragment.concatenate(
+				tag("script", "type='text/javascript' src=" + quote(api.editorJS()), ""),
+				tag("script", "type='text/javascript' src=" + quote(api.getUrl(new EditorSubmissionJs(configuration))), ""));
 	}
 
 	public String getTitle() {
@@ -62,7 +65,7 @@ public class ImagePage extends AbstractPage {
 				tag("div", "class='metadata'",
 						(authStatus == ItemCredentials.AuthenticationStatus.LOGGED_IN ?
 								tag("div", "class='button' id='edit' onclick="+
-										quote("edit('"+ api.knownTags() +"', '"+ api.getTagUrl(item.getServerId()) +"')"), "edit") : HtmlFragment.EMPTY),
+										quote("edit("+ item.getServerId() +", '"+ api.knownTags() +"', '"+ api.getTagUrl(item.getServerId()) +"')"), "edit") : HtmlFragment.EMPTY),
 						tag("div", "By: " + item.getUser()),
 						dateLine(authStatus),
 						tag("div", "id='description'", MoreObjects.firstNonNull(item.getDescription(), "")),

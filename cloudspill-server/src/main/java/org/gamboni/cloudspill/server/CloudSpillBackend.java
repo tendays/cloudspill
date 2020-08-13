@@ -1,5 +1,6 @@
 package org.gamboni.cloudspill.server;
 
+import com.google.common.base.CaseFormat;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -19,6 +20,8 @@ import org.gamboni.cloudspill.server.html.GalleryPage;
 import org.gamboni.cloudspill.server.html.ImagePage;
 import org.gamboni.cloudspill.server.html.LabPage;
 import org.gamboni.cloudspill.server.html.LoginPage;
+import org.gamboni.cloudspill.server.html.js.AbstractJs;
+import org.gamboni.cloudspill.server.html.js.EditorSubmissionJs;
 import org.gamboni.cloudspill.server.query.ItemQueryLoader;
 import org.gamboni.cloudspill.server.query.ItemSet;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
@@ -77,19 +80,19 @@ import static spark.Spark.put;
 public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain> extends AbstractServer<D> {
     private static final ItemCredentials.PublicAccess publicAccess = new ItemCredentials.PublicAccess();
 
-    protected final void setupRoutes(BackendConfiguration configuration) {
-        CloudSpillApi<Route> api = new CloudSpillApi<>("", (method, url, route) -> {
-            if (method == ApiElementMatcher.HttpMethod.GET) {
-                get(url, route);
-            } else if (method == ApiElementMatcher.HttpMethod.POST) {
-                post(url, route);
-            } else if (method == ApiElementMatcher.HttpMethod.PUT) {
-                put(url, route);
-            } else {
-                throw new UnsupportedOperationException(method.toString());
-            }
-        });
+    protected final CloudSpillApi<Route> api = new CloudSpillApi<>("", (method, url, route) -> {
+        if (method == ApiElementMatcher.HttpMethod.GET) {
+            get(url, route);
+        } else if (method == ApiElementMatcher.HttpMethod.POST) {
+            post(url, route);
+        } else if (method == ApiElementMatcher.HttpMethod.PUT) {
+            put(url, route);
+        } else {
+            throw new UnsupportedOperationException(method.toString());
+        }
+    });
 
+    protected final void setupRoutes(BackendConfiguration configuration) {
         /* Access logging */
         before((req, res) -> {
             Log.info(req.headers("User-Agent") +" @"+ req.ip() +" "+ req.requestMethod() +" "+ req.uri());
@@ -112,6 +115,8 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                                 forbidden(true) :
                             ping(session, unverifiedCredentials))
                         .get(res)));
+
+        expose(new EditorSubmissionJs(configuration));
 
         exposeResource(api.css(), "css/main.css", "text/css");
         exposeResource(api.lazyLoadJS(), "js/lazy-load.js", "application/javascript");
@@ -472,6 +477,14 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         if (item != null && !item.getUser().equals(user.getName()) && !Items.isPublic(item)) {
             user.verifyGroup(User.ADMIN_GROUP);
         }
+    }
+
+    protected void expose(AbstractJs js) {
+        String script = js.toString(); // do it once at initialisation, keep whole string in server memory
+        get(api.getUrl(js), (req, res) -> {
+            res.type("application/javascript; charset=UTF-8");
+            return script;
+        });
     }
 
     private void exposeResource(String url, String fileName, String mime) {

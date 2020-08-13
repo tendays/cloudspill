@@ -43,6 +43,28 @@ public class CloudSpillApi<T> {
         this.matcher = matcher;
     }
 
+    public String getUrl(StaticResource resource) {
+        String className = resource.getClass().getSimpleName();
+        String extension = resource.getExtension();
+        String suffix = extension.substring(0, 1).toUpperCase() + extension.substring(1);
+        String baseName = className.endsWith(suffix) ? className.substring(0, className.length() - suffix.length()) : className;
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < baseName.length() ; i++) {
+            char chr = baseName.charAt(i);
+            if (Character.isUpperCase(chr)) {
+                if (result.length() > 0) {
+                    result.append('-');
+                }
+                result.append(Character.toLowerCase(chr));
+            } else {
+                result.append(chr);
+            }
+        }
+        result.append('.');
+        result.append(resource.getExtension());
+        return serverUrl + result;
+    }
+
     public static class Client implements ApiElementMatcher<ResponseHandler> {
         public final void match(ApiElementMatcher.HttpMethod method, String url, ResponseHandler consumer) {
             try {

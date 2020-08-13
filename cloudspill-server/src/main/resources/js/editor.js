@@ -1,4 +1,4 @@
-function edit(knownTagUrl, submitTagUrl) {
+function edit(itemId, knownTagUrl, submitTagUrl) {
     /* Hide "EDIT" button */
     document.getElementById('edit').style.display='none';
     let descriptionElt = document.getElementById('description');
@@ -33,6 +33,14 @@ function edit(knownTagUrl, submitTagUrl) {
     };
     knownTagReq.open("GET", knownTagUrl);
     knownTagReq.send();
+
+
+    descriptionElt.onfocus = event => {
+        stopEditTags();
+    };
+    descriptionElt.onblur = event => {
+        saveDescription(itemId, descriptionElt.textContent);
+    };
 
     function submitTag(spec /*: string[]*/ ) {
         if (tagSubmissionQueue !== null) {
@@ -214,12 +222,6 @@ function edit(knownTagUrl, submitTagUrl) {
         cursorElt = document.createElement("span");
         cursorElt.setAttribute("class", "cursor");
         placeCursor();
-        descriptionElt.onfocus = event => {
-            stopEditTags();
-        };
-        descriptionElt.onblur = event => {
-            console.log('new description', descriptionElt.textContent);
-        };
         document.onkeydown = event => {
             // (Trigger events when shift is pressed)
             if (!event.altKey && !event.ctrlKey && !event.metaKey) {
