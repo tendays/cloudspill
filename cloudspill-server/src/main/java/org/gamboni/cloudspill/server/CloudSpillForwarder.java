@@ -414,7 +414,6 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     @Override
     protected void setItemDescription(ForwarderDomain session, long id, String description, ItemCredentials credentials) throws IOException {
         remoteApi.setItemDescription(id, ResponseHandlers.withCredentials(credentials, BASE_64_ENCODER, connection -> {
-            super.setItemDescription(session, id, description, credentials);
             connection.setDoOutput(true);
             try (Writer w = new OutputStreamWriter(connection.getOutputStream(), StandardCharsets.UTF_8)) {
                 w.write(description);

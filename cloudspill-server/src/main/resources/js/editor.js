@@ -1,8 +1,6 @@
 function edit(itemId, knownTagUrl, submitTagUrl) {
     /* Hide "EDIT" button */
     document.getElementById('edit').style.display='none';
-    let descriptionElt = document.getElementById('description');
-    descriptionElt.setAttribute('contenteditable', 'true');
     /* "tags" Element */
     let container = document.getElementsByClassName("tags")[0];
     /* "tag" Elements */
@@ -34,12 +32,26 @@ function edit(itemId, knownTagUrl, submitTagUrl) {
     knownTagReq.open("GET", knownTagUrl);
     knownTagReq.send();
 
-
+    let descriptionElt = document.getElementById('description');
+    descriptionElt.setAttribute('contenteditable', 'true');
+    descriptionElt.classList.add('description-editor');
+    let descriptionDirty = false;
+    descriptionElt.oninput = event => {
+        descriptionDirty = true;
+    };
     descriptionElt.onfocus = event => {
         stopEditTags();
     };
     descriptionElt.onblur = event => {
-        saveDescription(itemId, descriptionElt.textContent);
+        if (descriptionDirty) {
+            descriptionElt.classList.add('busy');
+            saveDescription(itemId, descriptionElt.textContent, () => {
+                descriptionElt.classList.remove('busy');
+            });
+        }
+
+        descriptionElt.textContent = descriptionElt.textContent;
+        descriptionDirty = false;
     };
 
     function submitTag(spec /*: string[]*/ ) {
@@ -317,5 +329,6 @@ function edit(itemId, knownTagUrl, submitTagUrl) {
     editTags();
     container.onclick = event => {
         editTags();
+        event.preventDefault();
     };
 }

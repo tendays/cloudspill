@@ -14,9 +14,9 @@ public class EditorSubmissionJs extends AbstractJs {
         function("saveDescription", () -> {
             String id = param("id");
             String description = param("description");
+            String callback = param("callback");
             remoteApi.setItemDescription("${"+ id +"}", send(description, () -> {
-                appendLine("console.log('Saved description successfully');");
-                // should use a 'busy' css class like with tags
+                appendLine(callback +"();");
             }));
         });
     }

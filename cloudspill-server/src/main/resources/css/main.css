@@ -225,6 +225,13 @@ h1 {
     animation: blink 1s infinite;
 }
 
+/* Text to display when the description is empty and editable. */
+.description-editor:empty::before {
+    content: 'Description';
+    font-style: italic;
+    color: #999;
+}
+
 @keyframes blink {
   0%, 49% {
     opacity: 100%;
