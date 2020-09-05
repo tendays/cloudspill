@@ -5,6 +5,7 @@ import org.gamboni.cloudspill.server.query.GalleryRequest;
 import org.gamboni.cloudspill.server.query.ItemSet;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.query.QueryRange;
 
 /**
  * @author tendays
@@ -41,7 +42,7 @@ public class GalleryPage extends AbstractPage {
 
     @Override
     protected String onLoad(ItemCredentials credentials) {
-        if (itemSet.totalCount > PAGE_SIZE && criteria.getOffset() == 0) {
+        if (itemSet.totalCount > PAGE_SIZE && criteria.getRange().offset == 0) {
             return "createPlaceholders('"+ criteria.getUrl(api) +"', '"+
                     api.getThumbnailUrl("%d", new ItemCredentials.ItemKey("%s"), CloudSpillApi.Size.IMAGE_THUMBNAIL.pixels) +"', '"+
                     api.getImagePageUrl("%d", new ItemCredentials.ItemKey("%s")) +"', "+
@@ -53,7 +54,7 @@ public class GalleryPage extends AbstractPage {
 
     @Override
     protected HtmlFragment getBody(ItemCredentials.AuthenticationStatus authStatus) {
-        int pageNumber = criteria.getOffset() / PAGE_SIZE;
+        int pageNumber = criteria.getRange().offset / PAGE_SIZE;
         return HtmlFragment.concatenate(
                 tag("div", "class='description'", itemSet.description),
                 pageLink(pageNumber - 1, "<", itemSet.totalCount),
@@ -73,7 +74,7 @@ public class GalleryPage extends AbstractPage {
 
             String id = (label.equals(">")) ? "id='marker' " : "";
 
-            return tag("a", id + "class='pagerLink' href="+ quote(criteria.atOffset(offset).getUrl(api)),
+            return tag("a", id + "class='pagerLink' href="+ quote(criteria.withRange(QueryRange.offset(offset)).getUrl(api)),
                     label);
         } else {
             return HtmlFragment.EMPTY;

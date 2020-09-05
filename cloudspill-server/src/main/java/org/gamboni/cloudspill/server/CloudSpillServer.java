@@ -37,6 +37,7 @@ import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
 import org.gamboni.cloudspill.shared.domain.IsUser;
 import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.shared.domain.Items;
+import org.gamboni.cloudspill.shared.query.QueryRange;
 import org.gamboni.cloudspill.shared.util.ImageOrientationUtil;
 import org.gamboni.cloudspill.shared.util.Log;
 import org.mindrot.jbcrypt.BCrypt;
@@ -477,29 +478,54 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	@Override
 	protected ItemQueryLoader getQueryLoader(ServerDomain session, ItemCredentials credentials) {
 		return criteria -> {
-			final CloudSpillEntityManagerDomain.Query<Item> query = criteria.applyTo(session.selectItem(), credentials.getAuthStatus());
-			if (credentials instanceof ItemCredentials.UserCredentials &&
-					!((ItemCredentials.UserCredentials)credentials).user.hasGroup(User.ADMIN_GROUP) &&
-					!Items.isPublic(criteria)) {
-				query.add(root ->
-						session.criteriaBuilder.or(
-						criteria.tagQuery(session.criteriaBuilder, "public", root),
-								session.criteriaBuilder.equal(
-										root.get(Item_.user),
-										((ItemCredentials.UserCredentials)credentials).user.getName())
-								)
-				);
-			}
-			// TODO check credentials to add user filtering
+			final Item relativeTo;
+            if (criteria.getRelativeTo() == null) {
+                relativeTo = null;
+            } else {
+                relativeTo = session.get(Item.class, criteria.getRelativeTo());
+                if (relativeTo == null) {
+                    return badRequest();
+                }
+                try {
+                    verifyCredentials(credentials, relativeTo);
+                } catch (AccessDeniedException e) {
+                    return forbidden(false);
+                }
+            }
+
+            if (relativeTo != null) {
+                criteria = criteria.withRange(criteriaToQuery(session, credentials, criteria)
+                        .adjustOffset(relativeTo));
+            }
+
+            final CloudSpillEntityManagerDomain.Query<Item> query = criteriaToQuery(session, credentials, criteria);
+
 			return new OrHttpError<>(new ItemSet(
 					query.getTotalCount(),
-					query.offset(criteria.getOffset()).limit(criteria.getLimit()).list(),
+					query.range(criteria.getRange()).list(),
 					criteria.buildTitle(),
 					criteria.getDescription()));
 		};
 	}
 
-	@Override
+    private CloudSpillEntityManagerDomain.Query<Item> criteriaToQuery(ServerDomain session, ItemCredentials credentials, Java8SearchCriteria<BackendItem> criteria) {
+        final CloudSpillEntityManagerDomain.Query<Item> query = criteria.applyTo(session.selectItem(), credentials.getAuthStatus());
+        if (credentials instanceof ItemCredentials.UserCredentials &&
+                !((ItemCredentials.UserCredentials)credentials).user.hasGroup(User.ADMIN_GROUP) &&
+                !Items.isPublic(criteria)) {
+            query.add(root ->
+                    session.criteriaBuilder.or(
+                    criteria.tagQuery(session.criteriaBuilder, "public", root),
+                            session.criteriaBuilder.equal(
+                                    root.get(Item_.user),
+                                    ((ItemCredentials.UserCredentials)credentials).user.getName())
+                            )
+            );
+        }
+        return query;
+    }
+
+    @Override
 	protected Java8SearchCriteria<BackendItem> loadGallery(ServerDomain session, long partId) {
 		return session.get(GalleryPart.class, partId);
 	}
@@ -508,9 +534,10 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	protected OrHttpError<GalleryListData> galleryList(ItemCredentials credentials, ServerDomain domain) {
 		final CloudSpillEntityManagerDomain.Query<GalleryPart> query = domain.selectGalleryPart();
 		return new OrHttpError<>(new GalleryListData(configuration.getRepositoryName(), Lists.transform(
-				query.addOrder(root -> domain.criteriaBuilder.desc(root.get(GalleryPart_.from))).list(),
+				query.addOrder(CloudSpillEntityManagerDomain.Ordering.desc(GalleryPart_.from)).list(),
 				gp -> {
-					final List<Item> sample = gp.applyTo(domain.selectItem(), credentials.getAuthStatus()).limit(1).list();
+					final List<Item> sample = gp.applyTo(domain.selectItem(), credentials.getAuthStatus())
+                            .range(QueryRange.limit(1)).list();
 					return sample.isEmpty() ? new GalleryListPage.Element(gp, null, null) :
 							new GalleryListPage.Element(gp, sample.get(0).getId(), sample.get(0).getChecksum());
 				})));

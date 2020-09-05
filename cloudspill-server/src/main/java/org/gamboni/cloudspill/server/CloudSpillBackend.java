@@ -39,6 +39,7 @@ import org.gamboni.cloudspill.shared.domain.IsUser;
 import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.shared.domain.Items;
 import org.gamboni.cloudspill.shared.domain.PermissionDeniedException;
+import org.gamboni.cloudspill.shared.query.QueryRange;
 import org.gamboni.cloudspill.shared.util.Log;
 
 import java.io.IOException;
@@ -165,6 +166,11 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                     publicAccess,
                     loadGallery(domain, Long.parseLong(req.params("part"))),
                     DumpFormat.GALLERY_DATA);
+        }));
+
+        get("/public/gallery/:part/:id", securedItem(ItemCredentials.AuthenticationStatus.ANONYMOUS, (req, res, session, credentials, item) -> {
+            // TODO set item-id offset and load previous and next
+            return itemPage(configuration, req, res, session, credentials, item).toString();
         }));
 
         final Route publicRoute = (req, res) -> transacted(session -> {
@@ -499,10 +505,15 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
     private Object galleryPage(BackendConfiguration configuration, Request req, Response res, D domain, ItemCredentials credentials, Java8SearchCriteria<BackendItem> allItems,
                                DumpFormat format) throws Exception {
-        final Java8SearchCriteria<BackendItem> offset = allItems.atOffset(Integer.parseInt(req.queryParamOrDefault("offset", "0")));
+        String relativeToString = req.queryParams("relativeTo");
+        final Java8SearchCriteria<BackendItem> offset = allItems
+                .relativeTo(relativeToString == null ? null : Long.parseLong(relativeToString))
+                .withRange(new QueryRange(
+                        Integer.parseInt(req.queryParamOrDefault("offset", "0")),
+                        (isCsvRequested(req) || isJsonRequested(req)) ? requestedLimit(req) : Integer.valueOf(GalleryPage.PAGE_SIZE)));
 
         return getQueryLoader(domain, credentials)
-                .load(offset.withLimit((isCsvRequested(req) || isJsonRequested(req)) ? requestedLimit(req) : Integer.valueOf(GalleryPage.PAGE_SIZE)))
+                .load(offset)
                 .get(res, itemSet -> {
             if (isCsvRequested(req) || isJsonRequested(req)) {
                 return dump(req, res, offset, itemSet, format);

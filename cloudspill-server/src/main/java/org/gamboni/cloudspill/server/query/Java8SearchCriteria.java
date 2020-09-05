@@ -3,11 +3,13 @@ package org.gamboni.cloudspill.server.query;
 import com.google.common.base.CaseFormat;
 import com.google.common.collect.Streams;
 
+import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
 import org.gamboni.cloudspill.domain.ServerDomain;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.domain.JpaItem;
 import org.gamboni.cloudspill.shared.domain.JpaItem_;
+import org.gamboni.cloudspill.shared.query.QueryRange;
 import org.gamboni.cloudspill.shared.query.SearchCriteria;
 
 import java.time.LocalDate;
@@ -41,9 +43,9 @@ public interface Java8SearchCriteria<T extends JpaItem> extends GalleryRequest {
         return (getTo() == null) ? null : getTo().toString();
     }
 
-    Java8SearchCriteria<T> atOffset(int newOffset);
+    Java8SearchCriteria<T> relativeTo(Long itemId);
 
-    Java8SearchCriteria<T> withLimit(Integer newLimit);
+    Java8SearchCriteria<T> withRange(QueryRange newRange);
 
     default String buildTitle() {
         Stream<String> day = (getFrom() != null && getFrom().equals(getTo())) ?
@@ -61,16 +63,16 @@ public interface Java8SearchCriteria<T extends JpaItem> extends GalleryRequest {
     }
 
     default String getUrl(CloudSpillApi api) {
-        return api.getGalleryUrl(getTags(), getStringFrom(), getStringTo(), getOffset(), getLimit());
+        return api.getGalleryUrl(getTags(), getStringFrom(), getStringTo(), getRelativeTo(), getRange());
     }
 
-    default Order getOrder(CriteriaBuilder criteriaBuilder, Root<? extends T> root) {
-        return criteriaBuilder.desc(root.get(JpaItem_.date));
+    default CloudSpillEntityManagerDomain.Ordering<? super T> getOrder() {
+        return CloudSpillEntityManagerDomain.Ordering.desc(JpaItem_.date);
     }
 
     default <E extends T, Q extends ServerDomain.Query<E>> Q applyTo(Q itemQuery, ItemCredentials.AuthenticationStatus authStatus) {
         CriteriaBuilder criteriaBuilder = itemQuery.getCriteriaBuilder();
-        itemQuery.addOrder(root -> getOrder(criteriaBuilder, root));
+        itemQuery.addOrder(getOrder());
 
         for (String tag : getTags()) {
             itemQuery.add(root -> tagQuery(criteriaBuilder, tag, root));

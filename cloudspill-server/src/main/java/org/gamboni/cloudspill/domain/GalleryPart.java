@@ -6,8 +6,8 @@ import com.google.common.base.Strings;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.Csv;
-import org.gamboni.cloudspill.shared.domain.JpaItem;
 import org.gamboni.cloudspill.shared.domain.JpaItem_;
+import org.gamboni.cloudspill.shared.query.QueryRange;
 
 import java.time.LocalDate;
 import java.util.HashSet;
@@ -20,9 +20,6 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Transient;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.Order;
-import javax.persistence.criteria.Root;
 
 /**
  * @author tendays
@@ -68,15 +65,13 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
 
     @Override
     @Transient
-    public int getOffset() {
-        return 0;
+    public QueryRange getRange() {
+        return QueryRange.ALL;
     }
 
     @Override
     @Transient
-    public Integer getLimit() {
-        return null;
-    }
+    public Long getRelativeTo() { return null; }
 
     public void setUser(String user) {
         this.user = user;
@@ -132,40 +127,38 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
     }
 
     @Override @Transient public String getUrl(CloudSpillApi api) {
-        return api.galleryPart(id, 0, null);
+        return api.galleryPart(id, null, QueryRange.ALL);
     }
 
     /** Stored galleries sort from old to new. */
-    @Override @Transient public Order getOrder(CriteriaBuilder criteriaBuilder, Root<? extends BackendItem> root) {
-        return criteriaBuilder.asc(root.get(JpaItem_.date));
+    @Override @Transient public CloudSpillEntityManagerDomain.Ordering<? super BackendItem> getOrder() {
+        return CloudSpillEntityManagerDomain.Ordering.asc(JpaItem_.date);
+    }
+
+    public Java8SearchCriteria<BackendItem> relativeTo(Long relativeTo) {
+        return new Slice(relativeTo, QueryRange.ALL);
     }
 
     @Override
-    public Java8SearchCriteria<BackendItem> atOffset(int newOffset) {
-        return new Slice(newOffset, null);
-    }
-
-    @Override
-    public Java8SearchCriteria<BackendItem> withLimit(Integer newLimit) {
-        return new Slice(0, newLimit);
+    public Java8SearchCriteria<BackendItem> withRange(QueryRange range) {
+        return new Slice(null, range);
     }
 
     private class Slice implements Java8SearchCriteria<BackendItem> {
-        final int offset;
-        final Integer limit;
-        Slice(int offset, Integer limit) {
-            this.offset = offset;
-            this.limit = limit;
+        final Long relativeTo;
+        final QueryRange range;
+        Slice(Long relativeTo, QueryRange range) {
+            this.relativeTo = relativeTo;
+            this.range = range;
+        }
+
+        public Java8SearchCriteria<BackendItem> relativeTo(Long relativeTo) {
+            return new Slice(relativeTo, range);
         }
 
         @Override
-        public Java8SearchCriteria<BackendItem> atOffset(int newOffset) {
-            return new Slice(newOffset, limit);
-        }
-
-        @Override
-        public Java8SearchCriteria<BackendItem> withLimit(Integer newLimit) {
-            return new Slice(offset, newLimit);
+        public Java8SearchCriteria<BackendItem> withRange(QueryRange newRange) {
+            return new Slice(relativeTo, newRange);
         }
 
         @Override
@@ -199,18 +192,16 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
         }
 
         @Override
-        public int getOffset() {
-            return offset;
-        }
+        public Long getRelativeTo() { return relativeTo; }
 
         @Override
-        public Integer getLimit() {
-            return limit;
+        public QueryRange getRange() {
+            return range;
         }
 
         @Override
         public String getUrl(CloudSpillApi api) {
-            return api.galleryPart(getId(), offset, limit);
+            return api.galleryPart(getId(), relativeTo, range);
         }
     }
 }

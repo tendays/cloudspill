@@ -2,6 +2,7 @@ package org.gamboni.cloudspill.server.query;
 
 import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
+import org.gamboni.cloudspill.shared.query.QueryRange;
 
 import java.time.LocalDate;
 import java.util.Set;
@@ -11,22 +12,22 @@ import java.util.Set;
  */
 public class GalleryPartReference implements Java8SearchCriteria<BackendItem> {
     public final long id;
-    private final int offset;
-    private final Integer limit;
+    private final Long relativeTo;
+    private final QueryRange range;
+
+    public GalleryPartReference(long id) {
+        this(id, null, QueryRange.ALL);
+    }
+
+    private GalleryPartReference(long id, Long relativeTo, QueryRange range) {
+        this.id = id;
+        this.relativeTo = relativeTo;
+        this.range = range;
+    }
 
     @Override
     public String getUrl(CloudSpillApi api) {
-        return api.galleryPart(id, offset, limit);
-    }
-
-    public GalleryPartReference(long id) {
-        this(id, 0, null);
-    }
-
-    private GalleryPartReference(long id, int offset, Integer limit) {
-        this.id = id;
-        this.offset = offset;
-        this.limit = limit;
+        return api.galleryPart(id, relativeTo, range);
     }
 
     @Override
@@ -41,13 +42,13 @@ public class GalleryPartReference implements Java8SearchCriteria<BackendItem> {
     }
 
     @Override
-    public GalleryPartReference atOffset(int newOffset) {
-        return new GalleryPartReference(id, newOffset, limit);
+    public GalleryPartReference relativeTo(Long itemId) {
+        return new GalleryPartReference(id, itemId, range);
     }
 
     @Override
-    public Java8SearchCriteria<BackendItem> withLimit(Integer newLimit) {
-        return new GalleryPartReference(id, offset, newLimit);
+    public Java8SearchCriteria<BackendItem> withRange(QueryRange newRange) {
+        return new GalleryPartReference(id, relativeTo, newRange);
     }
 
     @Override
@@ -61,12 +62,10 @@ public class GalleryPartReference implements Java8SearchCriteria<BackendItem> {
     }
 
     @Override
-    public int getOffset() {
-        return offset;
-    }
+    public Long getRelativeTo() { return relativeTo; }
 
     @Override
-    public Integer getLimit() {
-        return limit;
+    public QueryRange getRange() {
+        return range;
     }
 }

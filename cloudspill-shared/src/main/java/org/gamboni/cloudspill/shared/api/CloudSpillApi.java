@@ -4,6 +4,7 @@ import org.gamboni.cloudspill.shared.client.ResponseHandler;
 import org.gamboni.cloudspill.shared.client.ResponseHandlers;
 import org.gamboni.cloudspill.shared.domain.IsItem;
 import org.gamboni.cloudspill.shared.domain.Items;
+import org.gamboni.cloudspill.shared.query.QueryRange;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -176,8 +177,8 @@ public class CloudSpillApi<T> {
         return serverUrl + "year/"+ year;
     }
 
-    public String galleryPart(long id, int offset, Integer limit) {
-        return sliceParameters(new StringBuilder(serverUrl + "public/gallery/"+ id), offset, limit);
+    public String galleryPart(long id, Long relativeTo, QueryRange range) {
+        return sliceParameters(new StringBuilder(serverUrl + "public/gallery/"+ id), relativeTo, range);
     }
 
     public String login() {
@@ -246,7 +247,7 @@ public class CloudSpillApi<T> {
         return serverUrl + credentials.getUrlPrefix() + "item/"+ serverId + ID_HTML_SUFFIX + credentials.getQueryString();
     }
 
-    public String getGalleryUrl(Set<String> tags, String stringFrom, String stringTo, int offset, Integer limit) {
+    public String getGalleryUrl(Set<String> tags, String stringFrom, String stringTo, Long relativeTo, QueryRange range) {
         Set<String> otherTags = new HashSet<>();
         boolean isPublic = false;
         for (String tag : tags) {
@@ -268,17 +269,21 @@ public class CloudSpillApi<T> {
         } else {
             // TODO
         }
-        return sliceParameters(builder, offset, limit);
+        return sliceParameters(builder, relativeTo, range);
     }
 
-    private String sliceParameters(StringBuilder builder, int offset, Integer limit) {
+    private String sliceParameters(StringBuilder builder, Long relativeTo, QueryRange range) {
         String parameterSeparator = "?";
-        if (offset != 0) {
-            builder.append(parameterSeparator + "offset="+ offset);
+        if (relativeTo != null) {
+            builder.append(parameterSeparator + "relativeTo="+ relativeTo);
             parameterSeparator = "&";
         }
-        if (limit != null) {
-            builder.append(parameterSeparator + "limit="+ limit);
+        if (range.offset != 0) {
+            builder.append(parameterSeparator + "offset="+ range.offset);
+            parameterSeparator = "&";
+        }
+        if (range.limit != null) {
+            builder.append(parameterSeparator + "limit="+ range.limit);
             parameterSeparator = "&";
         }
         return builder.toString();

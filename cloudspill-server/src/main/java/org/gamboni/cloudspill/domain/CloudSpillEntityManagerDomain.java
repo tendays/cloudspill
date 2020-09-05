@@ -1,7 +1,11 @@
 package org.gamboni.cloudspill.domain;
 
+import org.gamboni.cloudspill.shared.query.QueryRange;
+
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import javax.persistence.EntityManager;
@@ -10,8 +14,10 @@ import javax.persistence.TypedQuery;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Order;
+import javax.persistence.criteria.Path;
 import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
+import javax.persistence.metamodel.SingularAttribute;
 
 /**
  * @author tendays
@@ -67,12 +73,47 @@ public abstract class CloudSpillEntityManagerDomain {
             }
         }
     */
+
+    private interface ComparableAttributeConsumer<T> {
+        <V extends Comparable<? super V>> void accept(SingularAttribute<? super T, V> attribute);
+    }
+
+    public static class Ordering<T> {
+        private final SingularAttribute<? super T, ?> attribute;
+        // Just for fun: this double Consumer allows having well-typed "existential types" without using casts.
+        private final Consumer<ComparableAttributeConsumer<? extends T>> eAttribute;
+        private final boolean ascending;
+
+        private <V extends Comparable<? super V>> Ordering(SingularAttribute<? super T, V> attribute, boolean ascending) {
+            this.attribute = attribute;
+            this.eAttribute = consumer -> consumer.accept(attribute);
+            this.ascending = ascending;
+        }
+
+        public static <T, V extends Comparable<? super V>> Ordering<T> asc(SingularAttribute<T, V> attribute) {
+            return new Ordering<>(attribute, true);
+        }
+
+        public static <T, V extends Comparable<? super V>> Ordering<T> desc(SingularAttribute<? super T, V> attribute) {
+            return new Ordering<>(attribute, false);
+        }
+
+        private void getAttribute(ComparableAttributeConsumer<? extends T> consumer) {
+            this.eAttribute.accept(consumer);
+        }
+
+        public Order on(CriteriaBuilder criteriaBuilder, Root<? extends T> root) {
+            return ascending ?
+                            criteriaBuilder.asc(root.get(attribute)) :
+                            criteriaBuilder.desc(root.get(attribute));
+        }
+    }
+
     public class Query<T> extends QueryNode<T, Query<T>> {
         private final CriteriaQuery<T> typedQuery;
-        private int offset = 0;
-        private Integer limit = null;
+        private QueryRange range = QueryRange.ALL;
         private LockModeType lockMode = null;
-        private List<Function<Root<T>, Order>> orders = new ArrayList<>();
+        private List<Ordering<? super T>> orders = new ArrayList<>();
 
         public Query(Class<T> persistentClass) {
             this(persistentClass, session.getCriteriaBuilder().createQuery(persistentClass));
@@ -83,7 +124,7 @@ public abstract class CloudSpillEntityManagerDomain {
             this.typedQuery = cq;
         }
 
-        public Query<T> addOrder(Function<Root<T>, Order> order) {
+        public Query<T> addOrder(Ordering<? super T> order) {
             this.orders.add(order);
             return this;
         }
@@ -99,18 +140,12 @@ public abstract class CloudSpillEntityManagerDomain {
             return this;
         }
 
-        public Query<T> offset(int offset) {
-            this.offset = offset;
-            return this;
-        }
-
         /** Set or unset the maximum number of rows.
          *
-         * @param limit null to remove a previously set limit, or a number to set the number of rows.
          * @return this
          */
-        public Query<T> limit(Integer limit) {
-            this.limit = limit;
+        public Query<T> range(QueryRange range) {
+            this.range = range;
             return this;
         }
 
@@ -118,12 +153,12 @@ public abstract class CloudSpillEntityManagerDomain {
             final Root<T> root = typedQuery.from(this.entityClass);
 
             typedQuery.where(this.whereClause.stream().map(f -> f.apply(root)).toArray(Predicate[]::new));
-            typedQuery.orderBy(this.orders.stream().map(f -> f.apply(root)).toArray(Order[]::new));
+            typedQuery.orderBy(this.orders.stream().map(f -> f.on(criteriaBuilder, root)).toArray(Order[]::new));
             TypedQuery<T> typedQuery = session.createQuery(this.typedQuery)
-                    .setFirstResult(offset);
+                    .setFirstResult(range.offset);
 
-            if (limit != null) {
-                typedQuery = typedQuery.setMaxResults(limit);
+            if (range.limit != null) {
+                typedQuery = typedQuery.setMaxResults(range.limit);
             }
 
             if (lockMode != null) {
@@ -149,6 +184,49 @@ public abstract class CloudSpillEntityManagerDomain {
             return session.createQuery(totalQuery
                     .select(session.getCriteriaBuilder().count(root)))
                     .getSingleResult();
+        }
+
+        public QueryRange adjustOffset(Item relativeTo) {
+            /*
+             less than first ordering, or equal to first, and less than second one, etc
+             */
+            this.add(root -> {
+                List<Predicate> disjunction = new ArrayList<>();
+                for (int i = 0; i < orders.size(); i++) {
+                    List<Predicate> conjunction = new ArrayList<>();
+                    for (int j = 0; j < i; j++) {
+                        final SingularAttribute<? super T, ?> attribute = orders.get(j).attribute;
+                        conjunction.add(getCriteriaBuilder().equal(root.get(attribute), getAttributeValue(relativeTo, attribute)));
+                    }
+                    final Ordering<? super T> order = orders.get(i);
+                    order.getAttribute(new ComparableAttributeConsumer<T>() {
+                                           @Override
+                                           public <V extends Comparable<? super V>> void accept(SingularAttribute<? super T, V> attribute) {
+
+                                               final Path<V> expression = root.get(attribute);
+                                               final V value = getAttributeValue(relativeTo, attribute);
+
+                                               conjunction.add(order.ascending ?
+                                                       getCriteriaBuilder().lessThan(expression, value) :
+                                                       getCriteriaBuilder().greaterThan(expression, value));
+                                           }
+                                       }
+                    );
+
+                    disjunction.add(getCriteriaBuilder().and(conjunction.toArray(new Predicate[0])));
+                }
+                return getCriteriaBuilder().or(disjunction.toArray(new Predicate[0]));
+            });
+
+            return new QueryRange((int)(this.range.offset + this.getTotalCount()), this.range.offset);
+        }
+
+        private <V> V getAttributeValue(Item item, SingularAttribute<? super T, V> attribute) {
+            try {
+                return attribute.getBindableJavaType().cast(((Method) attribute.getJavaMember()).invoke(item));
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException();
+            }
         }
     }
 

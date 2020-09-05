@@ -60,8 +60,9 @@ public class ImagePage extends AbstractPage {
 	}
 
 	public HtmlFragment getBody(ItemCredentials.AuthenticationStatus authStatus) {
-		return HtmlFragment.concatenate(unclosedTag((item.getType() == ItemType.VIDEO ? "video controls " : "img ") +
-						"class='image' src=" + quote(getImageUrl())),
+		return HtmlFragment.concatenate((item.getType() == ItemType.VIDEO ?
+						tag("video", "controls class='image' src=" + quote(getImageUrl()), "") :
+						unclosedTag("img class='image' src=" + quote(getImageUrl()))),
 				tag("div", "class='metadata'",
 						(authStatus == ItemCredentials.AuthenticationStatus.LOGGED_IN ?
 								tag("div", "class='button' id='edit' onclick="+
