@@ -522,6 +522,8 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
                             )
             );
         }
+        // relativeTo calculation requires fully defined ordering, so we order by id after all other orderings
+        query.addOrder(CloudSpillEntityManagerDomain.Ordering.asc(Item_.id));
         return query;
     }
 
