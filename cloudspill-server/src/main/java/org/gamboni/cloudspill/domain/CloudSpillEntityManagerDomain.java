@@ -223,7 +223,8 @@ public abstract class CloudSpillEntityManagerDomain {
 
         private <V> V getAttributeValue(Item item, SingularAttribute<? super T, V> attribute) {
             try {
-                return attribute.getBindableJavaType().cast(((Method) attribute.getJavaMember()).invoke(item));
+                // Class.cast(x) looks nice but doesn't work with primitives
+                return (V)/*attribute.getBindableJavaType().cast*/(((Method) attribute.getJavaMember()).invoke(item));
             } catch (ReflectiveOperationException e) {
                 throw new RuntimeException();
             }
