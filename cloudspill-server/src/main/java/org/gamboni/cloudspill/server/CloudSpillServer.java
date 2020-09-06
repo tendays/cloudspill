@@ -495,7 +495,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 
             if (relativeTo != null) {
                 criteria = criteria.withRange(criteriaToQuery(session, credentials, criteria)
-                        .adjustOffset(relativeTo));
+                        .adjustOffset(criteria.getRange(), relativeTo));
             }
 
             final CloudSpillEntityManagerDomain.Query<Item> query = criteriaToQuery(session, credentials, criteria);

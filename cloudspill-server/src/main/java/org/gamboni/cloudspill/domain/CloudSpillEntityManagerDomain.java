@@ -186,7 +186,7 @@ public abstract class CloudSpillEntityManagerDomain {
                     .getSingleResult();
         }
 
-        public QueryRange adjustOffset(Item relativeTo) {
+        public QueryRange adjustOffset(QueryRange range, Item relativeTo) {
             /*
              less than first ordering, or equal to first, and less than second one, etc
              */
@@ -218,7 +218,7 @@ public abstract class CloudSpillEntityManagerDomain {
                 return getCriteriaBuilder().or(disjunction.toArray(new Predicate[0]));
             });
 
-            return new QueryRange((int)(this.range.offset + this.getTotalCount()), this.range.offset);
+            return new QueryRange((int)(range.offset + this.getTotalCount()), range.limit);
         }
 
         private <V> V getAttributeValue(Item item, SingularAttribute<? super T, V> attribute) {
