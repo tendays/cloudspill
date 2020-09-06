@@ -186,7 +186,7 @@ public abstract class CloudSpillEntityManagerDomain {
                     .getSingleResult();
         }
 
-        public QueryRange adjustOffset(QueryRange range, Item relativeTo) {
+        public int indexOf(Item element) {
             /*
              less than first ordering, or equal to first, and less than second one, etc
              */
@@ -196,7 +196,7 @@ public abstract class CloudSpillEntityManagerDomain {
                     List<Predicate> conjunction = new ArrayList<>();
                     for (int j = 0; j < i; j++) {
                         final SingularAttribute<? super T, ?> attribute = orders.get(j).attribute;
-                        conjunction.add(getCriteriaBuilder().equal(root.get(attribute), getAttributeValue(relativeTo, attribute)));
+                        conjunction.add(getCriteriaBuilder().equal(root.get(attribute), getAttributeValue(element, attribute)));
                     }
                     final Ordering<? super T> order = orders.get(i);
                     order.getAttribute(new ComparableAttributeConsumer<T>() {
@@ -204,7 +204,7 @@ public abstract class CloudSpillEntityManagerDomain {
                                            public <V extends Comparable<? super V>> void accept(SingularAttribute<? super T, V> attribute) {
 
                                                final Path<V> expression = root.get(attribute);
-                                               final V value = getAttributeValue(relativeTo, attribute);
+                                               final V value = getAttributeValue(element, attribute);
 
                                                conjunction.add(order.ascending ?
                                                        getCriteriaBuilder().lessThan(expression, value) :
@@ -218,7 +218,7 @@ public abstract class CloudSpillEntityManagerDomain {
                 return getCriteriaBuilder().or(disjunction.toArray(new Predicate[0]));
             });
 
-            return new QueryRange((int)(range.offset + this.getTotalCount()), range.limit);
+            return (int)this.getTotalCount();
         }
 
         private <V> V getAttributeValue(Item item, SingularAttribute<? super T, V> attribute) {

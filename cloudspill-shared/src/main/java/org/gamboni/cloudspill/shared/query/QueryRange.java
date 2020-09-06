@@ -24,4 +24,14 @@ public class QueryRange {
         this.offset = offset;
         this.limit = limit;
     }
+
+    public QueryRange shift(int amount) {
+        return new QueryRange(offset + amount, limit);
+    }
+
+    public QueryRange truncate() {
+        return (offset >= 0) ? this :
+        new QueryRange(0,
+                (limit == null) ? null : limit + offset);
+    }
 }
