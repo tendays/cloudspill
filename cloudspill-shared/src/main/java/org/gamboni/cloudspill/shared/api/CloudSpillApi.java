@@ -177,7 +177,7 @@ public class CloudSpillApi<T> {
         return serverUrl + "year/"+ year;
     }
 
-    public String galleryPart(long id, Long relativeTo, QueryRange range) {
+    public String galleryPart(Object id, Long relativeTo, QueryRange range) {
         return sliceParameters(new StringBuilder(serverUrl + "public/gallery/"+ id), relativeTo, range);
     }
 
@@ -240,11 +240,15 @@ public class CloudSpillApi<T> {
     }
 
     public String getPublicImagePageUrl(IsItem item) {
-        return getImagePageUrl(item.getServerId(), credentialsForItem(item));
+        return getImagePageUrl(item.getServerId(), null, credentialsForItem(item));
     }
 
-    public String getImagePageUrl(Object serverId, ItemCredentials credentials) {
-        return serverUrl + credentials.getUrlPrefix() + "item/"+ serverId + ID_HTML_SUFFIX + credentials.getQueryString();
+    public String getImagePageUrl(Object serverId, Object partId, ItemCredentials credentials) {
+        if (partId == null) {
+            return serverUrl + credentials.getUrlPrefix() + "item/" + serverId + ID_HTML_SUFFIX + credentials.getQueryString();
+        } else {
+            return galleryPart(partId, null, QueryRange.ALL) +"/"+ serverId + ID_HTML_SUFFIX + credentials.getQueryString();
+        }
     }
 
     public String getGalleryUrl(Set<String> tags, String stringFrom, String stringTo, Long relativeTo, QueryRange range) {

@@ -1,5 +1,7 @@
 package org.gamboni.cloudspill.server.html;
 
+import com.google.common.collect.Streams;
+
 import java.util.Arrays;
 import java.util.stream.Collectors;
 

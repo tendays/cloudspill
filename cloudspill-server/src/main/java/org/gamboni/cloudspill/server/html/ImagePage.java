@@ -14,9 +14,12 @@ import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.domain.ItemType;
+import org.gamboni.cloudspill.shared.query.QueryRange;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -25,14 +28,18 @@ import java.util.stream.Collectors;
  *
  */
 public class ImagePage extends AbstractPage {
-	private final BackendItem item;
+	private final BackendItem item, prev, next;
 	private final User user;
+	private final Long galleryPart;
 
-	public ImagePage(BackendConfiguration configuration, BackendItem item, User user, ItemCredentials credentials) {
+	public ImagePage(BackendConfiguration configuration, BackendItem item, Long galleryPart, BackendItem prev, BackendItem next, User user, ItemCredentials credentials) {
 		super(configuration, credentials);
 
 		this.user = user;
 		this.item = item;
+		this.galleryPart = galleryPart;
+		this.prev = prev;
+		this.next = next;
 	}
 
 
@@ -60,7 +67,10 @@ public class ImagePage extends AbstractPage {
 	}
 
 	public HtmlFragment getBody(ItemCredentials.AuthenticationStatus authStatus) {
-		return HtmlFragment.concatenate((item.getType() == ItemType.VIDEO ?
+		return HtmlFragment.concatenate(
+				neighbourLink(prev, "<", false),
+				neighbourLink(next, ">", true),
+				(item.getType() == ItemType.VIDEO ?
 						tag("video", "controls class='image' src=" + quote(getImageUrl()), "") :
 						unclosedTag("img class='image' src=" + quote(getImageUrl()))),
 				tag("div", "class='metadata'",
@@ -76,11 +86,17 @@ public class ImagePage extends AbstractPage {
 										.collect(Collectors.joining(" "))))));
 	}
 
+	private HtmlFragment neighbourLink(BackendItem item, String linkText, boolean right) {
+		return item == null ? HtmlFragment.EMPTY : tag("a",
+				"class="+ quote("siblink"+ (right? " right" : "")) +" href=" + quote(api.galleryPart(galleryPart, null, QueryRange.ALL) + "/" + item.getServerId() + api.ID_HTML_SUFFIX),
+				tag("div", linkText));
+	}
+
 	private HtmlFragment tagElement(String tag, ItemCredentials.AuthenticationStatus authStatus) {
 		if (authStatus == ItemCredentials.AuthenticationStatus.ANONYMOUS) {
 			return tag("span class='tag'", tag);
 		} else {
-			return tag("a class='tag' data-tag="+ quote(tag) +" href="+ quote(
+			return tag("a", "class='tag' data-tag="+ quote(tag) +" href="+ quote(
 					ServerSearchCriteria.ALL.withTag(tag).getUrl(api)),
 					tag);
 		}

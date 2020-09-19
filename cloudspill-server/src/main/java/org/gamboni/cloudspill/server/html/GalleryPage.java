@@ -17,10 +17,12 @@ public class GalleryPage extends AbstractPage {
     private final GalleryRequest criteria;
     private final ItemSet itemSet;
     private final boolean experimental;
+    private final Long partId;
 
-    public GalleryPage(BackendConfiguration configuration, GalleryRequest criteria, ItemSet itemSet, boolean experimental, ItemCredentials credentials) {
+    public GalleryPage(BackendConfiguration configuration, GalleryRequest criteria, Long partId, ItemSet itemSet, boolean experimental, ItemCredentials credentials) {
         super(configuration, credentials);
         this.criteria = criteria;
+        this.partId = partId;
         this.itemSet = itemSet;
         this.experimental = experimental;
     }
@@ -45,7 +47,7 @@ public class GalleryPage extends AbstractPage {
         if (itemSet.totalCount > PAGE_SIZE && criteria.getRange().offset == 0) {
             return "createPlaceholders('"+ criteria.getUrl(api) +"', '"+
                     api.getThumbnailUrl("%d", new ItemCredentials.ItemKey("%s"), CloudSpillApi.Size.IMAGE_THUMBNAIL.pixels) +"', '"+
-                    api.getImagePageUrl("%d", new ItemCredentials.ItemKey("%s")) +"', "+
+                    api.getImagePageUrl("%d", partId, new ItemCredentials.ItemKey("%s")) +"', "+
                     PAGE_SIZE +", "+ itemSet.totalCount +")";
         } else {
             return super.onLoad(credentials);
@@ -61,7 +63,7 @@ public class GalleryPage extends AbstractPage {
                 HtmlFragment.concatenate(
                         itemSet.rows.stream().map(item ->
                                 tag("a", "href=" + quote(
-                                                        api.getImagePageUrl(item.getServerId(), authStatus.credentialsFor(item))),
+                                                        api.getImagePageUrl(item.getServerId(), partId, authStatus.credentialsFor(item))),
                                         unclosedTag("img class='thumb' src=" +
                                                 quote(api.getThumbnailUrl(item, CloudSpillApi.Size.IMAGE_THUMBNAIL))))
                         ).toArray(HtmlFragment[]::new)),

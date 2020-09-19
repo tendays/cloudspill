@@ -29,7 +29,7 @@ public class LabPage extends AbstractPage {
                 tag("div", "id='drawer' class='drawer'",
                         HtmlFragment.escape("Newly added items"),
                         tag("a", "href=" + quote(
-                                api.getImagePageUrl(itemId, new ItemCredentials.UserPassword())) +" target='_blank'",
+                                api.getImagePageUrl(itemId, null, new ItemCredentials.UserPassword())) +" target='_blank'",
                                 unclosedTag("img src="+ quote(
                                         api.getThumbnailUrl(
                                                 itemId,

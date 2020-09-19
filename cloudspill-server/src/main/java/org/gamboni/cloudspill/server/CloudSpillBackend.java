@@ -1,7 +1,7 @@
 package org.gamboni.cloudspill.server;
 
-import com.google.common.base.CaseFormat;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
@@ -10,7 +10,6 @@ import com.google.gson.JsonObject;
 
 import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
-import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.domain.UserAuthToken;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
@@ -133,6 +132,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                 this::toJsonString
         )));
         get("/tag/:tag", secured((req, res, domain, credentials) -> galleryPage(configuration, req, res, domain, credentials,
+                    null, // TODO add sibling support
                     ServerSearchCriteria.ALL.withTag(req.params("tag")),
                     DumpFormat.WITH_TOTAL)));
 
@@ -144,6 +144,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             LocalDate day = LocalDate.parse(req.params("day"));
 
             return galleryPage(configuration, req, res, domain, credentials,
+                    null, // TODO add sibling support
                     ServerSearchCriteria.ALL.at(day),
                     DumpFormat.WITH_TOTAL);
         }));
@@ -153,6 +154,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
         get("/gallery/:part", secured((req, res, domain, credentials) -> {
             return galleryPage(configuration, req, res, domain, credentials,
+                    null,
                     loadGallery(domain, Long.parseLong(req.params("part"))),
                     DumpFormat.GALLERY_DATA);
         }));
@@ -161,21 +163,25 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             return galleryListPage(res, configuration, domain, publicAccess, req);
         }));
 
-        get("/public/gallery/:part", (req, res) -> transacted(domain -> {
+        get(api.galleryPart(":part", null, QueryRange.ALL), (req, res) -> transacted(domain -> {
+            final long partId = Long.parseLong(req.params("part"));
             return galleryPage(configuration, req, res, domain,
                     publicAccess,
-                    loadGallery(domain, Long.parseLong(req.params("part"))),
+                    partId,
+                    loadGallery(domain, partId),
                     DumpFormat.GALLERY_DATA);
         }));
 
         get("/public/gallery/:part/:id", securedItem(ItemCredentials.AuthenticationStatus.ANONYMOUS, (req, res, session, credentials, item) -> {
-            // TODO set item-id offset and load previous and next
-            return itemPage(configuration, req, res, session, credentials, item).toString();
+            final long partId = Long.parseLong(req.params("part"));
+            return itemPage(configuration, req, res, session, credentials, item, partId)
+                    .get(res).toString();
         }));
 
         final Route publicRoute = (req, res) -> transacted(session -> {
             return galleryPage(configuration, req, res, session,
                     publicAccess,
+                    null,
                     ServerSearchCriteria.ALL.withTag("public"),
                     DumpFormat.WITH_TOTAL);
         });
@@ -184,12 +190,12 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
         /* Download a file */
         get("/item/:id", securedItem(ItemCredentials.AuthenticationStatus.LOGGED_IN, (req, res, session, credentials, item) -> {
-            return itemPage(configuration, req, res, session, credentials, item).toString();
+            return itemPage(configuration, req, res, session, credentials, item, null).get(res).toString();
         }));
 
         /* Download a public file */
         get("/public/item/:id", securedItem(ItemCredentials.AuthenticationStatus.ANONYMOUS, (req, res, session, credentials, item) -> {
-                return itemPage(configuration, req, res, session, credentials, item).toString();
+                return itemPage(configuration, req, res, session, credentials, item, null).get(res).toString();
         }));
 
         /* Download a thumbnail */
@@ -503,7 +509,8 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         });
     }
 
-    private Object galleryPage(BackendConfiguration configuration, Request req, Response res, D domain, ItemCredentials credentials, Java8SearchCriteria<BackendItem> allItems,
+    private Object galleryPage(BackendConfiguration configuration, Request req, Response res, D domain, ItemCredentials credentials,
+                               Long partId, Java8SearchCriteria<BackendItem> allItems,
                                DumpFormat format) throws Exception {
         String relativeToString = req.queryParams("relativeTo");
         final Java8SearchCriteria<BackendItem> offset = allItems
@@ -518,22 +525,37 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             if (isCsvRequested(req) || isJsonRequested(req)) {
                 return dump(req, res, offset, itemSet, format);
             } else {
-                return new GalleryPage(configuration, offset, itemSet, req.queryParamOrDefault("experimental", "").equals("true"),
+                return new GalleryPage(configuration, offset, partId, itemSet, req.queryParamOrDefault("experimental", "").equals("true"),
                         credentials).toString();
             }
         });
     }
 
-    private Object itemPage(BackendConfiguration configuration, Request req, Response res, D session, ItemCredentials credentials, BackendItem item) throws IOException {
+    private OrHttpError<?> itemPage(BackendConfiguration configuration, Request req, Response res, D session, ItemCredentials credentials, BackendItem item,
+                            Long partId) throws IOException {
         if (req.params("id").endsWith(ID_HTML_SUFFIX)) {
             User user = session.get(User.class, item.getUser());
-            return new ImagePage(configuration, item, user, credentials);
+            if (partId == null) {
+                return new OrHttpError<>(new ImagePage(configuration, item, null, null, null, user, credentials));
+            }
+            final Java8SearchCriteria<BackendItem> gallery = loadGallery(session, partId);
+            return this.getQueryLoader(session, credentials).load(gallery
+                    .withRange(new QueryRange(-1, 3))
+                    .relativeTo(item.getServerId()))
+                    .map(neighbours -> {
+                        int index = Iterables.indexOf(neighbours.rows, n -> n.getServerId().equals(item.getServerId()));
+                        return new ImagePage(configuration, item,
+                                partId,
+                                index > 0 ? neighbours.rows.get(index - 1) : null,
+                                index < neighbours.rows.size() - 1 ? neighbours.rows.get(index + 1) : null,
+                                user, credentials);
+                    });
         } else {
             if (isCsvRequested(req) || isJsonRequested(req)) {
-                return dump(req, res, null, ItemSet.of(item), DumpFormat.WITH_TOTAL);
+                return new OrHttpError<>(dump(req, res, null, ItemSet.of(item), DumpFormat.WITH_TOTAL));
             } else {
                 download(res, session, credentials, item);
-                return String.valueOf(res.status());
+                return new OrHttpError<>(String.valueOf(res.status()));
             }
         }
     }

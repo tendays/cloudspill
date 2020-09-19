@@ -104,6 +104,34 @@ h1 {
     background-color: #2228;
 }
 
+.siblink {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    width: 20vw;
+    position: fixed;
+    top: 0;
+
+    text-align: center;
+    color: transparent;
+    cursor: pointer;
+    font-size: xxx-large;
+    text-decoration: none;
+}
+
+.siblink:hover {
+    color: white;
+    background-color: #000a;
+    /* bring to top when we touch part of it. */
+    z-index: 2;
+}
+
+/* Used for the right-side siblink. */
+.right {
+    right: 0;
+}
+
 .tag::before {
     /* Note: tag emoji between quotes */
     content: "🏷️";

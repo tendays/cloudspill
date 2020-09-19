@@ -117,7 +117,7 @@ public abstract class AbstractPage {
             onLoad += (onLoad.isEmpty() ? "" : "; ") + "setupDnd('"+
                     /* imageUrlPattern, hrefPattern */
                     api.getThumbnailUrl("%d", user, CloudSpillApi.Size.GALLERY_THUMBNAIL) +"', '"+
-                    api.getImagePageUrl("%d", user)
+                    api.getImagePageUrl("%d", null, user)
                     +"')";
         }
         return onLoad.isEmpty() ? "" : "onLoad="+ quote(onLoad);
