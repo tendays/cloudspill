@@ -209,6 +209,8 @@ public class DirectoryScanner {
                     Log.w(TAG, "Media date not in expected format: " + mdDate);
                 }
             }
+        } catch (RuntimeException e) {
+            Log.e(TAG, "MediaMetadataRetriever failed to analyse "+ file, e);
         } finally {
             metadataRetriever.release();
         }

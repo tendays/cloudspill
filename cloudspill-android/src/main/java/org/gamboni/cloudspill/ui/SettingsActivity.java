@@ -38,11 +38,6 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
         return PreferenceManager.getDefaultSharedPreferences(context).getString(PREF_USER_KEY, "");
     }
 
-    private static final String PREF_PASS_KEY = "pref_pass";
-    public static String getPassword(Context context) {
-        return PreferenceManager.getDefaultSharedPreferences(context).getString(PREF_PASS_KEY, "");
-    }
-
     private static final String PREF_DOWNLOAD_PATH_KEY = "pref_dl_path";
     public static FileBuilder getDownloadPath(Context context) {
         // TODO use SAF here as well
@@ -123,6 +118,17 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
         getSharedPreferences(context).edit()
                 .putInt(LAST_SERVER_VERSION_KEY, serverInfo.getVersion())
                 .putString(LAST_SERVER_URL_KEY, serverInfo.getApi().getBaseUrl())
+                .apply();
+    }
+
+    private static final String AUTHENTICATION_TOKEN_KEY = "authentication_token";
+    public static String getAuthenticationToken(Context context) {
+        return getSharedPreferences(context).getString(AUTHENTICATION_TOKEN_KEY, "");
+    }
+
+    public static void setAuthenticationToken(Context context, String token) {
+        getSharedPreferences(context).edit()
+                .putString(AUTHENTICATION_TOKEN_KEY, token)
                 .apply();
     }
 

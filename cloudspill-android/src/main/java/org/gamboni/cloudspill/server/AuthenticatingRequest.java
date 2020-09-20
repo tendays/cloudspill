@@ -12,6 +12,8 @@ import com.android.volley.VolleyError;
 import com.android.volley.toolbox.HttpHeaderParser;
 
 import org.gamboni.cloudspill.domain.Domain;
+import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.domain.ClientUser;
 import org.gamboni.cloudspill.ui.SettingsActivity;
 
 import java.io.BufferedReader;
@@ -40,8 +42,12 @@ public abstract class AuthenticatingRequest<T> extends Request<T> {
     public Map<String, String> getHeaders() {
         Map<String, String> result = new HashMap<>();
 
-        final String credentials = SettingsActivity.getUser(context) + ":" + SettingsActivity.getPassword(context);
-        result.put("Authorization", "Basic "+ Base64.encodeToString(credentials.getBytes(), Base64.NO_WRAP));
+        final String token = SettingsActivity.getAuthenticationToken(context);
+        if (!token.isEmpty()) {
+            Log.d(TAG, "Sending request using token '"+ token.substring(0, 5) +"...'");
+            new ItemCredentials.UserToken(new ClientUser(SettingsActivity.getUser(context)), token)
+                    .setHeaders(result, AndroidBase64Encoder.INSTANCE);
+        }
 
         return result;
     }

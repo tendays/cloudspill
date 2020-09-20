@@ -3,6 +3,7 @@ package org.gamboni.cloudspill.job;
 import android.app.IntentService;
 import android.content.Context;
 import android.content.Intent;
+import android.net.wifi.SupplicantState;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.support.annotation.Nullable;
@@ -168,7 +169,7 @@ public class CloudSpillIntentService extends IntentService {
 
             WifiInfo wifiInfo = wifiMgr.getConnectionInfo();
 
-            if( wifiInfo.getNetworkId() == -1 ){
+            if (wifiInfo.getSupplicantState() != SupplicantState.COMPLETED ){
                 return SettingsActivity.ConnectionType.MOBILE; // Not connected to an access point
             }
             return SettingsActivity.ConnectionType.WIFI; // Connected to an access point

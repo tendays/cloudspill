@@ -78,13 +78,8 @@ public class AuthenticatingConnection {
             connection = (HttpURLConnection) new URL(url).openConnection();
             connection.setRequestMethod(this.method.name());
             // include authentication header
-            new ItemCredentials.UserPassword(new ClientUser(SettingsActivity.getUser(context)), SettingsActivity.getPassword(context))
-                    .setHeaders(connection, new Base64Encoder() {
-                        @Override
-                        public String encode(byte[] string) {
-                            return Base64.encodeToString(string, Base64.NO_WRAP);
-                        }
-                    });
+            new ItemCredentials.UserToken(new ClientUser(SettingsActivity.getUser(context)), SettingsActivity.getAuthenticationToken(context))
+                    .setHeaders(connection, AndroidBase64Encoder.INSTANCE);
             for (Map.Entry<RequestHeader, String> entry : this.headers.entrySet()) {
                 connection.setRequestProperty(entry.getKey().httpHeader, entry.getValue());
             }

@@ -19,8 +19,8 @@ public class ServerInfo {
         return new ServerInfo(true, version, publicUrl);
     }
 
-    public static ServerInfo offline() {
-        return new ServerInfo(false, 0, null);
+    public static ServerInfo offline(String url) {
+        return new ServerInfo(false, 0, url);
     }
 
     public boolean isOnline() {

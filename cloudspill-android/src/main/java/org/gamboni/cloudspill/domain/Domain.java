@@ -195,7 +195,7 @@ public class Domain extends AbstractDomain<Domain> {
         return new Csv.Setter<Item>() {
             @Override
             public void set(Item item, String value) {
-                item.set(column, toDate(Long.parseLong(value))); // TODO this is supposed to be UTC - check!
+                item.set(column, value.isEmpty() ? null : toDate(Long.parseLong(value))); // TODO this is supposed to be UTC - check!
             }
         };
     }
@@ -305,6 +305,7 @@ public class Domain extends AbstractDomain<Domain> {
             // 2. add missing tags
             for (String tag : that.getTags()) {
                 if (!this.getTags().contains(tag)) {
+                    // TODO this marks loaded tags as 'TO_CREATE' so they get sent back to server as new
                     this.getTagList().add(tag);
                 }
             }

@@ -93,7 +93,10 @@ public class CloudSpillServerProxy {
         }
 
         if (server == null) {
-            listener.updateMessage(StatusReport.Severity.ERROR, "No connection to server");
+            // (TODO: distinguish connection failure types - it makes no sense to mention token id when we're just offline)
+            final String authenticationToken = SettingsActivity.getAuthenticationToken(context);
+            listener.updateMessage(StatusReport.Severity.ERROR, "No connection to server" +
+                    (authenticationToken.isEmpty() ? "" : " with token "+ authenticationToken.substring(0, 5) +"..."));
         }
         synchronized (urlMonitor) {
             verifiedUrl = (server == null) ? null : server.api.getBaseUrl();
@@ -116,6 +119,21 @@ public class CloudSpillServerProxy {
     /** Check availability of the server represented by this proxy, <em>even if it was checked previously</em>. */
     public boolean recheckLink() {
         Log.d(TAG, "Checking server availability at "+ api.getBaseUrl());
+        final String token = SettingsActivity.getAuthenticationToken(context);
+        if (token.isEmpty()) {
+            NewTokenRequest ntr = new NewTokenRequest(context, api);
+            queue.add(ntr);
+
+            if (ntr.getError() != null || ntr.getResponse() == null) {
+                Log.i(TAG, "Server returned "+ ntr.getError() +" on token request");
+                return false;
+            }
+            Log.d(TAG, "Received authentication token "+ ntr.getResponse());
+            SettingsActivity.setAuthenticationToken(context, ntr.getResponse());
+        } else {
+            Log.d(TAG, "Using authentication token '"+ token.substring(0, 5) +"...'");
+        }
+
         ConnectivityTestRequest request = new ConnectivityTestRequest(context, api);
         queue.add(request);
         this.serverInfo = request.getResponse();

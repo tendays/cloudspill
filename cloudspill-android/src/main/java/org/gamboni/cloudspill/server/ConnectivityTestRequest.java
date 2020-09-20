@@ -22,10 +22,16 @@ public class ConnectivityTestRequest extends StringBasedAuthenticatingRequest<St
     private final Listener listener;
 
     private static class Listener implements Response.Listener<String>, Response.ErrorListener {
+        private final String baseUrl;
         private ServerInfo response = null;
+
+        public Listener(String baseUrl) {
+            this.baseUrl = baseUrl;
+        }
+
         @Override
         public synchronized void onErrorResponse(VolleyError error) {
-            response = ServerInfo.offline();
+            response = ServerInfo.offline(baseUrl);
             this.notify();
         }
 
@@ -35,7 +41,7 @@ public class ConnectivityTestRequest extends StringBasedAuthenticatingRequest<St
                 protected void warn(String message) {
                     Log.w(TAG, message);
                 }
-            }.parse(serverResponse);
+            }.parse(baseUrl, serverResponse);
 
             this.notify();
         }
@@ -45,7 +51,7 @@ public class ConnectivityTestRequest extends StringBasedAuthenticatingRequest<St
                 try {
                     wait();
                 } catch (InterruptedException e) {
-                    response = ServerInfo.offline();
+                    response = ServerInfo.offline(baseUrl);
                 }
             }
             return response;
@@ -53,7 +59,7 @@ public class ConnectivityTestRequest extends StringBasedAuthenticatingRequest<St
     }
 
     public ConnectivityTestRequest(Context context, final CloudSpillApi api) {
-        this(context, api.ping(), new Listener());
+        this(context, api.ping(), new Listener(api.getBaseUrl()));
     }
 
     private ConnectivityTestRequest(Context context, String pingUrl, Listener listener) {

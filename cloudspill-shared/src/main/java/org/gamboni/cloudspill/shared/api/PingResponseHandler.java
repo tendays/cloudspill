@@ -11,12 +11,12 @@ public abstract class PingResponseHandler {
 
     protected abstract void warn(String message);
 
-    public ServerInfo parse(String serverResponse) {
+    public ServerInfo parse(String localUrl, String serverResponse) {
         final Splitter splitter = new Splitter(serverResponse, '\n');
         String preamble = splitter.getString();
         if (!preamble.equals(CloudSpillApi.PING_PREAMBLE)) {
             warn("Not connecting to server with unexpected preamble "+ preamble);
-            return ServerInfo.offline(); // TODO LOG
+            return ServerInfo.offline(localUrl); // TODO LOG
         }
         Integer version = null;
         String url = null;
@@ -32,7 +32,7 @@ public abstract class PingResponseHandler {
         }
         if (version == null || url == null) {
             warn("Not connecting to server not specifying version or url: " + version +", "+ url);
-            return ServerInfo.offline();
+            return ServerInfo.offline(localUrl);
         } else {
             return ServerInfo.online(version, url);
         }

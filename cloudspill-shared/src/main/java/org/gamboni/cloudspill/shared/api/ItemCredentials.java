@@ -11,6 +11,7 @@ import org.gamboni.cloudspill.shared.util.Splitter;
 
 import java.net.URLConnection;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 
 /** Specifies a way to access an Item: either by logging in (user+password), or by supplying an item-specific key String.
@@ -49,6 +50,11 @@ public interface ItemCredentials {
      * this method should just do nothing.
      */
     void setHeaders(URLConnection connection, Base64Encoder b64);
+
+    /** If these credentials work by setting an HTTP header, do so in this method (by modifying the given Map). Otherwise,
+     * this method should just do nothing.
+     */
+    void setHeaders(Map<String, String> headers, Base64Encoder b64);
 
     Power getPower();
 
@@ -118,9 +124,18 @@ public interface ItemCredentials {
 
         @Override
         public void setHeaders(URLConnection connection, Base64Encoder b64) {
+            connection.setRequestProperty("Authorization", authHeader(b64));
+        }
+
+        protected String authHeader(Base64Encoder b64) {
             final String credentials = user.getName() + ":" + getPassword();
 
-            connection.setRequestProperty("Authorization", "Basic " + b64.encode(credentials.getBytes()));
+            return "Basic " + b64.encode(credentials.getBytes());
+        }
+
+        @Override
+        public void setHeaders(Map<String, String> headers, Base64Encoder b64) {
+
         }
     }
 
@@ -153,8 +168,8 @@ public interface ItemCredentials {
         }
 
         @Override
-        public void setHeaders(URLConnection connection, Base64Encoder b64) {
-            connection.setRequestProperty("Authorization", AUTH_TYPE +" "+ encodeCookie());
+        protected String authHeader(Base64Encoder b64) {
+            return AUTH_TYPE +" "+ encodeCookie();
         }
 
         public String encodeCookie() {
@@ -215,6 +230,17 @@ public interface ItemCredentials {
         public Power getPower() {
             return Power.USER;
         }
+
+        @Override
+        public void setHeaders(URLConnection connection, Base64Encoder b64) {
+            connection.setRequestProperty("Authorization", authHeader(b64));
+        }
+        @Override
+        public void setHeaders(Map<String, String> connection, Base64Encoder b64) {
+            connection.put("Authorization", authHeader(b64));
+        }
+
+        protected abstract String authHeader(Base64Encoder b64);
     }
 
     class ItemKey implements ItemCredentials {
@@ -248,6 +274,10 @@ public interface ItemCredentials {
         }
 
         @Override
+        public void setHeaders(Map<String, String> headers, Base64Encoder b64) {
+        }
+
+        @Override
         public Power getPower() {
             return Power.SINGLE;
         }
@@ -278,6 +308,10 @@ public interface ItemCredentials {
 
         @Override
         public void setHeaders(URLConnection connection, Base64Encoder b64) {
+        }
+
+        @Override
+        public void setHeaders(Map<String, String> headers, Base64Encoder b64) {
         }
 
         @Override
