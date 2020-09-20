@@ -23,6 +23,7 @@ import java.io.InputStream;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -35,7 +36,9 @@ import java.util.Set;
 public class DirectoryScanner {
     // not static because not threadsafe
     private final SimpleDateFormat exifTimestampFormat = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss");
-    private final SimpleDateFormat mdTimestampFormat = new SimpleDateFormat("yyyy MM dd");
+    private final List<SimpleDateFormat> mdTimestampFormats = Arrays.asList(
+            new SimpleDateFormat("yyyy MM dd"),
+            new SimpleDateFormat("yyyyMMdd'T'HHmmss.Z")); // 20200908T133539.000Z
 
     private final Context context;
     private final Domain domain;
@@ -203,11 +206,14 @@ public class DirectoryScanner {
 
             String mdDate = metadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DATE);
             if (mdDate != null) {
-                try {
-                    return mdTimestampFormat.parse(mdDate);
-                } catch (ParseException e) {
-                    Log.w(TAG, "Media date not in expected format: " + mdDate);
+                for (SimpleDateFormat format : mdTimestampFormats) {
+                    try {
+                        return format.parse(mdDate);
+                    } catch (ParseException e) {
+                        // Ignore, and try next
+                    }
                 }
+                Log.w(TAG, "Media date not in expected format: " + mdDate);
             }
         } catch (RuntimeException e) {
             Log.e(TAG, "MediaMetadataRetriever failed to analyse "+ file, e);

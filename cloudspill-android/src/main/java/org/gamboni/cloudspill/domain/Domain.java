@@ -428,6 +428,10 @@ public class Domain extends AbstractDomain<Domain> {
                 }
             }
         }
+
+        public String toString() {
+            return "Item#"+ getServerId();
+        }
     }
 
     /** I don't know how to access the database on my android device so I put my commands here instead. */
