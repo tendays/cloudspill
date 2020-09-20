@@ -27,6 +27,7 @@ import org.gamboni.cloudspill.job.ThumbnailIntentService;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 
 /**
  * @author tendays
@@ -111,19 +112,8 @@ public class ItemFragment extends DialogFragment {
                 .setPositiveButton(R.string.save, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialogInterface, int i) {
-                        final Collection<String> newTags = new Splitter(tagBox.getText().toString(), ',').trimValues().allRemainingTo(new ArrayList<String>());
-                        Iterator<String> oldTags = item.getTagList().iterator();
-                        while (oldTags.hasNext()) {
-                            String tag = oldTags.next();
-                            if (!newTags.contains(tag)) {
-                                oldTags.remove();
-                            }
-                        }
-                        for (String tag : newTags) {
-                            if (!item.getTags().contains(tag)) {
-                                item.getTagList().add(tag);
-                            }
-                        }
+                        final List<String> newTags = new Splitter(tagBox.getText().toString(), ',').trimValues().allRemainingTo(new ArrayList<String>());
+                        item.setTagsForSync(newTags);
                     }
                 })
                 .setNeutralButton(R.string.share, new DialogInterface.OnClickListener() {

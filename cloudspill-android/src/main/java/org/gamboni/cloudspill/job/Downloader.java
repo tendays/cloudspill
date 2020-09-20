@@ -106,7 +106,7 @@ public class Downloader {
                     created++;
                 } else {
                     Domain.Item existing = allExisting.get(0);
-                    existing.copyFrom(item);
+                    existing.copyFromServer(item);
                     existing.update();
                 }
 

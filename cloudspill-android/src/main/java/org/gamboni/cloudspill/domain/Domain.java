@@ -13,12 +13,15 @@ import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.shared.util.Splitter;
 import org.gamboni.cloudspill.ui.SettingsActivity;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 
 /** CloudSpill Android database.
  *
@@ -210,7 +213,9 @@ public class Domain extends AbstractDomain<Domain> {
     private static final Csv.Setter<Item> TAGS_SETTER = new Csv.Setter<Item>() {
         @Override
         public void set(Item item, String value) {
-            new Splitter(value, ',').allRemainingTo(item.getTagList());
+            List<String> list = new ArrayList<>();
+            new Splitter(value, ',').allRemainingTo(list);
+            item.setTagsFromServer(list);
         }
     };
 
@@ -232,7 +237,7 @@ public class Domain extends AbstractDomain<Domain> {
             return itemSchema;
         }
 
-        private TrackingList<String, Tag> tags;
+        private TrackingList<Tag, Tag> tags;
 
         public Item() {}
 
@@ -297,40 +302,51 @@ public class Domain extends AbstractDomain<Domain> {
             return file;
         }
 
-        public void copyFrom(Item that) {
+        public void copyFromServer(Item that) {
             this.values.putAll(that.values);
+            final Set<String> thatTags = that.getTags();
+
             // 1. remove deleted tags
-            // TODO dirty tags should be kept as is
-            this.getTagList().retainAll(that.getTags());
+            Iterator<Tag> thisTags = this.getTagList().iterator();
+            while (thisTags.hasNext()) {
+                Tag t = thisTags.next();
+                if (t.get(TagSchema.SYNC) != SyncStatus.TO_CREATE && !thatTags.contains(t.get(TagSchema.TAG))) {
+                    thisTags.remove();
+                }
+            }
+
             // 2. add missing tags
-            for (String tag : that.getTags()) {
+            for (String tag : thatTags) {
                 if (!this.getTags().contains(tag)) {
-                    // TODO this marks loaded tags as 'TO_CREATE' so they get sent back to server as new
-                    this.getTagList().add(tag);
+                    Tag t = new Tag();
+                    t.set(TagSchema.TAG, tag);
+                    t.set(TagSchema.SYNC, SyncStatus.OK);
+                    this.getTagList().add(t);
                 }
             }
         }
 
         public Set<String> getTags() {
-            return Collections.unmodifiableSet(new HashSet<>(getTagList()));
+            Set<String> tags = new TreeSet<>();
+            for (Tag tag : getTagList()) {
+                tags.add(tag.get(TagSchema.TAG));
+            }
+            return Collections.unmodifiableSet(tags);
         }
 
-        public List<String> getTagList() {
+        public List<Tag> getTagList() {
             if (tags == null) {
-                tags = new TrackingList<String, Tag>(
+                tags = new TrackingList<Tag, Tag>(
                         new EntityQuery<Tag>(tagSchema)
                 .eq(TagSchema.ITEM, this.getId()).detachedList()) {
                     @Override
-                    protected String extract(Tag entity) {
-                        return entity.get(TagSchema.TAG);
+                    protected Tag extract(Tag entity) {
+                        return entity;
                     }
 
                     @Override
-                    protected Tag wrap(String tag) {
-                        Tag entity = new Tag();
+                    protected Tag wrap(Tag entity) {
                         entity.set(TagSchema.ITEM, Item.this.getId());
-                        entity.set(TagSchema.TAG, tag);
-                        entity.set(TagSchema.SYNC, SyncStatus.TO_CREATE);
                         return entity;
                     }
 
@@ -372,6 +388,44 @@ public class Domain extends AbstractDomain<Domain> {
             super.update();
             if (this.tags != null) {
                 this.tags.flush();
+            }
+        }
+
+        public void setTagsFromServer(List<String> tags) {
+            this.getTagList().clear();
+            for (String tag : tags) {
+                Tag t = new Tag();
+                t.set(TagSchema.TAG, tag);
+                t.set(TagSchema.SYNC, SyncStatus.OK);
+                getTagList().add(t);
+            }
+        }
+
+        public void setTagsForSync(List<String> newTags) {
+
+            // 1. remove deleted tags
+            Iterator<Tag> thisTags = this.getTagList().iterator();
+            while (thisTags.hasNext()) {
+                Tag t = thisTags.next();
+                if (!newTags.contains(t.get(TagSchema.TAG))) {
+                    if (t.get(TagSchema.SYNC) == SyncStatus.TO_CREATE) {
+                        // cancel creation before it occurs
+                        thisTags.remove();
+                    } else {
+                        // remove from server
+                        t.set(TagSchema.SYNC, SyncStatus.TO_DELETE);
+                    }
+                }
+            }
+
+            // 2. add missing tags
+            for (String tag : newTags) {
+                if (!this.getTags().contains(tag)) {
+                    Tag t = new Tag();
+                    t.set(TagSchema.TAG, tag);
+                    t.set(TagSchema.SYNC, SyncStatus.TO_CREATE);
+                    this.getTagList().add(t);
+                }
             }
         }
     }
