@@ -1,7 +1,5 @@
 package org.gamboni.cloudspill.server.html;
 
-import org.gamboni.cloudspill.domain.GalleryPart;
-import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
@@ -13,10 +11,18 @@ import java.util.List;
 /**
  * @author tendays
  */
-public class GalleryListPage extends AbstractPage {
+public class GalleryListPage extends AbstractRenderer<GalleryListPage.Model> {
 
-    private final List<Element> elements;
-    private final String title;
+    public static class Model extends OutputModel {
+        public final String title;
+        public final List<Element> elements;
+
+        public Model(ItemCredentials credentials, String title, List<Element> elements) {
+            super(credentials);
+            this.title = title;
+            this.elements = elements;
+        }
+    }
 
     public static class Element {
 
@@ -48,25 +54,23 @@ public class GalleryListPage extends AbstractPage {
         }
     }
 
-    public GalleryListPage(BackendConfiguration configuration, String title, List<Element> elements, ItemCredentials credentials) {
-        super(configuration, credentials);
-        this.title = title;
-        this.elements = elements;
+    public GalleryListPage(BackendConfiguration configuration) {
+        super(configuration);
     }
 
     @Override
-    protected String getTitle() {
-        return title;
+    protected String getTitle(Model model) {
+        return model.title;
     }
 
     @Override
-    protected String getPageUrl() {
+    protected String getPageUrl(Model model) {
         return configuration.getPublicUrl() + "public/gallery/";
     }
 
     @Override
-    protected HtmlFragment getBody(ItemCredentials.AuthenticationStatus authStatus) {
-        return HtmlFragment.concatenate(elements
+    protected HtmlFragment getBody(Model model) {
+        return HtmlFragment.concatenate(model.elements
                 .stream()
                 .map(element -> {
                     final String elementUrl = api.getBaseUrl() + element.relativeUrl;

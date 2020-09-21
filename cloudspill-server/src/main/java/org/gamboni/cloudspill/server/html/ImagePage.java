@@ -27,19 +27,25 @@ import java.util.stream.Collectors;
  * @author tendays
  *
  */
-public class ImagePage extends AbstractPage {
-	private final BackendItem item, prev, next;
-	private final User user;
-	private final Long galleryPart;
+public class ImagePage extends AbstractRenderer<ImagePage.Model> {
 
-	public ImagePage(BackendConfiguration configuration, BackendItem item, Long galleryPart, BackendItem prev, BackendItem next, User user, ItemCredentials credentials) {
-		super(configuration, credentials);
+	public static class Model extends OutputModel {
+		final BackendItem item, prev, next;
+		final User user;
+		final Long galleryPart;
 
-		this.user = user;
-		this.item = item;
-		this.galleryPart = galleryPart;
-		this.prev = prev;
-		this.next = next;
+		public Model(BackendItem item, Long galleryPart, BackendItem prev, BackendItem next, User user, ItemCredentials credentials) {
+			super(credentials);
+			this.user = user;
+			this.item = item;
+			this.galleryPart = galleryPart;
+			this.prev = prev;
+			this.next = next;
+		}
+	}
+
+	public ImagePage(BackendConfiguration configuration) {
+		super(configuration);
 	}
 
 
@@ -50,45 +56,49 @@ public class ImagePage extends AbstractPage {
 				tag("script", "type='text/javascript' src=" + quote(api.getUrl(new EditorSubmissionJs(configuration))), ""));
 	}
 
-	public String getTitle() {
-		return item.getUser() +"/"+ item.getFolder() +"/"+ item.getPath();
+	@Override
+	public String getTitle(Model model) {
+		return model.item.getUser() +"/"+ model.item.getFolder() +"/"+ model.item.getPath();
 	}
 
-	public String getPageUrl() {
-		return api.getPublicImagePageUrl(this.item);
+	@Override
+	public String getPageUrl(Model model) {
+		return api.getPublicImagePageUrl(model.item);
 	}
 
-	public Optional<String> getThumbnailUrl() {
-		return Optional.of(api.getThumbnailUrl(item, CloudSpillApi.Size.IMAGE_THUMBNAIL));
+	@Override
+	public Optional<String> getThumbnailUrl(Model model) {
+		return Optional.of(api.getThumbnailUrl(model.item, CloudSpillApi.Size.IMAGE_THUMBNAIL));
 	}
 
-	public String getImageUrl() {
-		return api.getImageUrl(item);
+	private String getImageUrl(Model model) {
+		return api.getImageUrl(model.item);
 	}
 
-	public HtmlFragment getBody(ItemCredentials.AuthenticationStatus authStatus) {
+	@Override
+	public HtmlFragment getBody(Model model) {
 		return HtmlFragment.concatenate(
-				neighbourLink(prev, "<", false),
-				neighbourLink(next, ">", true),
-				(item.getType() == ItemType.VIDEO ?
-						tag("video", "controls class='image' src=" + quote(getImageUrl()), "") :
-						unclosedTag("img class='image' src=" + quote(getImageUrl()))),
+				neighbourLink(model, model.prev, "<", false),
+				neighbourLink(model, model.next, ">", true),
+				(model.item.getType() == ItemType.VIDEO ?
+						tag("video", "controls class='image' src=" + quote(getImageUrl(model)), "") :
+						unclosedTag("img class='image' src=" + quote(getImageUrl(model)))),
 				tag("div", "class='metadata'",
-						(authStatus == ItemCredentials.AuthenticationStatus.LOGGED_IN ?
+						(model.credentials.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN ?
 								tag("div", "class='button' id='edit' onclick="+
-										quote("edit("+ item.getServerId() +", '"+ api.knownTags() +"', '"+ api.getTagUrl(item.getServerId()) +"')"), "edit") : HtmlFragment.EMPTY),
-						tag("div", "By: " + item.getUser()),
-						dateLine(authStatus),
-						tag("div", "id='description'", MoreObjects.firstNonNull(item.getDescription(), "")),
+										quote("edit("+ model.item.getServerId() +", '"+ api.knownTags() +"', '"+ api.getTagUrl(model.item.getServerId()) +"')"), "edit") : HtmlFragment.EMPTY),
+						tag("div", "By: " + model.item.getUser()),
+						dateLine(model),
+						tag("div", "id='description'", MoreObjects.firstNonNull(model.item.getDescription(), "")),
 						tag("div", "class='tags'",
-								new HtmlFragment(item.getTags().stream()
-										.map(tag -> tagElement(tag, authStatus).toString())
+								new HtmlFragment(model.item.getTags().stream()
+										.map(tag -> tagElement(tag, model.credentials.getAuthStatus()).toString())
 										.collect(Collectors.joining(" "))))));
 	}
 
-	private HtmlFragment neighbourLink(BackendItem item, String linkText, boolean right) {
+	private HtmlFragment neighbourLink(Model model, BackendItem item, String linkText, boolean right) {
 		return item == null ? HtmlFragment.EMPTY : tag("a",
-				"class="+ quote("siblink"+ (right? " right" : "")) +" href=" + quote(api.galleryPart(galleryPart, null, QueryRange.ALL) + "/" + item.getServerId() + api.ID_HTML_SUFFIX),
+				"class="+ quote("siblink"+ (right? " right" : "")) +" href=" + quote(api.galleryPart(model.galleryPart, null, QueryRange.ALL) + "/" + item.getServerId() + api.ID_HTML_SUFFIX),
 				tag("div", linkText));
 	}
 
@@ -103,10 +113,10 @@ public class ImagePage extends AbstractPage {
 	}
 
 	@Override
-	protected String copyrightNotice() {
-		return capitalise(item.getType().name()) +" © "+
-				(this.item.getDate() == null ? LocalDateTime.now() : this.item.getDate()).getYear() +" "+
-				(this.user == null ? capitalise(this.item.getUser()) : this.user.getFullName()) +
+	protected String copyrightNotice(Model model) {
+		return capitalise(model.item.getType().name()) +" © "+
+				(model.item.getDate() == null ? LocalDateTime.now() : model.item.getDate()).getYear() +" "+
+				((model.user == null || model.user.getFullName() == null) ? capitalise(model.item.getUser()) : model.user.getFullName()) +
 				". All rights reserved.";
 	}
 
@@ -114,13 +124,14 @@ public class ImagePage extends AbstractPage {
 		return value.substring(0, 1).toUpperCase() + value.substring(1).toLowerCase();
 	}
 
-	private HtmlFragment dateLine(ItemCredentials.AuthenticationStatus authStatus) {
-		if (item.getDate() == null) { return HtmlFragment.EMPTY; }
+	private HtmlFragment dateLine(Model model) {
+		if (model.item.getDate() == null) { return HtmlFragment.EMPTY; }
 
-		String dateString = item.getDate()
-				.format(DateTimeFormatter.ofPattern(patternForPrecision(item.getDatePrecision())));
-		return (authStatus == ItemCredentials.AuthenticationStatus.ANONYMOUS ? tag("div","class='date'", dateString) : tag("a", "class='date' href="+
-				quote(ServerSearchCriteria.ALL.at(item.getDate().toLocalDate()).getUrl(api)),
+		String dateString = model.item.getDate()
+				.format(DateTimeFormatter.ofPattern(patternForPrecision(model.item.getDatePrecision())));
+		return (model.credentials.getAuthStatus() == ItemCredentials.AuthenticationStatus.ANONYMOUS ?
+					tag("div","class='date'", dateString) :
+					tag("a", "class='date' href="+ quote(ServerSearchCriteria.ALL.at(model.item.getDate().toLocalDate()).getUrl(api)),
 				dateString));
 	}
 

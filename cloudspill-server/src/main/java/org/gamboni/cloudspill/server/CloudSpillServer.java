@@ -536,9 +536,9 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	}
 
 	@Override
-	protected OrHttpError<GalleryListData> galleryList(ItemCredentials credentials, ServerDomain domain) {
+	protected OrHttpError<GalleryListPage.Model> galleryList(ItemCredentials credentials, ServerDomain domain) {
 		final CloudSpillEntityManagerDomain.Query<GalleryPart> query = domain.selectGalleryPart();
-		return new OrHttpError<>(new GalleryListData(configuration.getRepositoryName(), Lists.transform(
+		return new OrHttpError<>(new GalleryListPage.Model(credentials, configuration.getRepositoryName(), Lists.transform(
 				query.addOrder(CloudSpillEntityManagerDomain.Ordering.desc(GalleryPart_.from)).list(),
 				gp -> {
 					final List<Item> sample = gp.applyTo(domain.selectItem(), credentials.getAuthStatus())
@@ -554,7 +554,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	}
 
 	@Override
-	protected OrHttpError<GalleryListData> dayList(ItemCredentials credentials, ServerDomain domain, int year) {
+	protected OrHttpError<GalleryListPage.Model> dayList(ItemCredentials credentials, ServerDomain domain, int year) {
 		final boolean isAdmin = credentials.hasGroup(User.ADMIN_GROUP);
 		final Query query = domain.getEntityManager().createNativeQuery(
 				"select id, date(date) as date, checksum from Item " +
@@ -568,7 +568,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 		if (!isAdmin) {
 			query.setParameter(3, ((ItemCredentials.UserCredentials)credentials).user.getName());
 		}
-		return new OrHttpError<>(new GalleryListData("Year "+ year, Lists.transform((List<Object[]>)query.getResultList(), row -> {
+		return new OrHttpError<>(new GalleryListPage.Model(credentials, "Year "+ year, Lists.transform((List<Object[]>)query.getResultList(), row -> {
 			long id = ((Number) row[0]).longValue();
 			LocalDate date = ((java.sql.Date) row[1]).toLocalDate();
 			String checksum = (String) row[2];

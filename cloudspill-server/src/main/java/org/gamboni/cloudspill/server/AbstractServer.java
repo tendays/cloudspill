@@ -9,7 +9,8 @@ import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
 import org.gamboni.cloudspill.domain.ServerDomain;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.domain.User_;
-import org.gamboni.cloudspill.server.html.AbstractPage;
+import org.gamboni.cloudspill.server.html.AbstractRenderer;
+import org.gamboni.cloudspill.server.html.OutputModel;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.api.LoginState;
 import org.gamboni.cloudspill.shared.domain.ClientUser;
@@ -78,12 +79,12 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 	 * @param <O> view model type
 	 * @return a Route suitable for passing to a callback-style method in CloudSpillApi
 	 */
-	protected <I, O> Route page(Function<Request, I> parser, QueryExecutor<I, S, O> executor, Function<O, AbstractPage> formatter) {
+	protected <I, O extends OutputModel> Route page(Function<Request, I> parser, QueryExecutor<I, S, O> executor, AbstractRenderer<O> formatter) {
 		return (req, res) -> transacted(session -> {
 			I input = parser.apply(req); // TODO badRequest if exception
 			return optionalAuthenticate(req, session).map(credentials -> {
 				O model = executor.execute(input, credentials, session);
-				return formatter.apply(model);
+				return formatter.render(model).toString();
 			}).get(res);
 		});
 	}

@@ -2,10 +2,7 @@ package org.gamboni.cloudspill.server.html;
 
 import com.google.common.base.Stopwatch;
 
-import org.gamboni.cloudspill.domain.Item;
-import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
-import org.gamboni.cloudspill.server.config.ServerConfiguration;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 
@@ -16,7 +13,7 @@ import static org.gamboni.cloudspill.server.html.HtmlFragment.escape;
 /**
  * @author tendays
  */
-public abstract class AbstractPage {
+public abstract class AbstractRenderer<T extends OutputModel> implements Renderer<T> {
 
     private static final ThreadLocal<Stopwatch> requestStart = new ThreadLocal<>();
     public static void recordRequestStart() {
@@ -65,73 +62,67 @@ public abstract class AbstractPage {
 
     protected final BackendConfiguration configuration;
     protected final CloudSpillApi api;
-    protected final ItemCredentials credentials;
 
-    protected AbstractPage(BackendConfiguration configuration, ItemCredentials credentials) {
+    protected AbstractRenderer(BackendConfiguration configuration) {
         this.configuration = configuration;
         this.api = new CloudSpillApi(configuration.getPublicUrl());
-        this.credentials = credentials;
     }
 
-    protected abstract String getTitle();
+    protected abstract String getTitle(T model);
 
-    protected abstract String getPageUrl();
+    protected abstract String getPageUrl(T model);
 
-    protected abstract HtmlFragment getBody(ItemCredentials.AuthenticationStatus authStatus);
+    protected abstract HtmlFragment getBody(T model);
 
-    protected Optional<String> getThumbnailUrl() {
+    protected Optional<String> getThumbnailUrl(T model) {
         return Optional.empty();
     }
 
-    public HtmlFragment getHtml() {
+    public HtmlFragment render(T model) {
         return tag("html", "prefix=\"og: http://ogp.me/ns#\"",
                 tag("head",
                         slashedTag("meta name='robots' content='noindex'"),
-                        tag("title", getTitle()),
-                        meta("og:title", getTitle()),
+                        tag("title", getTitle(model)),
+                        meta("og:title", getTitle(model)),
                         meta("og:type", "article"),
-                        meta("og:url", getPageUrl()),
-                        getThumbnailUrl().map(url -> meta("og:image", url)).orElse(HtmlFragment.EMPTY),
+                        meta("og:url", getPageUrl(model)),
+                        getThumbnailUrl(model).map(url -> meta("og:image", url)).orElse(HtmlFragment.EMPTY),
                         slashedTag("link rel=\"stylesheet\" type=\"text/css\" href=" +
                                 quote(api.css())),
-                        (credentials.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN ?
-                        tag("script", "type='text/javascript' src=" + quote(api.uploadJS()), "") : HtmlFragment.EMPTY),
+                        (model.credentials.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN ?
+                                tag("script", "type='text/javascript' src=" + quote(api.uploadJS()), "") : HtmlFragment.EMPTY),
                         scripts()
                 ),
-                tag("body", bodyAttributes(credentials),
-                        tag("h1", getTitle()),
-                        getBody(credentials.getAuthStatus()),
+                tag("body", bodyAttributes(model),
+                        tag("h1", getTitle(model)),
+                        getBody(model),
                         tag("div", "id='drawer' class='drawer' style='display:none'",
                                 tag("div", "class='drawer-title'", "Newly added items")),
-                        tag("div", "class='copyright'", copyrightNotice()),
+                        tag("div", "class='copyright'", copyrightNotice(model)),
                         tag("div", "class='debug'", "Page rendered in " + requestStart.get())));
     }
 
-    protected String copyrightNotice() {
+    protected String copyrightNotice(T model) {
         return configuration.copyrightNotice();
     }
 
-    private String bodyAttributes(ItemCredentials user) {
-        String onLoad = onLoad(user);
-        if (user.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN) {
+    private String bodyAttributes(T model) {
+        String onLoad = onLoad(model);
+        if (model.credentials.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN) {
             onLoad += (onLoad.isEmpty() ? "" : "; ") + "setupDnd('"+
                     /* imageUrlPattern, hrefPattern */
-                    api.getThumbnailUrl("%d", user, CloudSpillApi.Size.GALLERY_THUMBNAIL) +"', '"+
-                    api.getImagePageUrl("%d", null, user)
+                    api.getThumbnailUrl("%d", model.credentials, CloudSpillApi.Size.GALLERY_THUMBNAIL) +"', '"+
+                    api.getImagePageUrl("%d", null, model.credentials)
                     +"')";
         }
         return onLoad.isEmpty() ? "" : "onLoad="+ quote(onLoad);
     }
 
-    protected String onLoad(ItemCredentials user) {
+    protected String onLoad(T model) {
         return "";
     }
 
     protected HtmlFragment scripts() {
         return HtmlFragment.EMPTY;
-    }
-
-    public String toString() {
-        return getHtml().toString();
     }
 }

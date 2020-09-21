@@ -13,11 +13,10 @@ import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.domain.UserAuthToken;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
-import org.gamboni.cloudspill.server.html.AbstractPage;
+import org.gamboni.cloudspill.server.html.AbstractRenderer;
 import org.gamboni.cloudspill.server.html.GalleryListPage;
 import org.gamboni.cloudspill.server.html.GalleryPage;
 import org.gamboni.cloudspill.server.html.ImagePage;
-import org.gamboni.cloudspill.server.html.LabPage;
 import org.gamboni.cloudspill.server.html.LoginPage;
 import org.gamboni.cloudspill.server.html.js.AbstractJs;
 import org.gamboni.cloudspill.server.html.js.EditorSubmissionJs;
@@ -99,8 +98,8 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         });
 
         /* Print full request processing time in HTML pages */
-        before((req, res) -> AbstractPage.recordRequestStart());
-        after((req, res) -> AbstractPage.clearRequestStopwatch());
+        before((req, res) -> AbstractRenderer.recordRequestStart());
+        after((req, res) -> AbstractRenderer.clearRequestStopwatch());
 
         Spark.exception(Exception.class, (exception, req, res) -> {
             Log.error("Uncaught exception handling "+ req.requestMethod() +" "+ req.uri(), exception);
@@ -270,39 +269,41 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             return upload(session, credentials, req.raw().getInputStream(), folder, path, new ItemMetadata(timestamp, itemType)).get(res);
         }));
 
+        LoginPage lp = new LoginPage(configuration);
+
         get("/", (req, res) -> title().get(res, title -> transacted(session -> getUnverifiedCredentials(req, session)).map(credentials ->
         {
-            final LoginPage loginPage = credentials == null ? new LoginPage(configuration, title, LoginState.DISCONNECTED, new ItemCredentials.PublicAccess()) :
-                    credentials.map(new ItemCredentials.Mapper<LoginPage>() {
+            final LoginPage.Model model = credentials == null ? new LoginPage.Model(new ItemCredentials.PublicAccess(), title, LoginState.DISCONNECTED) :
+                    credentials.map(new ItemCredentials.Mapper<LoginPage.Model>() {
                         @Override
-                        public LoginPage when(ItemCredentials.UserPassword password) {
+                        public LoginPage.Model when(ItemCredentials.UserPassword password) {
                             try {
                                 verifyCredentials(password, null);
                             } catch (AccessDeniedException e) {
                                 /* Wrong password supplied */
-                                return new LoginPage(configuration, title, LoginState.DISCONNECTED, new ItemCredentials.PublicAccess());
+                                return new LoginPage.Model(new ItemCredentials.PublicAccess(), title, LoginState.DISCONNECTED);
                             }
 
-                            return new LoginPage(configuration, title, LoginState.LOGGED_IN, password);
+                            return new LoginPage.Model(password, title, LoginState.LOGGED_IN);
                         }
 
                         @Override
-                        public LoginPage when(ItemCredentials.UserToken token) {
-                            return new LoginPage(configuration, title, getUserTokenState(token.user, token.id, token.secret), token);
+                        public LoginPage.Model when(ItemCredentials.UserToken token) {
+                            return new LoginPage.Model(token, title, getUserTokenState(token.user, token.id, token.secret));
                         }
 
                         @Override
-                        public LoginPage when(ItemCredentials.PublicAccess pub) {
-                            return new LoginPage(configuration, title, LoginState.DISCONNECTED, credentials);
+                        public LoginPage.Model when(ItemCredentials.PublicAccess pub) {
+                            return new LoginPage.Model(credentials, title, LoginState.DISCONNECTED);
                         }
 
                         @Override
-                        public LoginPage when(ItemCredentials.ItemKey key) {
-                            return new LoginPage(configuration, title, LoginState.DISCONNECTED, credentials);
+                        public LoginPage.Model when(ItemCredentials.ItemKey key) {
+                            return new LoginPage.Model(credentials, title, LoginState.DISCONNECTED);
 
                         }
                     });
-            return loginPage.toString();
+            return lp.render(model).toString();
         })
             .get(res)));
 
@@ -410,7 +411,6 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         }));
 
         /* Page for experimenting new stuff */
-        get("/lab", secured((req, res, session, user) -> new LabPage(configuration, user)));
         post("/lab", secured((req, res, session, user) -> {
             req.attribute("org.eclipse.jetty.multipartConfig", new MultipartConfigElement("/tmp"));
             Set<Long> ids = new LinkedHashSet<>();
@@ -522,11 +522,11 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         return getQueryLoader(domain, credentials)
                 .load(offset)
                 .get(res, itemSet -> {
-            if (isCsvRequested(req) || isJsonRequested(req)) {
-                return dump(req, res, offset, itemSet, format);
+                    final GalleryPage.Model model = new GalleryPage.Model(credentials, offset, itemSet, req.queryParamOrDefault("experimental", "").equals("true"), partId);
+                    if (isCsvRequested(req) || isJsonRequested(req)) {
+                return dump(req, res, model, format);
             } else {
-                return new GalleryPage(configuration, offset, partId, itemSet, req.queryParamOrDefault("experimental", "").equals("true"),
-                        credentials).toString();
+                return new GalleryPage(configuration).render(model).toString();
             }
         });
     }
@@ -535,24 +535,29 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                             Long partId) throws IOException {
         if (req.params("id").endsWith(ID_HTML_SUFFIX)) {
             User user = session.get(User.class, item.getUser());
+            ImagePage renderer = new ImagePage(configuration);
+            OrHttpError<ImagePage.Model> model;
             if (partId == null) {
-                return new OrHttpError<>(new ImagePage(configuration, item, null, null, null, user, credentials));
+                model = new OrHttpError<>(new ImagePage.Model(item, null, null, null, user, credentials));
+            } else {
+                final Java8SearchCriteria<BackendItem> gallery = loadGallery(session, partId);
+                model = this.getQueryLoader(session, credentials).load(gallery
+                        .withRange(new QueryRange(-1, 3))
+                        .relativeTo(item.getServerId()))
+                        .map(neighbours -> {
+                            int index = Iterables.indexOf(neighbours.rows, n -> n.getServerId().equals(item.getServerId()));
+                            return new ImagePage.Model(item,
+                                    partId,
+                                    index > 0 ? neighbours.rows.get(index - 1) : null,
+                                    index < neighbours.rows.size() - 1 ? neighbours.rows.get(index + 1) : null,
+                                    user, credentials);
+                        });
             }
-            final Java8SearchCriteria<BackendItem> gallery = loadGallery(session, partId);
-            return this.getQueryLoader(session, credentials).load(gallery
-                    .withRange(new QueryRange(-1, 3))
-                    .relativeTo(item.getServerId()))
-                    .map(neighbours -> {
-                        int index = Iterables.indexOf(neighbours.rows, n -> n.getServerId().equals(item.getServerId()));
-                        return new ImagePage(configuration, item,
-                                partId,
-                                index > 0 ? neighbours.rows.get(index - 1) : null,
-                                index < neighbours.rows.size() - 1 ? neighbours.rows.get(index + 1) : null,
-                                user, credentials);
-                    });
+            return model.map(m -> renderer.render(m).toString());
         } else {
             if (isCsvRequested(req) || isJsonRequested(req)) {
-                return new OrHttpError<>(dump(req, res, null, ItemSet.of(item), DumpFormat.WITH_TOTAL));
+                GalleryPage.Model model = new GalleryPage.Model(credentials, null, ItemSet.of(item), false, null);
+                return new OrHttpError<>(dump(req, res, model, DumpFormat.WITH_TOTAL));
             } else {
                 download(res, session, credentials, item);
                 return new OrHttpError<>(String.valueOf(res.status()));
@@ -634,17 +639,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                                    String folder, String path,
                                    ItemMetadata metadata) throws IOException;
 
-    public static class GalleryListData {
-        public final String title;
-        public final List<GalleryListPage.Element> elements;
-
-        public GalleryListData(String title, List<GalleryListPage.Element> elements) {
-            this.title = title;
-            this.elements = elements;
-        }
-    }
-
-    protected abstract OrHttpError<GalleryListData> galleryList(ItemCredentials credentials, D domain);
+    protected abstract OrHttpError<GalleryListPage.Model> galleryList(ItemCredentials credentials, D domain);
 
     protected List<String> tagList(D domain) {
         final Query query = domain.getEntityManager().createNativeQuery(
@@ -654,7 +649,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
     protected abstract OrHttpError<String> title();
 
-    protected abstract OrHttpError<GalleryListData> dayList(ItemCredentials credentials, D domain, int year);
+    protected abstract OrHttpError<GalleryListPage.Model> dayList(ItemCredentials credentials, D domain, int year);
 
     /** Add the given comma-separated tags to the specified object. If a tag starts with '-' then it is removed instead.
      * <p>
@@ -782,13 +777,14 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
     }
 
     private Object dump(Request req, Response res, D domain, ServerSearchCriteria criteria, ItemCredentials credentials, DumpFormat dumpFormat) throws Exception {
-        return getQueryLoader(domain, credentials).load(criteria).get(res, set -> dump(req, res, criteria, set, dumpFormat));
+        return getQueryLoader(domain, credentials).load(criteria).get(res, set -> dump(req, res,
+                new GalleryPage.Model(credentials, criteria, set, false, null), dumpFormat));
     }
 
-    private String dump(Request req, Response res, Java8SearchCriteria<? extends BackendItem> criteria, ItemSet itemSet, DumpFormat dumpFormat) {
+    private String dump(Request req, Response res, GalleryPage.Model model, DumpFormat dumpFormat) {
 
         Instant[] timestamp = new Instant[]{Instant.EPOCH};
-        final Stream<? extends BackendItem> stream = itemSet.rows.stream()
+        final Stream<? extends BackendItem> stream = model.itemSet.rows.stream()
                 .peek(item -> {
                     if (item.getUpdated() != null && item.getUpdated().isAfter(timestamp[0])) {
                         timestamp[0] = item.getUpdated();
@@ -803,7 +799,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             return object.toString();
         } else { // csv
             final StringBuilder data = dumpCsv(res, stream, BackendItem.CSV);
-            return dumpFormat.dumpMetadata(criteria, itemSet, timestamp[0], new OnePerLineMetadataRepresentation(data)).toString();
+            return dumpFormat.dumpMetadata(model.criteria, model.itemSet, timestamp[0], new OnePerLineMetadataRepresentation(data)).toString();
         }
     }
 
@@ -851,13 +847,13 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
     protected abstract Java8SearchCriteria<BackendItem> loadGallery(D session, long partId);
 
-    private OrHttpError.ItemConsumer<GalleryListData> galleryListFunction(Request req, Response res, BackendConfiguration configuration, ItemCredentials credentials) {
+    private OrHttpError.ItemConsumer<GalleryListPage.Model> galleryListFunction(Request req, Response res, BackendConfiguration configuration, ItemCredentials credentials) {
         return data -> {
                     if (isCsvRequested(req)) {
                         // TODO: escape \ and \n in title
                         return dumpCsv(res, data.elements.stream(), GalleryListPage.Element.CSV) + "\n" + "Title:" + data.title;
                     } else {
-                        return new GalleryListPage(configuration, data.title, data.elements, credentials).toString();
+                        return new GalleryListPage(configuration).render(data).toString();
                     }
                 };
     }

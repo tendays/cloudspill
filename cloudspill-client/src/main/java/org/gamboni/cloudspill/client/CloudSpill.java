@@ -53,7 +53,7 @@ public class CloudSpill {
 						protected void warn(String message) {
 							System.err.println("WARN: " + message);
 						}
-					}.parse(CharStreams.toString(new InputStreamReader(connection.getInputStream())));
+					}.parse(api.getBaseUrl(), CharStreams.toString(new InputStreamReader(connection.getInputStream())));
 
 					if (serverInfo.isOnline()) {
 						System.out.println("Connection successful. Data version " + serverInfo.getVersion() + ", public URL " +

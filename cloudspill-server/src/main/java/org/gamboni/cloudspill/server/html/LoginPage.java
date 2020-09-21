@@ -1,30 +1,34 @@
 package org.gamboni.cloudspill.server.html;
 
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
-import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.api.LoginState;
 
 /**
  * @author tendays
  */
-public class LoginPage extends AbstractPage {
-    private final String title;
-    private final LoginState state;
+public class LoginPage extends AbstractRenderer<LoginPage.Model> {
+    public static class Model extends OutputModel {
+        private final String title;
+        private final LoginState state;
 
-    public LoginPage(BackendConfiguration configuration, String title, LoginState state, ItemCredentials credentials) {
-        super(configuration, credentials);
-        this.title = title;
-        this.state = state;
+        public Model(ItemCredentials credentials, String title, LoginState state) {
+            super(credentials);
+            this.title = title;
+            this.state = state;
+        }
+    }
+    public LoginPage(BackendConfiguration configuration) {
+        super(configuration);
     }
 
     @Override
-    protected String getTitle() {
-        return title;
+    protected String getTitle(Model model) {
+        return model.title;
     }
 
     @Override
-    protected String getPageUrl() {
+    protected String getPageUrl(Model model) {
         return configuration.getPublicUrl();
     }
 
@@ -34,31 +38,31 @@ public class LoginPage extends AbstractPage {
     }
 
     @Override
-    protected String onLoad(ItemCredentials c) {
-        if (state == LoginState.WAITING_FOR_VALIDATION) {
-            return "waitForValidation('"+ ((ItemCredentials.UserToken)credentials).encodeLoginParam() +"', '"+
+    protected String onLoad(Model model) {
+        if (model.state == LoginState.WAITING_FOR_VALIDATION) {
+            return "waitForValidation('"+ ((ItemCredentials.UserToken)model.credentials).encodeLoginParam() +"', '"+
                     this.api.login()
                     +"')";
         } else {
-            return super.onLoad(c);
+            return super.onLoad(model);
         }
     }
 
     @Override
-    protected HtmlFragment getBody(ItemCredentials.AuthenticationStatus authStatus) {
+    protected HtmlFragment getBody(Model model) {
         HtmlFragment nameElement = tag("span", "name='name'",
-                (credentials instanceof ItemCredentials.UserCredentials) ? ((ItemCredentials.UserCredentials) credentials).user.getName() : "stranger");
+                (model.credentials instanceof ItemCredentials.UserCredentials) ? ((ItemCredentials.UserCredentials) model.credentials).user.getName() : "stranger");
         HtmlFragment tokenIdElement = tag("span", "name='tokenId'",
-                (credentials instanceof ItemCredentials.UserToken) ? String.valueOf(((ItemCredentials.UserToken) credentials).id) : "unknown");
+                (model.credentials instanceof ItemCredentials.UserToken) ? String.valueOf(((ItemCredentials.UserToken) model.credentials).id) : "unknown");
         return HtmlFragment.concatenate(
-                tag("form", hiddenUnless(state == LoginState.DISCONNECTED || state == LoginState.INVALID_TOKEN) +
+                tag("form", hiddenUnless(model.state == LoginState.DISCONNECTED || model.state == LoginState.INVALID_TOKEN) +
                                 "id='disconnected' class='login' onsubmit=" + quote("login(getElementById('username').value, '" +
                                 api.newToken("{username}") + "', '" + api.login() + "'); event.preventDefault()"),
                         loginMessage("Enter your username to log in"),
                         unclosedTag("input type='text' id='username'"),
                         unclosedTag("input type='submit' value='GO'")
                 ),
-                tag("div", hiddenUnless(state == LoginState.WAITING_FOR_VALIDATION) + "id='waiting'",
+                tag("div", hiddenUnless(model.state == LoginState.WAITING_FOR_VALIDATION) + "id='waiting'",
                         tag("div", "class='login-message'",
                                 HtmlFragment.escape("Hello "),
                                 nameElement,
@@ -68,7 +72,7 @@ public class LoginPage extends AbstractPage {
                         loginMessage("Please ask an administrator to let you in."),
                         loginMessage("Alternatively, if you're already logged in on another device, you can validate this token yourself from there"),
                         unclosedTag("input type='button' value='CANCEL' onclick="+ quote("logout('"+ api.logout() +"')"))),
-                tag("div", hiddenUnless(state == LoginState.LOGGED_IN) + "id='logged_in'",
+                tag("div", hiddenUnless(model.state == LoginState.LOGGED_IN) + "id='logged_in'",
                         loginMessage(
                                 HtmlFragment.escape("Hello "),
                                 nameElement,
