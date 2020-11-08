@@ -34,4 +34,8 @@ public class QueryRange {
         new QueryRange(0,
                 (limit == null) ? null : limit + offset);
     }
+
+    public QueryRange withLimit(int newLimit) {
+        return new QueryRange(this.offset, newLimit);
+    }
 }

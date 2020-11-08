@@ -3,6 +3,7 @@
  */
 package org.gamboni.cloudspill.server;
 
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
 import com.google.inject.Guice;
@@ -217,11 +218,16 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 		if (item == null) {
 			return notFound(id);
 		} else {
+			/* Only require the user to have access to the item if there are no other credentials. */
+			boolean checkUserAccess = Iterables.all(credentials, c -> c.getPower() == ItemCredentials.Power.USER);
 			try {
 				for (ItemCredentials c : credentials) {
-					verifyCredentials(c, item);
+					if (checkUserAccess || c.getPower() != ItemCredentials.Power.USER) {
+						verifyCredentials(c, item);
+					}
 				}
 			} catch (AccessDeniedException e) {
+				Log.error("Denied access to item "+ id +": "+ e.toString());
 				return forbidden(false);
 			}
 			return new OrHttpError<>(item);

@@ -1,7 +1,7 @@
 package org.gamboni.cloudspill.server;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
@@ -91,6 +91,18 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         }
     });
 
+    protected static class AbstractGalleryRequestModel {
+        final QueryRange range;
+        final Long relativeTo;
+        final boolean experimental;
+
+        public AbstractGalleryRequestModel(QueryRange range, Long relativeTo, boolean experimental) {
+            this.range = range;
+            this.relativeTo = relativeTo;
+            this.experimental = experimental;
+        }
+    }
+
     protected final void setupRoutes(BackendConfiguration configuration) {
         /* Access logging */
         before((req, res) -> {
@@ -130,46 +142,130 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         get(api.knownTags(), secured((req, res, domain, credentials) -> Lists.transform(tagList(domain),
                 this::toJsonString
         )));
-        get("/tag/:tag", secured((req, res, domain, credentials) -> galleryPage(configuration, req, res, domain, credentials,
-                    null, // TODO add sibling support
-                    ServerSearchCriteria.ALL.withTag(req.params("tag")),
-                    DumpFormat.WITH_TOTAL)));
 
-        get(api.dayListPage(":year"), secured((req, res, domain, credentials) ->
-            dayList(credentials, domain, Integer.parseInt(req.params("year")))
-                    .get(res, galleryListFunction(req, res, configuration, credentials))));
 
-        get("/day/:day", secured((req, res, domain, credentials) -> {
-            LocalDate day = LocalDate.parse(req.params("day"));
+        class TagGalleryRequestModel extends AbstractGalleryRequestModel {
+            final String tag;
 
-            return galleryPage(configuration, req, res, domain, credentials,
-                    null, // TODO add sibling support
-                    ServerSearchCriteria.ALL.at(day),
-                    DumpFormat.WITH_TOTAL);
-        }));
+            TagGalleryRequestModel(String tag, Long relativeTo, QueryRange range, boolean experimental) {
+                super(range, relativeTo, experimental);
+                this.tag = tag;
+            }
+        }
 
-        get(api.galleryListPage(new ItemCredentials.UserPassword()), secured((req, res, domain, credentials) ->
-                galleryListPage(res, configuration, domain, credentials, req)));
+        api.tagView(":tag", securedPage(
+                req -> {
+                    final QueryRange range = requestedRange(req);
+                    return new TagGalleryRequestModel(req.params("tag"),
+                            nullableLong(req.queryParams("relativeTo")),
+                            (isCsvRequested(req) || isJsonRequested(req)) ?
+                                    range : range.withLimit(GalleryPage.PAGE_SIZE),
+                            req.queryParamOrDefault("experimental", "").equals("true"));
+                },
+                (model, credentials, domain) -> {
+                    Java8SearchCriteria<BackendItem> offset = ServerSearchCriteria.ALL.withTag(model.tag)
+                            .relativeTo(model.relativeTo)
+                            .withRange(model.range);
 
-        get("/gallery/:part", secured((req, res, domain, credentials) -> {
-            return galleryPage(configuration, req, res, domain, credentials,
-                    null,
-                    loadGallery(domain, Long.parseLong(req.params("part"))),
-                    DumpFormat.GALLERY_DATA);
-        }));
+                    return getQueryLoader(domain, credentials)
+                            .load(offset)
+                            .map(itemSet ->
+                                    new GalleryPage.Model(credentials, offset, itemSet, model.experimental, /*TODO sibling support */null));
+                },
+                /* serialiser */
+                (data, ct) -> dump(data, ct, DumpFormat.WITH_TOTAL),
+                /* renderer */
+                new GalleryPage(configuration)));
 
-        get(api.galleryListPage(publicAccess), (req, res) -> transacted(domain -> {
-            return galleryListPage(res, configuration, domain, publicAccess, req);
-        }));
+        /* Request Model: just the year as an int */
+        final Serialiser<GalleryListPage.Model> galleryListSerialiser = (data, ct) -> {
+            Preconditions.checkArgument(ct == ContentType.CSV, "Content type " + ct + " not supported");
+            return dumpCsv(data.elements.stream(), GalleryListPage.Element.CSV) + "\n" + "Title:" + data.title;
+        };
+        api.yearView(":year", securedPage(
+                req -> Integer.parseInt(req.params("year")),
+                (model, credentials, domain) -> dayList(credentials, domain, model),
+                galleryListSerialiser,
+                    new GalleryListPage(configuration)));
 
-        get(api.galleryPart(":part", null, QueryRange.ALL), (req, res) -> transacted(domain -> {
-            final long partId = Long.parseLong(req.params("part"));
-            return galleryPage(configuration, req, res, domain,
-                    publicAccess,
-                    partId,
-                    loadGallery(domain, partId),
-                    DumpFormat.GALLERY_DATA);
-        }));
+        class DayGalleryRequestModel extends AbstractGalleryRequestModel {
+            final LocalDate day;
+
+            DayGalleryRequestModel(LocalDate day, QueryRange range, Long relativeTo, boolean experimental) {
+                super(range, relativeTo, experimental);
+                this.day = day;
+            }
+        }
+        api.dayView(":day", securedPage(
+                req -> {
+                    final QueryRange range = requestedRange(req);
+                    return new DayGalleryRequestModel(LocalDate.parse(req.params("day")),
+                            (isCsvRequested(req) || isJsonRequested(req)) ?
+                                                        range : range.withLimit(GalleryPage.PAGE_SIZE),
+                            nullableLong(req.queryParams("relativeTo")),
+                                                req.queryParamOrDefault("experimental", "").equals("true"));
+                },
+                (model, credentials, domain) -> {
+                    Java8SearchCriteria<BackendItem> offset = ServerSearchCriteria.ALL.at(model.day)
+                            .relativeTo(model.relativeTo)
+                            .withRange(model.range);
+
+                    return getQueryLoader(domain, credentials)
+                            .load(offset)
+                            .map(itemSet ->
+                                    new GalleryPage.Model(credentials, offset, itemSet, model.experimental, /*TODO sibling support */null));
+                },
+                /* serialiser */
+                (data, ct) -> dump(data, ct, DumpFormat.WITH_TOTAL),
+                /* renderer */
+                new GalleryPage(configuration)));
+
+        api.galleryListView(new ItemCredentials.UserPassword(), securedPage(
+                req -> null, // nothing in request model
+                (model, credentials, domain) -> galleryList(credentials, domain),
+                galleryListSerialiser,
+                new GalleryListPage(configuration)));
+
+        api.galleryListView(publicAccess, securedPage(
+                req -> null, // nothing in request model
+                (model, credentials, domain) -> galleryList(credentials, domain),
+                galleryListSerialiser,
+                new GalleryListPage(configuration)));
+
+        class GalleryRequestModel extends AbstractGalleryRequestModel {
+            final long partId;
+            GalleryRequestModel(long partId, QueryRange range, Long relativeTo, boolean experimental) {
+                super(range, relativeTo, experimental);
+                this.partId = partId;
+            }
+        }
+        api.galleryPart(":part", null, QueryRange.ALL, page(
+                /* request parser */
+                req -> {
+                    final QueryRange range = requestedRange(req);
+                    return new GalleryRequestModel(
+                            Long.parseLong(req.params("part")),
+                            (isCsvRequested(req) || isJsonRequested(req)) ?
+                                    range : range.withLimit(GalleryPage.PAGE_SIZE),
+                            nullableLong(req.queryParams("relativeTo")),
+                            req.queryParamOrDefault("experimental", "").equals("true"));
+                },
+                /* executor */
+                (model, credentials, domain) -> {
+                    Java8SearchCriteria<BackendItem> offset = loadGallery(domain, model.partId)
+                            .relativeTo(model.relativeTo)
+                            .withRange(model.range);
+
+                    return getQueryLoader(domain, credentials)
+                            .load(offset)
+                            .map(itemSet ->
+                                    new GalleryPage.Model(credentials, offset, itemSet, model.experimental, model.partId));
+                },
+                /* serialiser */
+                (data, ct) -> dump(data, ct, DumpFormat.GALLERY_DATA),
+                /* renderer */
+                new GalleryPage(configuration)
+        ));
 
         get("/public/gallery/:part/:id", securedItem(ItemCredentials.AuthenticationStatus.ANONYMOUS, (req, res, session, credentials, item) -> {
             final long partId = Long.parseLong(req.params("part"));
@@ -177,15 +273,32 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                     .get(res).toString();
         }));
 
-        final Route publicRoute = (req, res) -> transacted(session -> {
-            return galleryPage(configuration, req, res, session,
-                    publicAccess,
-                    null,
-                    ServerSearchCriteria.ALL.withTag("public"),
-                    DumpFormat.WITH_TOTAL);
-        });
-        get("/public", publicRoute);
-        get("/public/", publicRoute);
+        final Route publicPage = page(
+                req -> {
+                    final QueryRange range = requestedRange(req);
+                    return new AbstractGalleryRequestModel(
+                            (isCsvRequested(req) || isJsonRequested(req)) ?
+                                    range : range.withLimit(GalleryPage.PAGE_SIZE),
+                            nullableLong(req.queryParams("relativeTo")),
+                            req.queryParamOrDefault("experimental", "").equals("true"));
+                },
+                (model, credentials, domain) -> {
+                    Java8SearchCriteria<BackendItem> offset = ServerSearchCriteria.ALL.withTag("public")
+                            .relativeTo(model.relativeTo)
+                            .withRange(model.range);
+
+                    return getQueryLoader(domain, credentials)
+                            .load(offset)
+                            .map(itemSet ->
+                                    new GalleryPage.Model(credentials, offset, itemSet, model.experimental, /*TODO sibling support */null));
+                },
+                /* serialiser */
+                (data, ct) -> dump(data, ct, DumpFormat.WITH_TOTAL),
+                /* renderer */
+                new GalleryPage(configuration));
+
+        get("/public", publicPage);
+        get("/public/", publicPage);
 
         /* Download a file */
         get("/item/:id", securedItem(ItemCredentials.AuthenticationStatus.LOGGED_IN, (req, res, session, credentials, item) -> {
@@ -211,16 +324,21 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
         /* Get list of items whose id is larger than the given one. */
         get("item/since/:id", secured((req, res, domain, credentials) -> {
-            return dump(req, res, domain, ServerSearchCriteria.ALL.withIdAtLeast(Long.parseLong(req.params("id"))), credentials,
-                    DumpFormat.WITH_TOTAL);
+            ContentType ct = isJsonRequested(req)? ContentType.JSON : ContentType.CSV;
+            res.type(ct.mime);
+            return dump(domain, ServerSearchCriteria.ALL.withIdAtLeast(Long.parseLong(req.params("id"))), credentials, ct,
+                    DumpFormat.WITH_TOTAL).get(res);
         }));
 
         /* Get list of items updated at or later than the given timestamp. */
         get(api.getItemsSinceUrl(":date"), secured((req, res, domain, credentials) -> {
-            return dump(req, res, domain,
+            ContentType ct = isJsonRequested(req)? ContentType.JSON : ContentType.CSV;
+            res.type(ct.mime);
+            return dump(domain,
                     ServerSearchCriteria.ALL.modifiedSince(Instant.ofEpochMilli(Long.parseLong(req.params("date")))),
                     credentials,
-                DumpFormat.WITH_TIMESTAMP);
+                ct,
+                DumpFormat.WITH_TIMESTAMP).get(res);
         }));
 
         /* Add the tags specified in body to the given item. */
@@ -428,6 +546,11 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         }));
     }
 
+    private Long nullableLong(String string) {
+        return string == null ? null :
+                Long.parseLong(string);
+    }
+
     private String toJsonString(String string) {
         return "\""+ string.replace("\\", "\\\\").replace("\"", "\\\"") +"\"";
     }
@@ -509,28 +632,6 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         });
     }
 
-    private Object galleryPage(BackendConfiguration configuration, Request req, Response res, D domain, ItemCredentials credentials,
-                               Long partId, Java8SearchCriteria<BackendItem> allItems,
-                               DumpFormat format) throws Exception {
-        String relativeToString = req.queryParams("relativeTo");
-        final Java8SearchCriteria<BackendItem> offset = allItems
-                .relativeTo(relativeToString == null ? null : Long.parseLong(relativeToString))
-                .withRange(new QueryRange(
-                        Integer.parseInt(req.queryParamOrDefault("offset", "0")),
-                        (isCsvRequested(req) || isJsonRequested(req)) ? requestedLimit(req) : Integer.valueOf(GalleryPage.PAGE_SIZE)));
-
-        return getQueryLoader(domain, credentials)
-                .load(offset)
-                .get(res, itemSet -> {
-                    final GalleryPage.Model model = new GalleryPage.Model(credentials, offset, itemSet, req.queryParamOrDefault("experimental", "").equals("true"), partId);
-                    if (isCsvRequested(req) || isJsonRequested(req)) {
-                return dump(req, res, model, format);
-            } else {
-                return new GalleryPage(configuration).render(model).toString();
-            }
-        });
-    }
-
     private OrHttpError<?> itemPage(BackendConfiguration configuration, Request req, Response res, D session, ItemCredentials credentials, BackendItem item,
                             Long partId) throws IOException {
         if (req.params("id").endsWith(ID_HTML_SUFFIX)) {
@@ -557,7 +658,9 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         } else {
             if (isCsvRequested(req) || isJsonRequested(req)) {
                 GalleryPage.Model model = new GalleryPage.Model(credentials, null, ItemSet.of(item), false, null);
-                return new OrHttpError<>(dump(req, res, model, DumpFormat.WITH_TOTAL));
+                ContentType ct = isCsvRequested(req) ? ContentType.CSV : ContentType.JSON;
+                res.type(ct.mime);
+                return new OrHttpError<>(dump(model, ct, DumpFormat.WITH_TOTAL));
             } else {
                 download(res, session, credentials, item);
                 return new OrHttpError<>(String.valueOf(res.status()));
@@ -565,19 +668,11 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         }
     }
 
-    private boolean isCsvRequested(Request req) {
-        final String acceptHeader = req.headers("Accept");
-        return acceptHeader != null && acceptHeader.equals("text/csv");
-    }
-
-    private boolean isJsonRequested(Request req) {
-        final String acceptHeader = req.headers("Accept");
-        return acceptHeader != null && acceptHeader.equals("application/json");
-    }
-
-    private Integer requestedLimit(Request req) {
-        String string = req.queryParams("limit");
-        return (string == null) ? null : Integer.valueOf(string);
+    private QueryRange requestedRange(Request req) {
+        int offset = Integer.parseInt(req.queryParamOrDefault("offset", "0"));
+        String limit = req.queryParams("limit");
+        return (limit == null) ? QueryRange.offset(offset) :
+                new QueryRange(offset, Integer.valueOf(limit));
     }
 
     /** Work around what looks like Whatsapp bug: even though url encodes correctly + as %2B,
@@ -616,8 +711,8 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                     });
 
             return credentialsOrError.get(res, credentials -> {
-            /* Either we have a key, or user must be authenticated. */
-            final long id = Long.parseLong(idParam);
+                /* Either we have a key, or user must be authenticated. */
+                final long id = Long.parseLong(idParam);
 
                 final Optional<ItemCredentials> mostPowerful = credentials.stream().max(Comparator.comparing(ItemCredentials::getPower));
 
@@ -626,7 +721,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                 }
 
                 return loadItem(session, id, credentials)
-                    .get(res, item -> task.handle(req, res, session, mostPowerful.get(), item));
+                        .get(res, item -> task.handle(req, res, session, mostPowerful.get(), item));
             });
         });
     }
@@ -776,12 +871,12 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         }
     }
 
-    private Object dump(Request req, Response res, D domain, ServerSearchCriteria criteria, ItemCredentials credentials, DumpFormat dumpFormat) throws Exception {
-        return getQueryLoader(domain, credentials).load(criteria).get(res, set -> dump(req, res,
-                new GalleryPage.Model(credentials, criteria, set, false, null), dumpFormat));
+    private OrHttpError<String> dump(D domain, ServerSearchCriteria criteria, ItemCredentials credentials, ContentType ct, DumpFormat dumpFormat) throws Exception {
+        return getQueryLoader(domain, credentials).load(criteria).map(set -> dump(
+                new GalleryPage.Model(credentials, criteria, set, false, null), ct, dumpFormat));
     }
 
-    private String dump(Request req, Response res, GalleryPage.Model model, DumpFormat dumpFormat) {
+    private String dump(GalleryPage.Model model, ContentType ct, DumpFormat dumpFormat) {
 
         Instant[] timestamp = new Instant[]{Instant.EPOCH};
         final Stream<? extends BackendItem> stream = model.itemSet.rows.stream()
@@ -790,21 +885,20 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                         timestamp[0] = item.getUpdated();
                     }
                 });
-        if (isJsonRequested(req)) {
-            final JsonArray data = dumpJson(res, stream, BackendItem.CSV);
+        if (ct == ContentType.CSV) {
+            final JsonArray data = dumpJson(stream, BackendItem.CSV);
             JsonObject object = new JsonObject();
             object.add("data", data);
             // galleries do not yet support metadata in forwarder, so disabling that for now
             //return dumpFormat.dumpMetadata(criteria, itemSet, timestamp[0], new JsonMetadataRepresentation(object)).toString();
             return object.toString();
         } else { // csv
-            final StringBuilder data = dumpCsv(res, stream, BackendItem.CSV);
+            final StringBuilder data = dumpCsv(stream, BackendItem.CSV);
             return dumpFormat.dumpMetadata(model.criteria, model.itemSet, timestamp[0], new OnePerLineMetadataRepresentation(data)).toString();
         }
     }
 
-    private <T> StringBuilder dumpCsv(Response res, Stream<? extends T> stream, Csv<T> csv) {
-        res.type("text/csv; charset=UTF-8");
+    private <T> StringBuilder dumpCsv(Stream<? extends T> stream, Csv<T> csv) {
         StringBuilder result = new StringBuilder(csv.header() + "\n");
         stream.forEach(item -> {
             result.append(csv.serialise(item)).append("\n");
@@ -812,8 +906,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         return result;
     }
 
-    private <T> JsonArray dumpJson(Response res, Stream<? extends T> stream, Csv<T> csv) {
-        res.type("application/json; charset=UTF-8");
+    private <T> JsonArray dumpJson(Stream<? extends T> stream, Csv<T> csv) {
         JsonArray result = new JsonArray();
         stream.forEach(item -> {
             JsonObject row = new JsonObject();
@@ -851,7 +944,8 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         return data -> {
                     if (isCsvRequested(req)) {
                         // TODO: escape \ and \n in title
-                        return dumpCsv(res, data.elements.stream(), GalleryListPage.Element.CSV) + "\n" + "Title:" + data.title;
+                        res.type(ContentType.CSV.mime);
+                        return dumpCsv(data.elements.stream(), GalleryListPage.Element.CSV) + "\n" + "Title:" + data.title;
                     } else {
                         return new GalleryListPage(configuration).render(data).toString();
                     }

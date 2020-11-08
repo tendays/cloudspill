@@ -63,7 +63,32 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 	}
 
 	protected interface QueryExecutor<I, S, O> {
-		O execute(I input, ItemCredentials credentials, S session);
+		OrHttpError<O> execute(I input, ItemCredentials credentials, S session);
+	}
+
+	public enum ContentType {
+		// TODO res.type(mime)
+		JSON("application/json; charset=UTF-8"),
+		CSV("text/csv; charset=UTF-8");
+		public final String mime;
+
+		ContentType(String mime) {
+			this.mime = mime;
+		}
+	}
+
+	protected interface Serialiser<O> {
+		String serialise(O object, ContentType ct);
+	}
+
+	protected boolean isCsvRequested(Request req) {
+		final String acceptHeader = req.headers("Accept");
+		return acceptHeader != null && acceptHeader.equals("text/csv");
+	}
+
+	protected boolean isJsonRequested(Request req) {
+		final String acceptHeader = req.headers("Accept");
+		return acceptHeader != null && acceptHeader.equals("application/json");
 	}
 
 	/** Proposed common abstraction to use for all pages.
@@ -79,14 +104,41 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 	 * @param <O> view model type
 	 * @return a Route suitable for passing to a callback-style method in CloudSpillApi
 	 */
-	protected <I, O extends OutputModel> Route page(Function<Request, I> parser, QueryExecutor<I, S, O> executor, AbstractRenderer<O> formatter) {
-		return (req, res) -> transacted(session -> {
-			I input = parser.apply(req); // TODO badRequest if exception
-			return optionalAuthenticate(req, session).map(credentials -> {
-				O model = executor.execute(input, credentials, session);
-				return formatter.render(model).toString();
-			}).get(res);
-		});
+	protected <I, O extends OutputModel> Route page(Function<Request, I> parser, QueryExecutor<I, S, O> executor, Serialiser<O> serialiser, AbstractRenderer<O> formatter) {
+
+		return (req, res) -> transacted(session -> optionalAuthenticate(req, session)
+						.flatMap(credentials ->
+		pageBody(parser, executor, serialiser, formatter, req, res, session, credentials))
+						.get(res));
+	}
+
+	protected <I, O extends OutputModel> Route securedPage(Function<Request, I> parser, QueryExecutor<I, S, O> executor, Serialiser<O> serialiser, AbstractRenderer<O> formatter) {
+		return secured((req, res, session, user) ->
+				pageBody(parser, executor, serialiser, formatter, req, res, session, user));
+	}
+
+	private <I, O extends OutputModel> OrHttpError<String> pageBody(Function<Request, I> parser, QueryExecutor<I, S, O> executor, Serialiser<O> serialiser, AbstractRenderer<O> formatter, Request req, Response res, S session, ItemCredentials.UserCredentials credentials) {
+		I input;
+		try {
+			input = parser.apply(req);
+		} catch (Throwable t) {
+			Log.error("Error parsing request", t);
+			return badRequest();
+		}
+		return executor.execute(input, credentials, session)
+				.map(model -> {
+					if (isCsvRequested(req)) {
+						ContentType ct = ContentType.CSV;
+						res.type(ct.mime);
+						return serialiser.serialise(model, ct);
+					} else if (isJsonRequested(req)) {
+						ContentType ct = ContentType.JSON;
+						res.type(ct.mime);
+						return serialiser.serialise(model, ct);
+					} else {
+						return formatter.render(model).toString();
+					}
+				});
 	}
 
 	protected Route secured(SecuredBody<S> task) {

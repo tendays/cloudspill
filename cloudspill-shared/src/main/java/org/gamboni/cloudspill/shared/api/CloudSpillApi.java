@@ -173,12 +173,28 @@ public class CloudSpillApi<T> {
         return serverUrl + credentials.getUrlPrefix() + "gallery/";
     }
 
-    public String dayListPage(Object year) {
-        return serverUrl + "year/"+ year;
+    public void galleryListView(ItemCredentials credentials, T consumer) {
+        matcher.match(ApiElementMatcher.HttpMethod.GET, galleryListPage(credentials), consumer);
+    }
+
+    public void tagView(String tag, T consumer) {
+        matcher.match(ApiElementMatcher.HttpMethod.GET, serverUrl +"tag/"+ tag, consumer);
+    }
+
+    public void dayView(Object day, T consumer) {
+        matcher.match(ApiElementMatcher.HttpMethod.GET, serverUrl +"day/"+ day, consumer);
+    }
+
+    public void yearView(Object year, T consumer) {
+        matcher.match(ApiElementMatcher.HttpMethod.GET, serverUrl +"year/"+ year, consumer);
     }
 
     public String galleryPart(Object id, Long relativeTo, QueryRange range) {
         return sliceParameters(new StringBuilder(serverUrl + "public/gallery/"+ id), relativeTo, range);
+    }
+
+    public void galleryPart(Object id, Long relativeTo, QueryRange range, T consumer) {
+        matcher.match(ApiElementMatcher.HttpMethod.GET, galleryPart(id, relativeTo, range), consumer);
     }
 
     public String login() {

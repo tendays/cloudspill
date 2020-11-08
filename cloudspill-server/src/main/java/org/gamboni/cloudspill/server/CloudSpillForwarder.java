@@ -297,42 +297,68 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
         try {
             final URLConnection connection = new URL(url).openConnection();
             credentials.forEach(c -> c.setHeaders(connection, BASE_64_ENCODER));
-            connection.setRequestProperty("Accept", "text/csv");
-            try (Reader reader = new InputStreamReader(connection.getInputStream())) {
-                final int responseCode = ((HttpURLConnection) connection).getResponseCode();
-                if (responseCode < 200 || responseCode >= 300) {
-                    return passHttpError(reader, responseCode);
-                }
-
-                LineNumberReader lineReader = new LineNumberReader(reader);
-                String headerLine = lineReader.readLine();
-                if (headerLine == null) {
-                    Log.warn("Missing header line from remote server");
-                    return internalServerError();
-                }
-                final Csv.Extractor<? super T> extractor = csv.extractor(headerLine);
-                String line;
-                List<T> result = new ArrayList<>();
-                while ((line = lineReader.readLine()) != null && !line.isEmpty()) {
-                    result.add(extractor.deserialise(factory.get(), line));
-                }
-                return new OrHttpError<>(extra.buildResult(result, lineReader));
-            }
+            return deserialiseStream(connection, csv, factory, extra);
         } catch (IOException e) {
             Log.warn("Error communicating with remote server", e);
             return gatewayTimeout();
         }
     }
 
-    private <R> OrHttpError<R> passHttpError(Reader reader, int responseCode) {
-        return new OrHttpError<>(res -> {
-            try {
-                String responseString = CharStreams.toString(reader);
-                res.status(responseCode);
-                return "Remote Server answered: " + responseString;
-            } catch (IOException e) {
-                return gatewayTimeout(res);
+    private <T, R> OrHttpError<R> deserialiseStream(URLConnection connection, Csv<? super T> csv, Supplier<T> factory, ExtraDataReader<T, R> extra) {
+        connection.setRequestProperty("Accept", "text/csv");
+        try (Reader reader = new InputStreamReader(connection.getInputStream())) {
+            final int responseCode = ((HttpURLConnection) connection).getResponseCode();
+            if (responseCode < 200 || responseCode >= 300) {
+                return passHttpError(reader, responseCode);
             }
+
+            LineNumberReader lineReader = new LineNumberReader(reader);
+            String headerLine = lineReader.readLine();
+            if (headerLine == null) {
+                Log.warn("Missing header line from remote server");
+                return internalServerError();
+            }
+            final Csv.Extractor<? super T> extractor = csv.extractor(headerLine);
+            String line;
+            List<T> result = new ArrayList<>();
+            while ((line = lineReader.readLine()) != null && !line.isEmpty()) {
+                result.add(extractor.deserialise(factory.get(), line));
+            }
+            return new OrHttpError<>(extra.buildResult(result, lineReader));
+        } catch (IOException e) {
+            return handleRemoteIOException((HttpURLConnection) connection, e);
+        }
+    }
+
+    private <R> OrHttpError<R> handleRemoteIOException(HttpURLConnection connection, IOException e) {
+        Log.warn("Error communicating with remote server", e);
+        int responseCode = 0;
+        String responseMessage = "";
+        try {
+            responseCode = connection.getResponseCode();
+            responseMessage = connection.getResponseMessage();
+        } catch (IOException whatever) {}
+        if ((responseCode > 0 && responseCode < 200) || responseCode >= 300) {
+            return passHttpError(responseCode + " "+ responseMessage, responseCode);
+        }
+        return gatewayTimeout();
+    }
+
+    private <R> OrHttpError<R> passHttpError(Reader reader, int responseCode) {
+        String responseString = String.valueOf(responseCode);
+        try {
+            responseString = CharStreams.toString(reader);
+        } catch (IOException e) {
+            /* ignore */
+        }
+
+        return passHttpError(responseString, responseCode);
+    }
+
+    private <R> OrHttpError<R> passHttpError(String responseString, int responseCode) {
+        return new OrHttpError<>(res -> {
+            res.status(responseCode);
+            return /*"Remote Server answered: " + */ responseString;
         });
     }
 
@@ -479,8 +505,15 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
 
     @Override
     protected OrHttpError<String> ping(ForwarderDomain session, ItemCredentials.UserCredentials credentials) {
+        final HttpURLConnection connection;
         try {
-            final URLConnection connection = new URL(remoteApi.ping()).openConnection();
+            connection = (HttpURLConnection)new URL(remoteApi.ping()).openConnection();
+        } catch (IOException e) {
+            Log.warn("Error communicating with remote server", e);
+            return gatewayTimeout();
+        }
+
+        try {
             credentials.setHeaders(connection, Base64.getEncoder()::encodeToString);
             try (Reader reader = new InputStreamReader(connection.getInputStream())) {
                 final int responseCode = ((HttpURLConnection) connection).getResponseCode();
@@ -524,8 +557,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
                 return new OrHttpError<>(info);
             }
         } catch (IOException e) {
-            Log.error(e.toString());
-            return gatewayTimeout();
+            return handleRemoteIOException(connection, e);
         }
     }
 
@@ -541,7 +573,9 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
 
     @Override
     protected OrHttpError<GalleryListPage.Model> galleryList(ItemCredentials credentials, ForwarderDomain domain) {
-        return deserialiseGalleryList(credentials, remoteApi.galleryListPage(credentials));
+        ResponseHandlers.ResponseHandlerWithResult<OrHttpError<GalleryListPage.Model>> handler = deserialiseGalleryList(credentials);
+        remoteApi.galleryListView(credentials, ResponseHandlers.withCredentials(credentials, BASE_64_ENCODER, handler));
+        return handler.getResult();
     }
 
     @Override
@@ -552,13 +586,14 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
 
     @Override
     protected OrHttpError<GalleryListPage.Model> dayList(ItemCredentials credentials, ForwarderDomain domain, int year) {
-        return deserialiseGalleryList(credentials, remoteApi.dayListPage(year));
+        ResponseHandlers.ResponseHandlerWithResult<OrHttpError<GalleryListPage.Model>> handler = deserialiseGalleryList(credentials);
+        remoteApi.yearView(year, ResponseHandlers.withCredentials(credentials, BASE_64_ENCODER, handler));
+        return handler.getResult();
     }
 
-    private OrHttpError<GalleryListPage.Model> deserialiseGalleryList(ItemCredentials credentials, String url) {
-        return deserialiseStream(
-                url,
-                ImmutableList.of(credentials),
+    private ResponseHandlers.ResponseHandlerWithResult<OrHttpError<GalleryListPage.Model>> deserialiseGalleryList(ItemCredentials credentials) {
+        return new ResponseHandlers.ResponseHandlerWithResult<>(connection -> deserialiseStream(
+                connection,
                 GalleryListPage.Element.CSV,
                 GalleryListPage.Element::new,
                 (elements, reader) -> {
@@ -568,7 +603,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
                             (titleLine != null && titleLine.startsWith("Title:")) ?
                                     titleLine.substring("Title:".length()) : "",
                             elements);
-                });
+                }));
     }
 
     @Override
