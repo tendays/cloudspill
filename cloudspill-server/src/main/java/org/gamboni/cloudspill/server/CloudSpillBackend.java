@@ -885,7 +885,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                         timestamp[0] = item.getUpdated();
                     }
                 });
-        if (ct == ContentType.CSV) {
+        if (ct == ContentType.JSON) {
             final JsonArray data = dumpJson(stream, BackendItem.CSV);
             JsonObject object = new JsonObject();
             object.add("data", data);
