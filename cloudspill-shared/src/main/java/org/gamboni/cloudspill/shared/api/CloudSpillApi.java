@@ -173,6 +173,10 @@ public class CloudSpillApi<T> {
         return serverUrl + credentials.getUrlPrefix() + "gallery/";
     }
 
+    public void rootView(T consumer) {
+        matcher.match(ApiElementMatcher.HttpMethod.GET, serverUrl, consumer);
+    }
+
     public void galleryListView(ItemCredentials credentials, T consumer) {
         matcher.match(ApiElementMatcher.HttpMethod.GET, galleryListPage(credentials), consumer);
     }

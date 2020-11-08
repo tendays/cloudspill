@@ -218,14 +218,8 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 		if (item == null) {
 			return notFound(id);
 		} else {
-			/* Only require the user to have access to the item if there are no other credentials. */
-			boolean checkUserAccess = Iterables.all(credentials, c -> c.getPower() == ItemCredentials.Power.USER);
 			try {
-				for (ItemCredentials c : credentials) {
-					if (checkUserAccess || c.getPower() != ItemCredentials.Power.USER) {
-						verifyCredentials(c, item);
-					}
-				}
+				verifyCredentials(credentials, item);
 			} catch (AccessDeniedException e) {
 				Log.error("Denied access to item "+ id +": "+ e.toString());
 				return forbidden(false);

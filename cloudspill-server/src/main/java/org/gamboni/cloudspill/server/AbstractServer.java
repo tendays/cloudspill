@@ -114,7 +114,7 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 
 	protected <I, O extends OutputModel> Route securedPage(Function<Request, I> parser, QueryExecutor<I, S, O> executor, Serialiser<O> serialiser, AbstractRenderer<O> formatter) {
 		return secured((req, res, session, user) ->
-				pageBody(parser, executor, serialiser, formatter, req, res, session, user));
+				pageBody(parser, executor, serialiser, formatter, req, res, session, user).get(res));
 	}
 
 	private <I, O extends OutputModel> OrHttpError<String> pageBody(Function<Request, I> parser, QueryExecutor<I, S, O> executor, Serialiser<O> serialiser, AbstractRenderer<O> formatter, Request req, Response res, S session, ItemCredentials credentials) {

@@ -10,6 +10,7 @@ import com.google.gson.JsonObject;
 
 import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
+import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.domain.UserAuthToken;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
@@ -228,7 +229,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
         api.galleryListView(publicAccess, securedPage(
                 req -> null, // nothing in request model
-                (model, credentials, domain) -> galleryList(credentials, domain),
+                (model, credentials, domain) -> galleryList(publicAccess, domain),
                 galleryListSerialiser,
                 new GalleryListPage(configuration)));
 
@@ -573,6 +574,16 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
     protected abstract OrHttpError<List<UserAuthToken>> listInvalidTokens(D session, ItemCredentials.UserCredentials user);
 
     protected abstract OrHttpError<ItemCredentials.UserToken> newToken(String username, String userAgent, String client);
+
+    protected void verifyCredentials(List<ItemCredentials> credentials, IsItem item) throws AccessDeniedException {
+        /* Only require the user to have access to the item if there are no other credentials. */
+        boolean checkUserAccess = Iterables.all(credentials, c -> c.getPower() == ItemCredentials.Power.USER);
+        for (ItemCredentials c : credentials) {
+            if (checkUserAccess || c.getPower() != ItemCredentials.Power.USER) {
+                verifyCredentials(c, item);
+            }
+        }
+    }
 
     protected void verifyCredentials(ItemCredentials credentials, IsItem item) throws AccessDeniedException {
         credentials.match(new ItemCredentials.Matcher<AccessDeniedException>() {
@@ -939,27 +950,6 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
     protected abstract ItemQueryLoader getQueryLoader(D session, ItemCredentials credentials);
 
     protected abstract Java8SearchCriteria<BackendItem> loadGallery(D session, long partId);
-
-    private OrHttpError.ItemConsumer<GalleryListPage.Model> galleryListFunction(Request req, Response res, BackendConfiguration configuration, ItemCredentials credentials) {
-        return data -> {
-                    if (isCsvRequested(req)) {
-                        // TODO: escape \ and \n in title
-                        res.type(ContentType.CSV.mime);
-                        return dumpCsv(data.elements.stream(), GalleryListPage.Element.CSV) + "\n" + "Title:" + data.title;
-                    } else {
-                        return new GalleryListPage(configuration).render(data).toString();
-                    }
-                };
-    }
-
-    private Object galleryListPage(Response res, BackendConfiguration configuration, D domain, ItemCredentials credentials, Request req) throws Exception {
-        try {
-            return galleryList(credentials, domain).get(res, galleryListFunction(req, res, configuration, credentials));
-        } catch (Throwable e) {
-            e.printStackTrace();
-            throw e;
-        }
-    }
 
     protected interface SecuredItemBody<D extends CloudSpillEntityManagerDomain> {
         Object handle(Request request, Response response, D session, ItemCredentials credentials, BackendItem item) throws Exception;

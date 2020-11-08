@@ -278,9 +278,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
                     });
         } else {
             try {
-                for (ItemCredentials c : credentials) {
-                    verifyCredentials(c, item);
-                }
+                verifyCredentials(credentials, item);
             } catch (AccessDeniedException e) {
                 return forbidden(false);
             }
