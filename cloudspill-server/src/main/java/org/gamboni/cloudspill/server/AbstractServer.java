@@ -108,7 +108,7 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 
 		return (req, res) -> transacted(session -> optionalAuthenticate(req, session)
 						.flatMap(credentials ->
-		pageBody(parser, executor, serialiser, formatter, req, res, session, credentials))
+		pageBody(parser, executor, serialiser, formatter, req, res, session, MoreObjects.firstNonNull(credentials, new ItemCredentials.PublicAccess())))
 						.get(res));
 	}
 
@@ -117,7 +117,7 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 				pageBody(parser, executor, serialiser, formatter, req, res, session, user));
 	}
 
-	private <I, O extends OutputModel> OrHttpError<String> pageBody(Function<Request, I> parser, QueryExecutor<I, S, O> executor, Serialiser<O> serialiser, AbstractRenderer<O> formatter, Request req, Response res, S session, ItemCredentials.UserCredentials credentials) {
+	private <I, O extends OutputModel> OrHttpError<String> pageBody(Function<Request, I> parser, QueryExecutor<I, S, O> executor, Serialiser<O> serialiser, AbstractRenderer<O> formatter, Request req, Response res, S session, ItemCredentials credentials) {
 		I input;
 		try {
 			input = parser.apply(req);
