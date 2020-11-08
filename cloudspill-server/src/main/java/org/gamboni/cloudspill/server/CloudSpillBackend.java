@@ -227,7 +227,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                 galleryListSerialiser,
                 new GalleryListPage(configuration)));
 
-        api.galleryListView(publicAccess, securedPage(
+        api.galleryListView(publicAccess, page(
                 req -> null, // nothing in request model
                 (model, credentials, domain) -> galleryList(publicAccess, domain),
                 galleryListSerialiser,
