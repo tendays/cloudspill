@@ -53,6 +53,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -220,6 +221,11 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                 (data, ct) -> dump(data, ct, DumpFormat.WITH_TOTAL),
                 /* renderer */
                 new GalleryPage(configuration)));
+        get("/day/:day/:id", securedItem(ItemCredentials.AuthenticationStatus.LOGGED_IN, (req, res, session, credentials, item) -> {
+            final LocalDate day = LocalDate.parse(req.params("day"));
+            return itemPage(configuration, req, res, session, credentials, item, () -> ServerSearchCriteria.ALL.at(day))
+                    .get(res).toString();
+        }));
 
         api.galleryListView(new ItemCredentials.UserPassword(), securedPage(
                 req -> null, // nothing in request model
@@ -270,7 +276,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
         get("/public/gallery/:part/:id", securedItem(ItemCredentials.AuthenticationStatus.ANONYMOUS, (req, res, session, credentials, item) -> {
             final long partId = Long.parseLong(req.params("part"));
-            return itemPage(configuration, req, res, session, credentials, item, partId)
+            return itemPage(configuration, req, res, session, credentials, item, () -> loadGallery(session, partId))
                     .get(res).toString();
         }));
 
@@ -644,22 +650,22 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
     }
 
     private OrHttpError<?> itemPage(BackendConfiguration configuration, Request req, Response res, D session, ItemCredentials credentials, BackendItem item,
-                            Long partId) throws IOException {
+                            Supplier<Java8SearchCriteria<BackendItem>> gallerySupplier) throws IOException {
         if (req.params("id").endsWith(ID_HTML_SUFFIX)) {
             User user = session.get(User.class, item.getUser());
             ImagePage renderer = new ImagePage(configuration);
             OrHttpError<ImagePage.Model> model;
-            if (partId == null) {
+            if (gallerySupplier == null) {
                 model = new OrHttpError<>(new ImagePage.Model(item, null, null, null, user, credentials));
             } else {
-                final Java8SearchCriteria<BackendItem> gallery = loadGallery(session, partId);
+                final Java8SearchCriteria<BackendItem> gallery = gallerySupplier.get();
                 model = this.getQueryLoader(session, credentials).load(gallery
                         .withRange(new QueryRange(-1, 3))
                         .relativeTo(item.getServerId()))
                         .map(neighbours -> {
                             int index = Iterables.indexOf(neighbours.rows, n -> n.getServerId().equals(item.getServerId()));
                             return new ImagePage.Model(item,
-                                    partId,
+                                    gallery,
                                     index > 0 ? neighbours.rows.get(index - 1) : null,
                                     index < neighbours.rows.size() - 1 ? neighbours.rows.get(index + 1) : null,
                                     user, credentials);

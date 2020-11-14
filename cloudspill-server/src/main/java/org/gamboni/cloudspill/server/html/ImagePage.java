@@ -10,6 +10,7 @@ import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
 import org.gamboni.cloudspill.server.html.js.EditorSubmissionJs;
+import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
@@ -32,13 +33,13 @@ public class ImagePage extends AbstractRenderer<ImagePage.Model> {
 	public static class Model extends OutputModel {
 		final BackendItem item, prev, next;
 		final User user;
-		final Long galleryPart;
+		final Java8SearchCriteria<BackendItem> gallery;
 
-		public Model(BackendItem item, Long galleryPart, BackendItem prev, BackendItem next, User user, ItemCredentials credentials) {
+		public Model(BackendItem item, Java8SearchCriteria<BackendItem> gallery , BackendItem prev, BackendItem next, User user, ItemCredentials credentials) {
 			super(credentials);
 			this.user = user;
 			this.item = item;
-			this.galleryPart = galleryPart;
+			this.gallery = gallery;
 			this.prev = prev;
 			this.next = next;
 		}
@@ -98,7 +99,7 @@ public class ImagePage extends AbstractRenderer<ImagePage.Model> {
 
 	private HtmlFragment neighbourLink(Model model, BackendItem item, String linkText, boolean right) {
 		return item == null ? HtmlFragment.EMPTY : tag("a",
-				"class="+ quote("siblink"+ (right? " right" : "")) +" href=" + quote(api.galleryPart(model.galleryPart, null, QueryRange.ALL) + "/" + item.getServerId() + api.ID_HTML_SUFFIX),
+				"class="+ quote("siblink"+ (right? " right" : "")) +" href=" + quote(model.gallery.getUrl(api) + "/" + item.getServerId() + api.ID_HTML_SUFFIX),
 				tag("div", linkText));
 	}
 
