@@ -4,7 +4,9 @@ import org.gamboni.cloudspill.shared.client.ResponseHandler;
 import org.gamboni.cloudspill.shared.client.ResponseHandlers;
 import org.gamboni.cloudspill.shared.domain.IsItem;
 import org.gamboni.cloudspill.shared.domain.Items;
+import org.gamboni.cloudspill.shared.query.GalleryRequest;
 import org.gamboni.cloudspill.shared.query.QueryRange;
+import org.gamboni.cloudspill.shared.query.SearchCriteria;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -263,11 +265,11 @@ public class CloudSpillApi<T> {
         return getImagePageUrl(item.getServerId(), null, credentialsForItem(item));
     }
 
-    public String getImagePageUrl(Object serverId, Object partId, ItemCredentials credentials) {
-        if (partId == null) {
+    public String getImagePageUrl(Object serverId, GalleryRequest criteria, ItemCredentials credentials) {
+        if (criteria == null) {
             return serverUrl + credentials.getUrlPrefix() + "item/" + serverId + ID_HTML_SUFFIX + credentials.getQueryString();
         } else {
-            return galleryPart(partId, null, QueryRange.ALL) +"/"+ serverId + ID_HTML_SUFFIX + credentials.getQueryString();
+            return criteria.withRange(QueryRange.ALL).getUrl(this) +"/"+ serverId + ID_HTML_SUFFIX + credentials.getQueryString();
         }
     }
 

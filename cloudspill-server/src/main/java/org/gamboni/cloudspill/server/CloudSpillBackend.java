@@ -172,12 +172,17 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                     return getQueryLoader(domain, credentials)
                             .load(offset)
                             .map(itemSet ->
-                                    new GalleryPage.Model(credentials, offset, itemSet, model.experimental, /*TODO sibling support */null));
+                                    new GalleryPage.Model(credentials, offset, itemSet, model.experimental));
                 },
                 /* serialiser */
                 (data, ct) -> dump(data, ct, DumpFormat.WITH_TOTAL),
                 /* renderer */
                 new GalleryPage(configuration)));
+        get("/tag/:tag/:id", securedItem(ItemCredentials.AuthenticationStatus.LOGGED_IN, (req, res, session, credentials, item) -> {
+            final String tag = req.params("tag");
+            return itemPage(configuration, req, res, session, credentials, item, () -> ServerSearchCriteria.ALL.withTag(tag))
+                    .get(res).toString();
+        }));
 
         /* Request Model: just the year as an int */
         final Serialiser<GalleryListPage.Model> galleryListSerialiser = (data, ct) -> {
@@ -215,7 +220,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                     return getQueryLoader(domain, credentials)
                             .load(offset)
                             .map(itemSet ->
-                                    new GalleryPage.Model(credentials, offset, itemSet, model.experimental, /*TODO sibling support */null));
+                                    new GalleryPage.Model(credentials, offset, itemSet, model.experimental));
                 },
                 /* serialiser */
                 (data, ct) -> dump(data, ct, DumpFormat.WITH_TOTAL),
@@ -266,7 +271,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                     return getQueryLoader(domain, credentials)
                             .load(offset)
                             .map(itemSet ->
-                                    new GalleryPage.Model(credentials, offset, itemSet, model.experimental, model.partId));
+                                    new GalleryPage.Model(credentials, offset, itemSet, model.experimental));
                 },
                 /* serialiser */
                 (data, ct) -> dump(data, ct, DumpFormat.GALLERY_DATA),
@@ -297,7 +302,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                     return getQueryLoader(domain, credentials)
                             .load(offset)
                             .map(itemSet ->
-                                    new GalleryPage.Model(credentials, offset, itemSet, model.experimental, /*TODO sibling support */null));
+                                    new GalleryPage.Model(credentials, offset, itemSet, model.experimental));
                 },
                 /* serialiser */
                 (data, ct) -> dump(data, ct, DumpFormat.WITH_TOTAL),
@@ -674,7 +679,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             return model.map(m -> renderer.render(m).toString());
         } else {
             if (isCsvRequested(req) || isJsonRequested(req)) {
-                GalleryPage.Model model = new GalleryPage.Model(credentials, null, ItemSet.of(item), false, null);
+                GalleryPage.Model model = new GalleryPage.Model(credentials, null, ItemSet.of(item), false);
                 ContentType ct = isCsvRequested(req) ? ContentType.CSV : ContentType.JSON;
                 res.type(ct.mime);
                 return new OrHttpError<>(dump(model, ct, DumpFormat.WITH_TOTAL));
@@ -890,7 +895,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
     private OrHttpError<String> dump(D domain, ServerSearchCriteria criteria, ItemCredentials credentials, ContentType ct, DumpFormat dumpFormat) throws Exception {
         return getQueryLoader(domain, credentials).load(criteria).map(set -> dump(
-                new GalleryPage.Model(credentials, criteria, set, false, null), ct, dumpFormat));
+                new GalleryPage.Model(credentials, criteria, set, false), ct, dumpFormat));
     }
 
     private String dump(GalleryPage.Model model, ContentType ct, DumpFormat dumpFormat) {

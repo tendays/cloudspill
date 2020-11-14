@@ -9,6 +9,7 @@ import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.domain.JpaItem;
 import org.gamboni.cloudspill.shared.domain.JpaItem_;
+import org.gamboni.cloudspill.shared.query.GalleryRequest;
 import org.gamboni.cloudspill.shared.query.QueryRange;
 import org.gamboni.cloudspill.shared.query.SearchCriteria;
 
@@ -19,7 +20,6 @@ import java.util.stream.Stream;
 
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.Expression;
-import javax.persistence.criteria.Order;
 import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
 import javax.persistence.metamodel.SetAttribute;

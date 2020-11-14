@@ -2,7 +2,6 @@ package org.gamboni.cloudspill.server.html;
 
 import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
-import org.gamboni.cloudspill.server.query.GalleryRequest;
 import org.gamboni.cloudspill.server.query.ItemSet;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
@@ -18,14 +17,12 @@ public class GalleryPage extends AbstractRenderer<GalleryPage.Model> {
         public final Java8SearchCriteria<? extends BackendItem> criteria;
         public final ItemSet itemSet;
         final boolean experimental;
-        final Long partId;
 
-        public Model(ItemCredentials credentials, Java8SearchCriteria<? extends BackendItem> criteria, ItemSet itemSet, boolean experimental, Long partId) {
+        public Model(ItemCredentials credentials, Java8SearchCriteria<? extends BackendItem> criteria, ItemSet itemSet, boolean experimental) {
             super(credentials);
             this.criteria = criteria;
             this.itemSet = itemSet;
             this.experimental = experimental;
-            this.partId = partId;
         }
     }
 
@@ -56,7 +53,7 @@ public class GalleryPage extends AbstractRenderer<GalleryPage.Model> {
         if (model.itemSet.totalCount > PAGE_SIZE && model.criteria.getRange().offset == 0) {
             return "createPlaceholders('"+ model.criteria.getUrl(api) +"', '"+
                     api.getThumbnailUrl("%d", new ItemCredentials.ItemKey("%s"), CloudSpillApi.Size.IMAGE_THUMBNAIL.pixels) +"', '"+
-                    api.getImagePageUrl("%d", model.partId, new ItemCredentials.ItemKey("%s")) +"', "+
+                    api.getImagePageUrl("%d", model.criteria, new ItemCredentials.ItemKey("%s")) +"', "+
                     PAGE_SIZE +", "+ model.itemSet.totalCount +")";
         } else {
             return super.onLoad(model);
@@ -72,7 +69,7 @@ public class GalleryPage extends AbstractRenderer<GalleryPage.Model> {
                 HtmlFragment.concatenate(
                         model.itemSet.rows.stream().map(item ->
                                 tag("a", "href=" + quote(
-                                                        api.getImagePageUrl(item.getServerId(), model.partId, model.credentials.getAuthStatus().credentialsFor(item))),
+                                                        api.getImagePageUrl(item.getServerId(), model.criteria, model.credentials.getAuthStatus().credentialsFor(item))),
                                         unclosedTag("img class='thumb' src=" +
                                                 quote(api.getThumbnailUrl(item, CloudSpillApi.Size.IMAGE_THUMBNAIL))))
                         ).toArray(HtmlFragment[]::new)),
