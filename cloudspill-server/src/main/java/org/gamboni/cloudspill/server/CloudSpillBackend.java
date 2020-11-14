@@ -10,7 +10,6 @@ import com.google.gson.JsonObject;
 
 import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
-import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.domain.UserAuthToken;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
@@ -19,6 +18,7 @@ import org.gamboni.cloudspill.server.html.GalleryListPage;
 import org.gamboni.cloudspill.server.html.GalleryPage;
 import org.gamboni.cloudspill.server.html.ImagePage;
 import org.gamboni.cloudspill.server.html.LoginPage;
+import org.gamboni.cloudspill.server.html.TokenListPage;
 import org.gamboni.cloudspill.server.html.js.AbstractJs;
 import org.gamboni.cloudspill.server.html.js.EditorSubmissionJs;
 import org.gamboni.cloudspill.server.query.ItemQueryLoader;
@@ -522,12 +522,17 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         }));
 
         /* List authentication tokens that haven't been validated yet */
-        get(api.listInvalidTokens(":name"), secured((req, res, session, user) ->
-                listInvalidTokens(session, user).get(res, tokens ->
-                        UserAuthToken.CSV.header() +"\n" +
-                                tokens.stream()
-                                        .map(UserAuthToken.CSV::serialise)
-                                        .collect(Collectors.joining("\n")))));
+        api.tokenListView(":name", securedPage(
+                req -> req.params("name"),
+                (model, credentials, domain) -> listTokens(domain, model, (ItemCredentials.UserCredentials) credentials)
+                        .map(tokens -> new TokenListPage.Model(credentials, model, tokens)),
+                (model, ct) -> UserAuthToken.CSV.header() +"\n" +
+                        model.tokens.stream()
+                                .map(UserAuthToken.CSV::serialise)
+                                .collect(Collectors.joining("\n")),
+                new TokenListPage(configuration)
+
+        ));
 
         /* Authorise an authentication token */
         post("/user/:name/tokens/:id/validate", secured((req, res, session, user) -> {
@@ -582,7 +587,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
     protected abstract OrHttpError<String> logout(D session, ItemCredentials.UserToken credentials);
 
-    protected abstract OrHttpError<List<UserAuthToken>> listInvalidTokens(D session, ItemCredentials.UserCredentials user);
+    protected abstract OrHttpError<List<UserAuthToken>> listTokens(D session, String name, ItemCredentials.UserCredentials credentials);
 
     protected abstract OrHttpError<ItemCredentials.UserToken> newToken(String username, String userAgent, String client);
 

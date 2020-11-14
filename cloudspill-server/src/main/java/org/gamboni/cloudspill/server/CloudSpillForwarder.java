@@ -35,7 +35,6 @@ import org.gamboni.cloudspill.shared.client.ResponseHandlers;
 import org.gamboni.cloudspill.shared.domain.AccessDeniedException;
 import org.gamboni.cloudspill.shared.domain.ClientUser;
 import org.gamboni.cloudspill.shared.domain.IsUser;
-import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.shared.util.Log;
 import org.mindrot.jbcrypt.BCrypt;
 
@@ -54,7 +53,6 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -62,7 +60,6 @@ import java.util.function.Supplier;
 
 import javax.inject.Inject;
 import javax.persistence.EntityManager;
-import javax.persistence.Query;
 import javax.servlet.http.HttpServletResponse;
 
 import spark.Response;
@@ -177,8 +174,8 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
-    protected OrHttpError<List<UserAuthToken>> listInvalidTokens(ForwarderDomain session, ItemCredentials.UserCredentials user) {
-        return this.deserialiseStream(remoteApi.listInvalidTokens(user.user.getName()), ImmutableList.of(user), UserAuthToken.CSV, UserAuthToken::new, (rows, reader) -> rows);
+    protected OrHttpError<List<UserAuthToken>> listTokens(ForwarderDomain session, String name, ItemCredentials.UserCredentials credentials) {
+        return this.deserialiseStream(remoteApi.listTokens(name), ImmutableList.of(credentials), UserAuthToken.CSV, UserAuthToken::new, (rows, reader) -> rows);
     }
 
     @Override

@@ -468,10 +468,12 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 
 
 	@Override
-	protected OrHttpError<List<UserAuthToken>> listInvalidTokens(ServerDomain session, ItemCredentials.UserCredentials user) {
+	protected OrHttpError<List<UserAuthToken>> listTokens(ServerDomain session, String name, ItemCredentials.UserCredentials credentials) {
+    	if (!name.equals(credentials.user.getName()) && !credentials.user.hasGroup(User.ADMIN_GROUP)) {
+    		return forbidden(false);
+		}
     	return new OrHttpError<>(session.selectUserAuthToken()
-				.add(uat -> session.criteriaBuilder.equal(uat.get(UserAuthToken_.user).get(User_.name), user.user.getName()))
-				.add(uat -> session.criteriaBuilder.equal(uat.get(UserAuthToken_.valid), false))
+				.add(uat -> session.criteriaBuilder.equal(uat.get(UserAuthToken_.user).get(User_.name), name))
 				.list());
 	}
 

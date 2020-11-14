@@ -17,7 +17,8 @@ class BackendUserAuthToken {
     public static final Csv<UserAuthToken> CSV = new Csv.Impl<UserAuthToken>()
             .add("id", t -> Long.toString(t.getId()), (t, id) -> t.setId(Long.parseLong(id)))
             .add("user", t -> t.getUser().getName(), (t, user) -> t.setUser(User.withName(user)))
-            .add("description", t -> t.getDescription(), (t, descr) -> t.setDescription(descr));
+            .add("description", t -> t.getDescription(), (t, descr) -> t.setDescription(descr))
+            .add("valid", t -> String.valueOf(t.getValid()), (t, valid) -> t.setValid(Boolean.valueOf(valid)));
 
     protected long id;
     private User user;

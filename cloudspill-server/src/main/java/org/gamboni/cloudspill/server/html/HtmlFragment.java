@@ -4,6 +4,7 @@ import com.google.common.collect.Streams;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * @author tendays
@@ -22,8 +23,12 @@ public class HtmlFragment {
                 .replace(">", "&gt;"));
     }
 
+    public static HtmlFragment concatenate(Stream<HtmlFragment> content) {
+        return new HtmlFragment(content.map(h -> h.toString()).collect(Collectors.joining()));
+    }
+
     public static HtmlFragment concatenate(HtmlFragment... content) {
-        return new HtmlFragment(Arrays.stream(content).map(h -> h.toString()).collect(Collectors.joining()));
+        return concatenate(Arrays.stream(content));
     }
 
     public String toString() {

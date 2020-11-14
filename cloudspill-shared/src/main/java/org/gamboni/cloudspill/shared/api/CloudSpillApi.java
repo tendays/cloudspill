@@ -6,7 +6,6 @@ import org.gamboni.cloudspill.shared.domain.IsItem;
 import org.gamboni.cloudspill.shared.domain.Items;
 import org.gamboni.cloudspill.shared.query.GalleryRequest;
 import org.gamboni.cloudspill.shared.query.QueryRange;
-import org.gamboni.cloudspill.shared.query.SearchCriteria;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -215,8 +214,12 @@ public class CloudSpillApi<T> {
         return serverUrl +"user/"+ encodePathPart(username) +"/new-token";
     }
 
-    public String listInvalidTokens(String username) {
+    public String listTokens(String username) {
         return serverUrl +"user/"+ username +"/tokens";
+    }
+
+    public void tokenListView(String username, T consumer) {
+        matcher.match(ApiElementMatcher.HttpMethod.GET, listTokens(username), consumer);
     }
 
     public enum Size {
