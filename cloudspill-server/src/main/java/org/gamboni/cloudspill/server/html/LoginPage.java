@@ -4,6 +4,8 @@ import org.gamboni.cloudspill.server.config.BackendConfiguration;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.api.LoginState;
 
+import java.time.LocalDate;
+
 /**
  * @author tendays
  */
@@ -78,7 +80,15 @@ public class LoginPage extends AbstractRenderer<LoginPage.Model> {
                                 nameElement,
                                 HtmlFragment.escape(", you are now successfully logged in.")),
                         loginMessage("Please make sure your browser is set up to save cookies to ensure you stay logged in when you close your browser."),
-                        unclosedTag("input type='button' value='LOG OUT' onclick="+ quote("logout('"+ api.logout() +"')"))));
+                        unclosedTag("input type='button' value='LOG OUT' onclick="+ quote("logout('"+ api.logout() +"')")),
+                        (model.state == LoginState.LOGGED_IN) ?
+                                HtmlFragment.concatenate(
+                                tag("div", tag("a", "href='"+ api.listTokens(
+                                ((ItemCredentials.UserCredentials)model.credentials).user.getName()) +"'", "Manage your authentication tokens here")),
+                                        tag("div", tag("a", "href='"+ api.getBaseUrl() +"year/"+ LocalDate.now().getYear() +"'", "This year's photos")),
+                                        tag("div", tag("a", "href='"+ api.getBaseUrl() +"gallery/'", "All galleries"))
+                                        ) : HtmlFragment.EMPTY
+                        ));
     }
 
     private String hiddenUnless(boolean condition) {

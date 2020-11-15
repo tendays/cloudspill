@@ -58,23 +58,27 @@ public class TokenListPage extends AbstractRenderer<TokenListPage.Model> {
                         tag("th")),
                 HtmlFragment.concatenate(model.tokens.stream().map(token ->
                         {
-                            final HtmlFragment deleteButton = button("delete-"+ token.getId(), "DELETE",
-                                    "del('"+ token.getUser().getName() +"', "+ token.getId() + ")");
-                            final HtmlFragment validateButton = button("validate-"+ token.getId(), "VALIDATE",
-                                    "validate('"+ token.getUser().getName() +"', "+ token.getId() + ")");
-                            return tag("tr", "id='row-"+ token.getId() +"'",
+                            final boolean isCurrentSession = (model.credentials instanceof ItemCredentials.UserToken) &&
+                                    ((ItemCredentials.UserToken) model.credentials).id == token.getId();
+                            final HtmlFragment deleteButton = button("delete-" + token.getId(), isCurrentSession ? "LOGOUT" : "DELETE",
+                                    "del('" + token.getUser().getName() + "', " + token.getId() + ")");
+                            final HtmlFragment validateButton = button("validate-" + token.getId(), "VALIDATE",
+                                    "validate('" + token.getUser().getName() + "', " + token.getId() + ")");
+                            return tag("tr", "id='row-" + token.getId() + "'",
                                     tag("td", "class='id-cell'", String.valueOf(token.getId())),
                                     tag("td", token.getDescription()),
                                     tag("td",
                                             tag("span",
-                                                    "id='state-"+ token.getId() +"' class=" + (token.getValid() ? "'valid-chip'" : "'invalid-chip'"),
-                                                    "")),
+                                                    "id='state-" + token.getId() + "' class=" + (token.getValid() ? "'valid-chip'" : "'invalid-chip'"),
+                                                    ""),
+                                            HtmlFragment.escape(" "),
+                                            isCurrentSession ?
+                                            tag("span", "class='current-session-chip'", "") : HtmlFragment.EMPTY),
                                     tag("td", "style='white-space:nowrap'",
-                                            (token.getValid() ?
-                                                    deleteButton :
-                                                    HtmlFragment.concatenate(deleteButton, HtmlFragment.escape(" "), validateButton)
-
-                                            )));
+                                            deleteButton,
+                                            token.getValid() ?
+                                                    HtmlFragment.concatenate(HtmlFragment.escape(" "), validateButton) : HtmlFragment.EMPTY
+                                            ));
                         }
                 )));
     }

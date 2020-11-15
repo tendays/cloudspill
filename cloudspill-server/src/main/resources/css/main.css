@@ -14,6 +14,14 @@ h1 {
     color: gray;
 }
 
+a {
+    color: #f80;
+}
+
+a:visited {
+    color: #a70;
+}
+
 .drawer {
     position: fixed;
     right: 1em;
@@ -306,30 +314,37 @@ h1 {
 
 /* token list */
 
-.valid-chip {
-    background-color: green;
-    border-radius: 0.5em;
-    font-size: 0.9em;
-    font-family: sans;
-    padding: 0.2em;
-    color: black;
-}
-.valid-chip::after {
-    content: 'VALIDATED'
-}
-
-.invalid-chip {
-    background-color: orange;
+.valid-chip, .invalid-chip, .current-session-chip {
     border-radius: 0.5em;
     font-size: 0.9em;
     font-family: sans;
     padding: 0.2em;
     color: black;
     white-space: nowrap;
+    line-height: 2em;
+}
+
+.valid-chip {
+    background-color: green;
+}
+.valid-chip::after {
+    content: 'VALIDATED';
+}
+
+.invalid-chip {
+    background-color: orange;
 }
 .invalid-chip::after {
-    content: 'NOT VALIDATED'
+    content: 'NOT VALIDATED';
 }
+
+.current-session-chip {
+    background-color: #a7f;
+}
+.current-session-chip::after {
+    content: 'CURRENT SESSION';
+}
+
 .id-cell {
     font-size: x-large;
 }
