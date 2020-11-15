@@ -86,7 +86,8 @@ public class LoginPage extends AbstractRenderer<LoginPage.Model> {
                                 tag("div", tag("a", "href='"+ api.listTokens(
                                 ((ItemCredentials.UserCredentials)model.credentials).user.getName()) +"'", "Manage your authentication tokens here")),
                                         tag("div", tag("a", "href='"+ api.getBaseUrl() +"year/"+ LocalDate.now().getYear() +"'", "This year's photos")),
-                                        tag("div", tag("a", "href='"+ api.getBaseUrl() +"gallery/'", "All galleries"))
+                                        tag("div", tag("a", "href='"+ api.getBaseUrl() +"gallery/'", "All galleries")),
+                                        tag("div", tag("a", "href='"+ api.getBaseUrl() +"tag/'", "All tags"))
                                         ) : HtmlFragment.EMPTY
                         ));
     }
