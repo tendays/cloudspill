@@ -21,6 +21,7 @@ import org.gamboni.cloudspill.server.html.LoginPage;
 import org.gamboni.cloudspill.server.html.TokenListPage;
 import org.gamboni.cloudspill.server.html.js.AbstractJs;
 import org.gamboni.cloudspill.server.html.js.EditorSubmissionJs;
+import org.gamboni.cloudspill.server.html.js.TokenValidationJs;
 import org.gamboni.cloudspill.server.query.ItemQueryLoader;
 import org.gamboni.cloudspill.server.query.ItemSet;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
@@ -69,6 +70,7 @@ import spark.Spark;
 import static org.gamboni.cloudspill.shared.api.CloudSpillApi.ID_HTML_SUFFIX;
 import static spark.Spark.after;
 import static spark.Spark.before;
+import static spark.Spark.delete;
 import static spark.Spark.get;
 import static spark.Spark.post;
 import static spark.Spark.put;
@@ -88,6 +90,8 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             post(url, route);
         } else if (method == ApiElementMatcher.HttpMethod.PUT) {
             put(url, route);
+        } else if (method == ApiElementMatcher.HttpMethod.DELETE) {
+            delete(url, route);
         } else {
             throw new UnsupportedOperationException(method.toString());
         }
@@ -130,12 +134,14 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                         .get(res)));
 
         expose(new EditorSubmissionJs(configuration));
+        expose(new TokenValidationJs(configuration));
 
         exposeResource(api.css(), "css/main.css", "text/css");
         exposeResource(api.lazyLoadJS(), "js/lazy-load.js", "application/javascript");
         exposeResource(api.editorJS(), "js/editor.js", "application/javascript");
         exposeResource(api.loginJS(), "js/login.js", "application/javascript");
         exposeResource(api.uploadJS(), "js/upload.js", "application/javascript");
+        exposeResource(api.tokenListJS(), "js/token-list.js", "application/javascript");
 
         get("/robots.txt", (req, res)->
                 "User-agent: *\n" +
@@ -535,14 +541,25 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         ));
 
         /* Authorise an authentication token */
-        post("/user/:name/tokens/:id/validate", secured((req, res, session, user) -> {
+        api.validateToken(":name", ":id", secured((req, res, session, user) -> {
             final String username = req.params("name");
             if (!user.user.getName().equals(username)) {
                 // admins can validate tokens for other users
                 user.user.verifyGroup(User.ADMIN_GROUP);
             }
             final long tokenId = Long.parseLong(req.params("id"));
-            return validateToken(session, username, tokenId).get(res);
+            return validateToken(user, session, username, tokenId).get(res);
+        }));
+
+        /* Authorise an authentication token */
+        api.deleteToken(":name", ":id", secured((req, res, session, user) -> {
+            final String username = req.params("name");
+            if (!user.user.getName().equals(username)) {
+                // admins can delete tokens of other users
+                user.user.verifyGroup(User.ADMIN_GROUP);
+            }
+            final long tokenId = Long.parseLong(req.params("id"));
+            return deleteToken(user, session, username, tokenId).get(res);
         }));
 
         /* Page for experimenting new stuff */
@@ -581,7 +598,9 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         }
     }
 
-    protected abstract OrHttpError<Object> validateToken(D session, String username, long tokenId);
+    protected abstract OrHttpError<Object> validateToken(ItemCredentials.UserCredentials credentials, D session, String username, long tokenId);
+
+    protected abstract OrHttpError<Object> deleteToken(ItemCredentials.UserCredentials credentials, D session, String username, long tokenId);
 
     protected abstract OrHttpError<LoginState> login(ItemCredentials.UserToken credentials);
 

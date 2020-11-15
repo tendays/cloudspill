@@ -60,6 +60,11 @@ public abstract class AbstractRenderer<T extends OutputModel> implements Rendere
                 + "\"";
     }
 
+    protected HtmlFragment button(String id, String label, String onClick) {
+        return tag("div", "class='button' id='"+ id + "' onclick="+
+                quote(onClick), label);
+    }
+
     protected final BackendConfiguration configuration;
     protected final CloudSpillApi api;
 

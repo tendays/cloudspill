@@ -86,8 +86,9 @@ public class ImagePage extends AbstractRenderer<ImagePage.Model> {
 						unclosedTag("img class='image' src=" + quote(getImageUrl(model)))),
 				tag("div", "class='metadata'",
 						(model.credentials.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN ?
-								tag("div", "class='button' id='edit' onclick="+
-										quote("edit("+ model.item.getServerId() +", '"+ api.knownTags() +"', '"+ api.getTagUrl(model.item.getServerId()) +"')"), "edit") : HtmlFragment.EMPTY),
+								button("edit", "edit",
+										"edit(" + model.item.getServerId() + ", '" + api.knownTags() + "', '" + api.getTagUrl(model.item.getServerId()) + "')") :
+								HtmlFragment.EMPTY),
 						tag("div", "By: " + model.item.getUser()),
 						dateLine(model),
 						tag("div", "id='description'", MoreObjects.firstNonNull(model.item.getDescription(), "")),

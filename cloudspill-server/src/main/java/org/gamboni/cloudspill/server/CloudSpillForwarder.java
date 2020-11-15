@@ -114,8 +114,33 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
-    protected OrHttpError<Object> validateToken(ForwarderDomain session, String username, long tokenId) {
-        throw new UnsupportedOperationException();
+    protected OrHttpError<Object> validateToken(ItemCredentials.UserCredentials credentials, ForwarderDomain session, String username, long tokenId) {
+        final ResponseHandlers.ResponseHandlerWithResult<OrHttpError<Object>> handler = passthroughHandler();
+        remoteApi.validateToken(username, tokenId, ResponseHandlers.withCredentials(credentials, BASE_64_ENCODER, handler));
+
+        return handler.getResult();
+    }
+
+    @Override
+    protected OrHttpError<Object> deleteToken(ItemCredentials.UserCredentials credentials, ForwarderDomain session, String username, long tokenId) {
+        final ResponseHandlers.ResponseHandlerWithResult<OrHttpError<Object>> handler = passthroughHandler();
+        remoteApi.deleteToken(username, tokenId, ResponseHandlers.withCredentials(credentials, BASE_64_ENCODER, handler));
+
+        return handler.getResult();
+    }
+
+    private ResponseHandlers.ResponseHandlerWithResult<OrHttpError<Object>> passthroughHandler() {
+        return new ResponseHandlers.ResponseHandlerWithResult<>(connection -> {
+            try (Reader reader = new InputStreamReader(connection.getInputStream())) {
+                final int responseCode = connection.getResponseCode();
+                if (responseCode < 200 || responseCode >= 300) {
+                    return passHttpError(reader, responseCode);
+                }
+                return new OrHttpError<>(CharStreams.toString(reader));
+            } catch (IOException e) {
+                return handleRemoteIOException(connection, e);
+            }
+        });
     }
 
     @Override

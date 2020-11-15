@@ -430,7 +430,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
     }
 
 	@Override
-	protected OrHttpError<Object> validateToken(ServerDomain session, String username, long tokenId) {
+	protected OrHttpError<Object> validateToken(ItemCredentials.UserCredentials credentials, ServerDomain session, String username, long tokenId) {
 		final UserAuthToken token = session.get(UserAuthToken.class, tokenId);
 		if (token == null || !token.getUser().getName().equals(username)) {
 			return forbidden(false);
@@ -443,6 +443,26 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 			final TokenWatch tokenWatch = watchedTokens.get(tokenId);
 			if (tokenWatch != null) {
 				tokenWatch.state = LoginState.LOGGED_IN;
+				watchedTokens.notifyAll();
+			}
+		}
+		return new OrHttpError<>( "ok");
+	}
+
+	@Override
+	protected OrHttpError<Object> deleteToken(ItemCredentials.UserCredentials credentials, ServerDomain session, String username, long tokenId) {
+		final UserAuthToken token = session.get(UserAuthToken.class, tokenId);
+		if (token == null || !token.getUser().getName().equals(username)) {
+			return forbidden(false);
+		}
+
+		session.remove(token);
+		session.flush(); // to acquire lock (would be better to do a for update earlier)
+		synchronized(watchedTokens) {
+			/* If anybody's waiting for this to be validated, let them fail immediately. */
+			final TokenWatch tokenWatch = watchedTokens.get(tokenId);
+			if (tokenWatch != null) {
+				tokenWatch.state = LoginState.INVALID_TOKEN;
 				watchedTokens.notifyAll();
 			}
 		}

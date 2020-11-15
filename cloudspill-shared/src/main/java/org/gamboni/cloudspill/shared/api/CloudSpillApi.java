@@ -154,6 +154,14 @@ public class CloudSpillApi<T> {
         matcher.match(ApiElementMatcher.HttpMethod.POST, serverUrl +"item/"+ itemId +"/description", consumer);
     }
 
+    public void validateToken(Object name, Object id, T consumer) {
+        matcher.match(ApiElementMatcher.HttpMethod.POST, serverUrl + "/user/"+ name +"/tokens/"+ id +"/validate", consumer);
+    }
+
+    public void deleteToken(Object name, Object id, T consumer) {
+        matcher.match(ApiElementMatcher.HttpMethod.DELETE, serverUrl + "/user/"+ name +"/tokens/"+ id, consumer);
+    }
+
     public String css() {
         return serverUrl +"main.css";
     }
@@ -164,6 +172,10 @@ public class CloudSpillApi<T> {
 
     public String editorJS() {
         return serverUrl +"editor.js";
+    }
+
+    public String tokenListJS() {
+        return serverUrl +"token-list.js";
     }
 
     public String loginJS() { return serverUrl +"login.js"; }

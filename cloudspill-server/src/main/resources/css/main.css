@@ -303,3 +303,47 @@ h1 {
 .selected-option {
     background-color: #c52;
 }
+
+/* token list */
+
+.valid-chip {
+    background-color: green;
+    border-radius: 0.5em;
+    font-size: 0.9em;
+    font-family: sans;
+    padding: 0.2em;
+    color: black;
+}
+.valid-chip::after {
+    content: 'VALIDATED'
+}
+
+.invalid-chip {
+    background-color: orange;
+    border-radius: 0.5em;
+    font-size: 0.9em;
+    font-family: sans;
+    padding: 0.2em;
+    color: black;
+    white-space: nowrap;
+}
+.invalid-chip::after {
+    content: 'NOT VALIDATED'
+}
+.id-cell {
+    font-size: x-large;
+}
+table {
+  border-collapse: collapse;
+}
+tr {
+  border: solid;
+  border-width: 0 0 1px 0;
+}
+tr:hover {
+  background-color: #268;
+}
+td {
+  padding-left: 2px;
+  padding-right: 2px;
+}
