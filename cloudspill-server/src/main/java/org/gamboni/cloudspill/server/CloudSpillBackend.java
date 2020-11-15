@@ -201,6 +201,11 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                 galleryListSerialiser,
                     new GalleryListPage(configuration)));
 
+        api.tagView(securedPage(req -> null,
+                (nothing, credentials, domain) -> tagGalleryList(credentials, domain),
+                galleryListSerialiser,
+                new GalleryListPage(configuration)));
+
         class DayGalleryRequestModel extends AbstractGalleryRequestModel {
             final LocalDate day;
 
@@ -787,6 +792,8 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                 "select distinct tags from Item_tags order by tags");
         return (List<String>) query.getResultList();
     }
+
+    protected abstract OrHttpError<GalleryListPage.Model> tagGalleryList(ItemCredentials credentials, D domain);
 
     protected abstract OrHttpError<String> title();
 

@@ -599,6 +599,26 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	}
 
 	@Override
+	protected OrHttpError<GalleryListPage.Model> tagGalleryList(ItemCredentials credentials, ServerDomain domain) {
+		final boolean isAdmin = credentials.hasGroup(User.ADMIN_GROUP);
+		final Query query = domain.getEntityManager().createNativeQuery(
+				"select i, tags, checksum from " +
+						"(select first.tags, max(id) i from Item_tags first, Item where first.Item_id = Item.id" +
+						(isAdmin ? "" :
+						" and ('public' in (select it.tags from Item_tags it where Item.id=it.Item_id) or Item.user=?) group by first.tags) q, Item " +
+								"where Item.id = i"));
+		if (!isAdmin) {
+			query.setParameter(1, ((ItemCredentials.UserCredentials)credentials).user.getName());
+		}
+		return new OrHttpError<>(new GalleryListPage.Model(credentials, "All Tags", Lists.transform((List<Object[]>)query.getResultList(), row -> {
+			long id = ((Number) row[0]).longValue();
+			String tag = (String) row[1];
+			String checksum = (String) row[2];
+			return new GalleryListPage.Element(ServerSearchCriteria.ALL.withTag(tag), id, checksum);
+		})));
+	}
+
+	@Override
 	protected void download(Response res, ServerDomain session, ItemCredentials credentials, final BackendItem item)
 			throws IOException {
 		File file = item.getFile(configuration.getRepositoryPath());

@@ -194,6 +194,10 @@ public class CloudSpillApi<T> {
         matcher.match(ApiElementMatcher.HttpMethod.GET, galleryListPage(credentials), consumer);
     }
 
+    public void tagView(T consumer) {
+        matcher.match(ApiElementMatcher.HttpMethod.GET, serverUrl +"tag/", consumer);
+    }
+
     public void tagView(String tag, T consumer) {
         matcher.match(ApiElementMatcher.HttpMethod.GET, serverUrl +"tag/"+ tag, consumer);
     }

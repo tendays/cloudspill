@@ -611,6 +611,13 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
         return handler.getResult();
     }
 
+    @Override
+    protected OrHttpError<GalleryListPage.Model> tagGalleryList(ItemCredentials credentials, ForwarderDomain domain) {
+        ResponseHandlers.ResponseHandlerWithResult<OrHttpError<GalleryListPage.Model>> handler = deserialiseGalleryList(credentials);
+        remoteApi.tagView(ResponseHandlers.withCredentials(credentials, BASE_64_ENCODER, handler));
+        return handler.getResult();
+    }
+
     private ResponseHandlers.ResponseHandlerWithResult<OrHttpError<GalleryListPage.Model>> deserialiseGalleryList(ItemCredentials credentials) {
         return new ResponseHandlers.ResponseHandlerWithResult<>(connection -> deserialiseStream(
                 connection,
