@@ -77,7 +77,7 @@ public class TokenListPage extends AbstractRenderer<TokenListPage.Model> {
                                     tag("td", "style='white-space:nowrap'",
                                             deleteButton,
                                             token.getValid() ?
-                                                    HtmlFragment.concatenate(HtmlFragment.escape(" "), validateButton) : HtmlFragment.EMPTY
+                                                    HtmlFragment.EMPTY : HtmlFragment.concatenate(HtmlFragment.escape(" "), validateButton)
                                             ));
                         }
                 )));
