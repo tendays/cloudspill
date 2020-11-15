@@ -110,6 +110,13 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
     }
 
     protected final void setupRoutes(BackendConfiguration configuration) {
+
+        /* Request Model: just the year as an int */
+        final Serialiser<GalleryListPage.Model> galleryListSerialiser = (data, ct) -> {
+            Preconditions.checkArgument(ct == ContentType.CSV, "Content type " + ct + " not supported");
+            return dumpCsv(data.elements.stream(), GalleryListPage.Element.CSV) + "\n" + "Title:" + data.title;
+        };
+
         /* Access logging */
         before((req, res) -> {
             Log.info(req.headers("User-Agent") +" @"+ req.ip() +" "+ req.requestMethod() +" "+ req.uri());
@@ -161,6 +168,10 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             }
         }
 
+        api.tagView(securedPage(req -> null,
+                (nothing, credentials, domain) -> tagGalleryList(credentials, domain),
+                galleryListSerialiser,
+                new GalleryListPage(configuration)));
         api.tagView(":tag", securedPage(
                 req -> {
                     final QueryRange range = requestedRange(req);
@@ -190,21 +201,11 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                     .get(res).toString();
         }));
 
-        /* Request Model: just the year as an int */
-        final Serialiser<GalleryListPage.Model> galleryListSerialiser = (data, ct) -> {
-            Preconditions.checkArgument(ct == ContentType.CSV, "Content type " + ct + " not supported");
-            return dumpCsv(data.elements.stream(), GalleryListPage.Element.CSV) + "\n" + "Title:" + data.title;
-        };
         api.yearView(":year", securedPage(
                 req -> Integer.parseInt(req.params("year")),
                 (model, credentials, domain) -> dayList(credentials, domain, model),
                 galleryListSerialiser,
                     new GalleryListPage(configuration)));
-
-        api.tagView(securedPage(req -> null,
-                (nothing, credentials, domain) -> tagGalleryList(credentials, domain),
-                galleryListSerialiser,
-                new GalleryListPage(configuration)));
 
         class DayGalleryRequestModel extends AbstractGalleryRequestModel {
             final LocalDate day;

@@ -605,8 +605,8 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 				"select i, tags, checksum from " +
 						"(select first.tags, max(id) i from Item_tags first, Item where first.Item_id = Item.id" +
 						(isAdmin ? "" :
-						" and ('public' in (select it.tags from Item_tags it where Item.id=it.Item_id) or Item.user=?) group by first.tags) q, Item " +
-								"where Item.id = i"));
+						" and ('public' in (select it.tags from Item_tags it where Item.id=it.Item_id) or Item.user=?)") +" group by first.tags) q, Item " +
+								"where Item.id = i");
 		if (!isAdmin) {
 			query.setParameter(1, ((ItemCredentials.UserCredentials)credentials).user.getName());
 		}
