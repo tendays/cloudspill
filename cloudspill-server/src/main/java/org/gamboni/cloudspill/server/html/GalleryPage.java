@@ -51,7 +51,7 @@ public class GalleryPage extends AbstractRenderer<GalleryPage.Model> {
     @Override
     protected String onLoad(Model model) {
         if (model.itemSet.totalCount > PAGE_SIZE && model.criteria.getRange().offset == 0) {
-            return "createPlaceholders('"+ model.criteria.getUrl(api) +"', '"+
+            return "createPlaceholders('"+ model.criteria.withRange(QueryRange.ALL).getUrl(api) +"', '"+
                     api.getThumbnailUrl("%d", new ItemCredentials.ItemKey("%s"), CloudSpillApi.Size.IMAGE_THUMBNAIL.pixels) +"', '"+
                     api.getImagePageUrl("%d", model.criteria, new ItemCredentials.ItemKey("%s")) +"', "+
                     PAGE_SIZE +", "+ model.itemSet.totalCount +")";
