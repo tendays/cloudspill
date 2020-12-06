@@ -186,6 +186,11 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
         }
 
         @Override
+        public Set<String> getEffectiveTags() {
+            return GalleryPart.this.getEffectiveTags();
+        }
+
+        @Override
         public String getUser() {
             return user;
         }

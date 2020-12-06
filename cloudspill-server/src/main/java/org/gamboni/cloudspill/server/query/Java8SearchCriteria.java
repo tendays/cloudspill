@@ -7,6 +7,7 @@ import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
 import org.gamboni.cloudspill.domain.ServerDomain;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.domain.Items;
 import org.gamboni.cloudspill.shared.domain.JpaItem;
 import org.gamboni.cloudspill.shared.domain.JpaItem_;
 import org.gamboni.cloudspill.shared.query.GalleryRequest;
@@ -78,10 +79,11 @@ public interface Java8SearchCriteria<T extends JpaItem> extends GalleryRequest {
         CriteriaBuilder criteriaBuilder = itemQuery.getCriteriaBuilder();
         itemQuery.addOrder(getOrder());
 
-        for (String tag : getEffectiveTags()) {
+        final Set<String> effectiveTags = getEffectiveTags();
+        for (String tag : effectiveTags) {
             itemQuery.add(root -> tagQuery(criteriaBuilder, tag, root));
         }
-        if (authStatus != ItemCredentials.AuthenticationStatus.LOGGED_IN) {
+        if (authStatus != ItemCredentials.AuthenticationStatus.LOGGED_IN && !Items.isPublic(effectiveTags)) {
             itemQuery.add(root -> tagQuery(criteriaBuilder, "public", root));
         }
         if (getFrom() != null) {
