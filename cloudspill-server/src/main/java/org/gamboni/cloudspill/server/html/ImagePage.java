@@ -15,6 +15,7 @@ import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.domain.ItemType;
+import org.gamboni.cloudspill.shared.domain.Items;
 import org.gamboni.cloudspill.shared.query.QueryRange;
 
 import java.time.LocalDateTime;
@@ -86,8 +87,13 @@ public class ImagePage extends AbstractRenderer<ImagePage.Model> {
 						unclosedTag("img class='image' src=" + quote(getImageUrl(model)))),
 				tag("div", "class='metadata'",
 						(model.credentials.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN ?
-								button("edit", "edit",
+									button("edit", "edit",
 										"edit(" + model.item.getServerId() + ", '" + api.knownTags() + "', '" + api.getTagUrl(model.item.getServerId()) + "')") :
+								HtmlFragment.EMPTY),
+						(model.credentials.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN && !Items.isPublic(model.item) ?
+								tag("a", "class='share' href="+ quote(api.getPublicImagePageUrl(model.item)),
+										tag("span",
+												"[secret link to this "+ (model.item.getType() == ItemType.IMAGE ? "photo" : "video") +"]")) :
 								HtmlFragment.EMPTY),
 						tag("div", "By: " + model.item.getUser()),
 						dateLine(model),

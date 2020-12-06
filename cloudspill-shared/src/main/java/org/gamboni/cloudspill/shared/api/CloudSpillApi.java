@@ -253,6 +253,10 @@ public class CloudSpillApi<T> {
     }
 
     private static ItemCredentials credentialsForItem(IsItem item) {
+        return Items.isPublic(item) ? new ItemCredentials.PublicAccess() : new ItemCredentials.UserPassword();
+    }
+
+    private static ItemCredentials publicCredentialsForItem(IsItem item) {
         return Items.isPublic(item) ? new ItemCredentials.PublicAccess() : new ItemCredentials.ItemKey(item.getChecksum());
     }
 
@@ -280,8 +284,12 @@ public class CloudSpillApi<T> {
         return getImageUrl(item.getServerId(), Collections.singletonList(credentialsForItem(item)));
     }
 
+    public String getPublicImageUrl(IsItem item) {
+        return getImageUrl(item.getServerId(), Collections.singletonList(publicCredentialsForItem(item)));
+    }
+
     public String getPublicImagePageUrl(IsItem item) {
-        return getImagePageUrl(item.getServerId(), null, credentialsForItem(item));
+        return getImagePageUrl(item.getServerId(), null, publicCredentialsForItem(item));
     }
 
     public String getImagePageUrl(Object serverId, GalleryRequest criteria, ItemCredentials credentials) {

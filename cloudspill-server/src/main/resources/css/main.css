@@ -141,6 +141,20 @@ a:visited {
     right: 0;
 }
 
+.share {
+    text-decoration:none;
+    display:block;
+}
+.share::before {
+    /* Note: link emoji between quotes */
+    content: "🔗";
+}
+
+.share span {
+    text-decoration:underline;
+    color: #ff9;
+}
+
 .tag::before {
     /* Note: tag emoji between quotes */
     content: "🏷️";

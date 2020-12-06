@@ -82,6 +82,15 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
         return tags;
     }
 
+    @Override
+    @Transient
+    public Set<String> getEffectiveTags() {
+        /* Force galleries to only show public items */
+        Set<String> result = new HashSet<>(this.getTags());
+        result.add("public");
+        return result;
+    }
+
     public void setTags(Set<String> tags) {
         this.tags = tags;
     }

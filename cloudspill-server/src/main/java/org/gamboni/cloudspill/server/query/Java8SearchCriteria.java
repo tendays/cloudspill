@@ -58,6 +58,10 @@ public interface Java8SearchCriteria<T extends JpaItem> extends GalleryRequest {
                 + " Photos";
     }
 
+    default Set<String> getEffectiveTags() {
+        return this.getTags();
+    }
+
     default String getDescription() {
         return "";
     }
@@ -74,7 +78,7 @@ public interface Java8SearchCriteria<T extends JpaItem> extends GalleryRequest {
         CriteriaBuilder criteriaBuilder = itemQuery.getCriteriaBuilder();
         itemQuery.addOrder(getOrder());
 
-        for (String tag : getTags()) {
+        for (String tag : getEffectiveTags()) {
             itemQuery.add(root -> tagQuery(criteriaBuilder, tag, root));
         }
         if (authStatus != ItemCredentials.AuthenticationStatus.LOGGED_IN) {
