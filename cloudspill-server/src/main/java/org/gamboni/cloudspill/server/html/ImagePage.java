@@ -5,6 +5,7 @@ package org.gamboni.cloudspill.server.html;
 
 import com.google.common.base.CaseFormat;
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableList;
 
 import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.User;
@@ -74,7 +75,7 @@ public class ImagePage extends AbstractRenderer<ImagePage.Model> {
 	}
 
 	private String getImageUrl(Model model) {
-		return api.getImageUrl(model.item);
+		return api.getImageUrl(model.item.getServerId(), ImmutableList.of(model.credentials));
 	}
 
 	@Override
