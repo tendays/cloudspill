@@ -1,5 +1,7 @@
 package org.gamboni.cloudspill.server.html;
 
+import com.google.common.collect.ImmutableList;
+
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
@@ -18,7 +20,7 @@ public class GalleryListPage extends AbstractRenderer<GalleryListPage.Model> {
         public final List<Element> elements;
 
         public Model(ItemCredentials credentials, String title, List<Element> elements) {
-            super(credentials);
+            super(ImmutableList.of(credentials));
             this.title = title;
             this.elements = elements;
         }

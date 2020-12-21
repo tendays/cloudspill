@@ -1,5 +1,7 @@
 package org.gamboni.cloudspill.server.html;
 
+import com.google.common.collect.ImmutableList;
+
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.api.LoginState;
@@ -15,7 +17,7 @@ public class LoginPage extends AbstractRenderer<LoginPage.Model> {
         private final LoginState state;
 
         public Model(ItemCredentials credentials, String title, LoginState state) {
-            super(credentials);
+            super(ImmutableList.of(credentials));
             this.title = title;
             this.state = state;
         }

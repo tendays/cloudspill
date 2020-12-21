@@ -20,7 +20,7 @@ public class TokenListPage extends AbstractRenderer<TokenListPage.Model> {
         public final ImmutableList<UserAuthToken> tokens;
 
         public Model(ItemCredentials credentials, String user, List<UserAuthToken> tokens) {
-            super(credentials);
+            super(ImmutableList.of(credentials));
             this.user = user;
             this.tokens = ImmutableList.copyOf(tokens);
         }

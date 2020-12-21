@@ -1,5 +1,7 @@
 package org.gamboni.cloudspill.server.html;
 
+import com.google.common.collect.ImmutableList;
+
 import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
 import org.gamboni.cloudspill.server.query.ItemSet;
@@ -19,7 +21,7 @@ public class GalleryPage extends AbstractRenderer<GalleryPage.Model> {
         final boolean experimental;
 
         public Model(ItemCredentials credentials, Java8SearchCriteria<? extends BackendItem> criteria, ItemSet itemSet, boolean experimental) {
-            super(credentials);
+            super(ImmutableList.of(credentials));
             this.criteria = criteria;
             this.itemSet = itemSet;
             this.experimental = experimental;
@@ -69,7 +71,7 @@ public class GalleryPage extends AbstractRenderer<GalleryPage.Model> {
                 HtmlFragment.concatenate(
                         model.itemSet.rows.stream().map(item ->
                                 tag("a", "href=" + quote(
-                                                        api.getImagePageUrl(item.getServerId(), model.criteria, model.credentials.getAuthStatus().credentialsFor(item))),
+                                                        api.getImagePageUrl(item.getServerId(), model.criteria, model.getAuthStatus().credentialsFor(item))),
                                         unclosedTag("img class='thumb' src=" +
                                                 quote(api.getThumbnailUrl(item, CloudSpillApi.Size.IMAGE_THUMBNAIL))))
                         ).toArray(HtmlFragment[]::new)),

@@ -36,14 +36,16 @@ public class ImagePage extends AbstractRenderer<ImagePage.Model> {
 		final BackendItem item, prev, next;
 		final User user;
 		final Java8SearchCriteria<BackendItem> gallery;
+		final List<ItemCredentials> allCredentials;
 
-		public Model(BackendItem item, Java8SearchCriteria<BackendItem> gallery , BackendItem prev, BackendItem next, User user, ItemCredentials credentials) {
+		public Model(BackendItem item, Java8SearchCriteria<BackendItem> gallery , BackendItem prev, BackendItem next, User user, List<ItemCredentials> credentials) {
 			super(credentials);
 			this.user = user;
 			this.item = item;
 			this.gallery = gallery;
 			this.prev = prev;
 			this.next = next;
+			this.allCredentials = credentials;
 		}
 	}
 
@@ -66,16 +68,16 @@ public class ImagePage extends AbstractRenderer<ImagePage.Model> {
 
 	@Override
 	public String getPageUrl(Model model) {
-		return api.getPublicImagePageUrl(model.item);
+		return api.getImagePageUrl(model.item, null, model.allCredentials);
 	}
 
 	@Override
 	public Optional<String> getThumbnailUrl(Model model) {
-		return Optional.of(api.getThumbnailUrl(model.item, CloudSpillApi.Size.IMAGE_THUMBNAIL));
+		return Optional.of(api.getThumbnailUrl(model.item, model.allCredentials, CloudSpillApi.Size.IMAGE_THUMBNAIL));
 	}
 
 	private String getImageUrl(Model model) {
-		return api.getImageUrl(model.item.getServerId(), ImmutableList.of(model.credentials));
+		return api.getImageUrl(model.item.getServerId(), model.allCredentials);
 	}
 
 	@Override
@@ -87,11 +89,11 @@ public class ImagePage extends AbstractRenderer<ImagePage.Model> {
 						tag("video", "controls class='image' src=" + quote(getImageUrl(model)), "") :
 						unclosedTag("img class='image' src=" + quote(getImageUrl(model)))),
 				tag("div", "class='metadata'",
-						(model.credentials.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN ?
+						(model.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN ?
 									button("edit", "edit",
 										"edit(" + model.item.getServerId() + ", '" + api.knownTags() + "', '" + api.getTagUrl(model.item.getServerId()) + "')") :
 								HtmlFragment.EMPTY),
-						(model.credentials.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN && !Items.isPublic(model.item) ?
+						(model.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN && !Items.isPublic(model.item) ?
 								tag("a", "class='share' href="+ quote(api.getPublicImagePageUrl(model.item)),
 										tag("span",
 												"[secret link to this "+ (model.item.getType() == ItemType.IMAGE ? "photo" : "video") +"]")) :
@@ -101,7 +103,7 @@ public class ImagePage extends AbstractRenderer<ImagePage.Model> {
 						tag("div", "id='description'", MoreObjects.firstNonNull(model.item.getDescription(), "")),
 						tag("div", "class='tags'",
 								new HtmlFragment(model.item.getTags().stream()
-										.map(tag -> tagElement(tag, model.credentials.getAuthStatus()).toString())
+										.map(tag -> tagElement(tag, model.getAuthStatus()).toString())
 										.collect(Collectors.joining(" "))))));
 	}
 
@@ -138,7 +140,7 @@ public class ImagePage extends AbstractRenderer<ImagePage.Model> {
 
 		String dateString = model.item.getDate()
 				.format(DateTimeFormatter.ofPattern(patternForPrecision(model.item.getDatePrecision())));
-		return (model.credentials.getAuthStatus() == ItemCredentials.AuthenticationStatus.ANONYMOUS ?
+		return (model.getAuthStatus() == ItemCredentials.AuthenticationStatus.ANONYMOUS ?
 					tag("div","class='date'", dateString) :
 					tag("a", "class='date' href="+ quote(ServerSearchCriteria.ALL.at(model.item.getDate().toLocalDate()).getUrl(api)),
 				dateString));

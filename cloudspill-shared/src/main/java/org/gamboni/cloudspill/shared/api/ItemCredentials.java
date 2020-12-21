@@ -10,8 +10,10 @@ import org.gamboni.cloudspill.shared.util.Log;
 import org.gamboni.cloudspill.shared.util.Splitter;
 
 import java.net.URLConnection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
 /** Specifies a way to access an Item: either by logging in (user+password), or by supplying an item-specific key String.

@@ -94,7 +94,7 @@ public abstract class AbstractRenderer<T extends OutputModel> implements Rendere
                         getThumbnailUrl(model).map(url -> meta("og:image", url)).orElse(HtmlFragment.EMPTY),
                         slashedTag("link rel=\"stylesheet\" type=\"text/css\" href=" +
                                 quote(api.css())),
-                        (model.credentials.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN ?
+                        (model.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN ?
                                 tag("script", "type='text/javascript' src=" + quote(api.uploadJS()), "") : HtmlFragment.EMPTY),
                         scripts()
                 ),
@@ -113,7 +113,7 @@ public abstract class AbstractRenderer<T extends OutputModel> implements Rendere
 
     private String bodyAttributes(T model) {
         String onLoad = onLoad(model);
-        if (model.credentials.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN) {
+        if (model.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN) {
             onLoad += (onLoad.isEmpty() ? "" : "; ") + "setupDnd('"+
                     /* imageUrlPattern, hrefPattern */
                     api.getThumbnailUrl("%d", model.credentials, CloudSpillApi.Size.GALLERY_THUMBNAIL) +"', '"+

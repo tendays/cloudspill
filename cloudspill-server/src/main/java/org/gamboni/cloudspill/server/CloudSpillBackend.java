@@ -31,6 +31,7 @@ import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.Csv;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.api.ItemMetadata;
+import org.gamboni.cloudspill.shared.api.ItemSecurity;
 import org.gamboni.cloudspill.shared.api.LoginState;
 import org.gamboni.cloudspill.shared.domain.AccessDeniedException;
 import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
@@ -48,11 +49,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -336,13 +335,13 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
         /* Download a thumbnail */
         get("/thumbs/:size/:id", securedItem(ItemCredentials.AuthenticationStatus.LOGGED_IN, (req, res, session, credentials, item) -> {
-            thumbnail(res, session, credentials, item, Integer.parseInt(req.params("size")));
+            thumbnail(res, session, ItemSecurity.mostPowerful(credentials), item, Integer.parseInt(req.params("size")));
             return "";
         }));
 
         /* Download a thumbnail */
         get("/public/thumbs/:size/:id", securedItem(ItemCredentials.AuthenticationStatus.ANONYMOUS, (req, res, session, credentials, item) -> {
-            thumbnail(res, session, credentials, item, Integer.parseInt(req.params("size")));
+            thumbnail(res, session, ItemSecurity.mostPowerful(credentials), item, Integer.parseInt(req.params("size")));
             return "";
         }));
 
@@ -684,7 +683,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         });
     }
 
-    private OrHttpError<?> itemPage(BackendConfiguration configuration, Request req, Response res, D session, ItemCredentials credentials, BackendItem item,
+    private OrHttpError<?> itemPage(BackendConfiguration configuration, Request req, Response res, D session, List<ItemCredentials> credentials, BackendItem item,
                             Supplier<Java8SearchCriteria<BackendItem>> gallerySupplier) throws IOException {
         if (req.params("id").endsWith(ID_HTML_SUFFIX)) {
             User user = session.get(User.class, item.getUser());
@@ -694,7 +693,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                 model = new OrHttpError<>(new ImagePage.Model(item, null, null, null, user, credentials));
             } else {
                 final Java8SearchCriteria<BackendItem> gallery = gallerySupplier.get();
-                model = this.getQueryLoader(session, credentials).load(gallery
+                model = this.getQueryLoader(session, ItemSecurity.mostPowerful(credentials)).load(gallery
                         .withRange(new QueryRange(-1, 3))
                         .relativeTo(item.getServerId()))
                         .map(neighbours -> {
@@ -709,12 +708,12 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             return model.map(m -> renderer.render(m).toString());
         } else {
             if (isCsvRequested(req) || isJsonRequested(req)) {
-                GalleryPage.Model model = new GalleryPage.Model(credentials, null, ItemSet.of(item), false);
+                GalleryPage.Model model = new GalleryPage.Model(ItemSecurity.mostPowerful(credentials), null, ItemSet.of(item), false);
                 ContentType ct = isCsvRequested(req) ? ContentType.CSV : ContentType.JSON;
                 res.type(ct.mime);
                 return new OrHttpError<>(dump(model, ct, DumpFormat.WITH_TOTAL));
             } else {
-                download(res, session, credentials, item);
+                download(res, session, ItemSecurity.mostPowerful(credentials), item);
                 return new OrHttpError<>(String.valueOf(res.status()));
             }
         }
@@ -766,14 +765,12 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                 /* Either we have a key, or user must be authenticated. */
                 final long id = Long.parseLong(idParam);
 
-                final Optional<ItemCredentials> mostPowerful = credentials.stream().max(Comparator.comparing(ItemCredentials::getPower));
-
-                if (!mostPowerful.isPresent()) {
+                if (credentials.isEmpty()) {
                     return forbidden(res, true);
                 }
 
                 return loadItem(session, id, credentials)
-                        .get(res, item -> task.handle(req, res, session, mostPowerful.get(), item));
+                        .get(res, item -> task.handle(req, res, session, credentials, item));
             });
         });
     }
@@ -995,6 +992,6 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
     protected abstract Java8SearchCriteria<BackendItem> loadGallery(D session, long partId);
 
     protected interface SecuredItemBody<D extends CloudSpillEntityManagerDomain> {
-        Object handle(Request request, Response response, D session, ItemCredentials credentials, BackendItem item) throws Exception;
+        Object handle(Request request, Response response, D session, List<ItemCredentials> credentials, BackendItem item) throws Exception;
     }
 }

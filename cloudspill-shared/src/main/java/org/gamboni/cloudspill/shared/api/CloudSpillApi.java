@@ -261,23 +261,41 @@ public class CloudSpillApi<T> {
     }
 
     public String getThumbnailUrl(IsItem item, Size size) {
-        return getThumbnailUrl(item.getServerId(), credentialsForItem(item), size);
+        return getThumbnailUrl(item.getServerId(), Collections.singletonList(credentialsForItem(item)), size);
     }
 
     public String getThumbnailUrl(Object id, ItemCredentials credentials, Object pixels) {
-        return serverUrl + credentials.getUrlPrefix() +"thumbs/"+ pixels +"/"+ id + credentials.getQueryString();
+        return getThumbnailUrl(id, Collections.singletonList(credentials), pixels);
+    }
+
+    public String getThumbnailUrl(Object id, List<ItemCredentials> credentials, Object pixels) {
+        StringBuilder url = getBaseUrl(credentials).append("thumbs/")
+                .append(pixels)
+                .append("/")
+                .append(id);
+        appendQueryStrings(credentials, url);
+        return url.toString();
     }
 
     public String getImageUrl(long id, List<ItemCredentials> credentials) {
+        StringBuilder url = getBaseUrl(credentials);
+        url.append("item/").append(id);
+        appendQueryStrings(credentials, url);
+        return url.toString();
+    }
+
+    private void appendQueryStrings(List<ItemCredentials> credentials, StringBuilder url) {
+        for (ItemCredentials c : credentials) {
+            url.append(c.getQueryString());
+        }
+    }
+
+    private StringBuilder getBaseUrl(List<ItemCredentials> credentials) {
         StringBuilder url = new StringBuilder(serverUrl);
         for (ItemCredentials c : credentials) {
             url.append(c.getUrlPrefix());
         }
-        url.append("item/").append(id);
-        for (ItemCredentials c : credentials) {
-            url.append(c.getQueryString());
-        }
-        return url.toString();
+        return url;
     }
 
     public String getImageUrl(IsItem item) {
@@ -289,15 +307,24 @@ public class CloudSpillApi<T> {
     }
 
     public String getPublicImagePageUrl(IsItem item) {
-        return getImagePageUrl(item.getServerId(), null, publicCredentialsForItem(item));
+        return getImagePageUrl(item.getServerId(), null, Collections.singletonList(publicCredentialsForItem(item)));
     }
 
     public String getImagePageUrl(Object serverId, GalleryRequest criteria, ItemCredentials credentials) {
+        return getImagePageUrl(serverId, criteria, Collections.singletonList(credentials));
+    }
+
+    public String getImagePageUrl(Object serverId, GalleryRequest criteria, List<ItemCredentials> credentials) {
+        StringBuilder url;
         if (criteria == null) {
-            return serverUrl + credentials.getUrlPrefix() + "item/" + serverId + ID_HTML_SUFFIX + credentials.getQueryString();
+            url = getBaseUrl(credentials).append("item/");
         } else {
-            return criteria.withRange(QueryRange.ALL).getUrl(this) +"/"+ serverId + ID_HTML_SUFFIX + credentials.getQueryString();
+            url = new StringBuilder(criteria.withRange(QueryRange.ALL).getUrl(this)).append("/");
         }
+        url.append(serverId)
+           .append(ID_HTML_SUFFIX);
+        appendQueryStrings(credentials, url);
+        return url.toString();
     }
 
     public String getGalleryUrl(Set<String> tags, String stringFrom, String stringTo, Long relativeTo, QueryRange range) {
