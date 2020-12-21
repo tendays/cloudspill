@@ -4,7 +4,6 @@ import com.google.common.collect.ImmutableList;
 
 import org.gamboni.cloudspill.domain.UserAuthToken;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
-import org.gamboni.cloudspill.server.html.js.EditorSubmissionJs;
 import org.gamboni.cloudspill.server.html.js.TokenValidationJs;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 
