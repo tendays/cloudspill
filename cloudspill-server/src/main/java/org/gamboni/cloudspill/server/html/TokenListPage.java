@@ -57,8 +57,9 @@ public class TokenListPage extends AbstractRenderer<TokenListPage.Model> {
                         tag("th")),
                 HtmlFragment.concatenate(model.tokens.stream().map(token ->
                         {
-                            final boolean isCurrentSession = (model.credentials instanceof ItemCredentials.UserToken) &&
-                                    ((ItemCredentials.UserToken) model.credentials).id == token.getId();
+                            final boolean isCurrentSession = model.getUserCredentials().map(
+                                    uc -> uc instanceof ItemCredentials.UserToken &&
+                                    ((ItemCredentials.UserToken) uc).id == token.getId()).orElse(false);
                             final HtmlFragment deleteButton = button("delete-" + token.getId(), isCurrentSession ? "LOGOUT" : "DELETE",
                                     "del('" + token.getUser().getName() + "', " + token.getId() + ")");
                             final HtmlFragment validateButton = button("validate-" + token.getId(), "VALIDATE",

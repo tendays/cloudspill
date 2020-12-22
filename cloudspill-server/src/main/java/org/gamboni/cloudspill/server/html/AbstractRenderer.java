@@ -116,8 +116,8 @@ public abstract class AbstractRenderer<T extends OutputModel> implements Rendere
         if (model.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN) {
             onLoad += (onLoad.isEmpty() ? "" : "; ") + "setupDnd('"+
                     /* imageUrlPattern, hrefPattern */
-                    api.getThumbnailUrl("%d", model.credentials, CloudSpillApi.Size.GALLERY_THUMBNAIL) +"', '"+
-                    api.getImagePageUrl("%d", null, model.credentials)
+                    api.getThumbnailUrl("%d", new ItemCredentials.UserPassword(), CloudSpillApi.Size.GALLERY_THUMBNAIL) +"', '"+
+                    api.getImagePageUrl("%d", null, new ItemCredentials.UserPassword())
                     +"')";
         }
         return onLoad.isEmpty() ? "" : "onLoad="+ quote(onLoad);

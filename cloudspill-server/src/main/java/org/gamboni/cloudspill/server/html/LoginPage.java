@@ -7,6 +7,7 @@ import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.api.LoginState;
 
 import java.time.LocalDate;
+import java.util.Optional;
 
 /**
  * @author tendays
@@ -44,7 +45,7 @@ public class LoginPage extends AbstractRenderer<LoginPage.Model> {
     @Override
     protected String onLoad(Model model) {
         if (model.state == LoginState.WAITING_FOR_VALIDATION) {
-            return "waitForValidation('"+ ((ItemCredentials.UserToken)model.credentials).encodeLoginParam() +"', '"+
+            return "waitForValidation('"+ ((ItemCredentials.UserToken)model.getUserCredentials().get()).encodeLoginParam() +"', '"+
                     this.api.login()
                     +"')";
         } else {
@@ -55,9 +56,13 @@ public class LoginPage extends AbstractRenderer<LoginPage.Model> {
     @Override
     protected HtmlFragment getBody(Model model) {
         HtmlFragment nameElement = tag("span", "name='name'",
-                (model.credentials instanceof ItemCredentials.UserCredentials) ? ((ItemCredentials.UserCredentials) model.credentials).user.getName() : "stranger");
+                model.getUserCredentials().map(uc -> uc.user.getName()).orElse("stranger"));
         HtmlFragment tokenIdElement = tag("span", "name='tokenId'",
-                (model.credentials instanceof ItemCredentials.UserToken) ? String.valueOf(((ItemCredentials.UserToken) model.credentials).id) : "unknown");
+                model.getUserCredentials().flatMap(uc ->
+                        (uc instanceof ItemCredentials.UserToken) ?
+                                Optional.of(String.valueOf(((ItemCredentials.UserToken) uc).id)) :
+                                Optional.empty())
+                .orElse("unknown"));
         return HtmlFragment.concatenate(
                 tag("form", hiddenUnless(model.state == LoginState.DISCONNECTED || model.state == LoginState.INVALID_TOKEN) +
                                 "id='disconnected' class='login' onsubmit=" + quote("login(getElementById('username').value, '" +
