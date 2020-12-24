@@ -90,8 +90,8 @@ public class LoginPage extends AbstractRenderer<LoginPage.Model> {
                         unclosedTag("input type='button' value='LOG OUT' onclick="+ quote("logout('"+ api.logout() +"')")),
                         (model.state == LoginState.LOGGED_IN) ?
                                 HtmlFragment.concatenate(
-                                tag("div", tag("a", "href='"+ api.listTokens(
-                                ((ItemCredentials.UserCredentials)model.credentials.get(0)).user.getName()) +"'", "Manage your authentication tokens here")),
+                                tag("div", tag("a", "href='"+ api.listTokens(model.getUserCredentials().get().user.getName()) +"'",
+                                        "Manage your authentication tokens here")),
                                         tag("div", tag("a", "href='"+ api.getBaseUrl() +"year/"+ LocalDate.now().getYear() +"'", "This year's photos")),
                                         tag("div", tag("a", "href='"+ api.getBaseUrl() +"gallery/'", "All galleries")),
                                         tag("div", tag("a", "href='"+ api.getBaseUrl() +"tag/'", "All tags"))

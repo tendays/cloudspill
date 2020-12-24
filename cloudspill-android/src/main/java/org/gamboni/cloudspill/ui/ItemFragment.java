@@ -105,9 +105,9 @@ public class ItemFragment extends DialogFragment {
         ThumbnailIntentService.cancelCallback(callback);
         ThumbnailIntentService.loadThumbnailForId(getActivity(), itemId, callback);
 
-        return new AlertDialog.Builder(getActivity())
-                .setTitle(item.getUser() +"/"+ item.getFolder() +"/"+ item.getPath() +
-                        "("+ item.getType().name().toLowerCase() +")")
+        final AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(getActivity())
+                .setTitle(item.getUser() + "/" + item.getFolder() + "/" + item.getPath() +
+                        "(" + item.getType().name().toLowerCase() + ")")
                 .setView(layout)
                 .setPositiveButton(R.string.save, new DialogInterface.OnClickListener() {
                     @Override
@@ -115,22 +115,26 @@ public class ItemFragment extends DialogFragment {
                         final List<String> newTags = new Splitter(tagBox.getText().toString(), ',').trimValues().allRemainingTo(new ArrayList<String>());
                         item.setTagsForSync(newTags);
                     }
-                })
-                .setNeutralButton(R.string.share, new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        String uri = SettingsActivity.getLastServerVersion(getActivity()).getApi()
-                                .getPublicImagePageUrl(item);
-                        Log.d(TAG, "Uri: "+ uri);
-                        Intent shareIntent = new Intent();
-                        shareIntent.setAction(Intent.ACTION_SEND);
-                        shareIntent.setType("text/plain");
-                        shareIntent.putExtra(Intent.EXTRA_SUBJECT, "Sharing URL");
-                        shareIntent.putExtra(Intent.EXTRA_TEXT, uri);
-                        startActivity(Intent.createChooser(shareIntent, "Share via"));
-                    }
-                })
-                .setNegativeButton(R.string.close, new DialogInterface.OnClickListener() {
+                });
+
+        if (item.getChecksum() != null) {
+            dialogBuilder.setNeutralButton(R.string.share, new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    String uri = SettingsActivity.getLastServerVersion(getActivity()).getApi()
+                            .getPublicImagePageUrl(item);
+                    Log.d(TAG, "Uri: " + uri);
+                    Intent shareIntent = new Intent();
+                    shareIntent.setAction(Intent.ACTION_SEND);
+                    shareIntent.setType("text/plain");
+                    shareIntent.putExtra(Intent.EXTRA_SUBJECT, "Sharing URL");
+                    shareIntent.putExtra(Intent.EXTRA_TEXT, uri);
+                    startActivity(Intent.createChooser(shareIntent, "Share via"));
+                }
+            });
+        }
+
+        return dialogBuilder.setNegativeButton(R.string.close, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialogInterface, int i) {
 

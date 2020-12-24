@@ -29,6 +29,7 @@ import org.gamboni.cloudspill.job.DownloadStatus;
 import org.gamboni.cloudspill.job.MediaDownloader;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.domain.ItemType;
+import org.gamboni.cloudspill.shared.domain.Items;
 
 import java.util.List;
 
@@ -219,21 +220,26 @@ public class ItemActivity extends AppCompatActivity implements HasDomain {
                             tags.setText(tagString.toString());
 
                             ImageButton shareButton = (ImageButton)overlay.findViewById(R.id.shareButton);
-                            shareButton.setOnClickListener(new View.OnClickListener() {
-                                @Override
-                                public void onClick(View v) {
-                                    // TODO copy-pasted from share button in ItemFragment
-                                    String uri = SettingsActivity.getLastServerVersion(getBaseContext()).getApi()
-                                            .getPublicImagePageUrl(item);
-                                    Log.d(TAG, "Uri: "+ uri);
-                                    Intent shareIntent = new Intent();
-                                    shareIntent.setAction(Intent.ACTION_SEND);
-                                    shareIntent.setType("text/plain");
-                                    shareIntent.putExtra(Intent.EXTRA_SUBJECT, "Sharing URL");
-                                    shareIntent.putExtra(Intent.EXTRA_TEXT, uri);
-                                    startActivity(Intent.createChooser(shareIntent, "Share via"));
-                                }
-                            });
+
+                            if (item.getChecksum() != null || Items.isPublic(item)) {
+                                shareButton.setOnClickListener(new View.OnClickListener() {
+                                    @Override
+                                    public void onClick(View v) {
+                                        // TODO copy-pasted from share button in ItemFragment
+                                        String uri = SettingsActivity.getLastServerVersion(getBaseContext()).getApi()
+                                                .getPublicImagePageUrl(item);
+                                        Log.d(TAG, "Uri: " + uri);
+                                        Intent shareIntent = new Intent();
+                                        shareIntent.setAction(Intent.ACTION_SEND);
+                                        shareIntent.setType("text/plain");
+                                        shareIntent.putExtra(Intent.EXTRA_SUBJECT, "Sharing URL");
+                                        shareIntent.putExtra(Intent.EXTRA_TEXT, uri);
+                                        startActivity(Intent.createChooser(shareIntent, "Share via"));
+                                    }
+                                });
+                            } else {
+                                shareButton.setVisibility(View.GONE);
+                            }
 
                             ImageButton editButton = (ImageButton)overlay.findViewById(R.id.editButton);
                             editButton.setOnClickListener(new View.OnClickListener() {
