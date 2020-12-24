@@ -68,12 +68,12 @@ public class ImagePage extends AbstractRenderer<ImagePage.Model> {
 
 	@Override
 	public String getPageUrl(Model model) {
-		return api.getImagePageUrl(model.item, null, model.allCredentials);
+		return api.getImagePageUrl(model.item.getServerId(), null, model.allCredentials);
 	}
 
 	@Override
 	public Optional<String> getThumbnailUrl(Model model) {
-		return Optional.of(api.getThumbnailUrl(model.item, model.allCredentials, CloudSpillApi.Size.IMAGE_THUMBNAIL));
+		return Optional.of(api.getThumbnailUrl(model.item.getServerId(), model.allCredentials, CloudSpillApi.Size.IMAGE_THUMBNAIL));
 	}
 
 	private String getImageUrl(Model model) {
