@@ -71,21 +71,21 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
     private static String PREF_MOBILE_UPLOAD = "pref_mobile_upload";
     public enum PrefMobileUpload {
         NEVER {
-            public boolean shouldRun(ConnectionType connection, CloudSpillIntentService.Trigger trigger) {
+            public boolean shouldRun(CloudSpillIntentService.Trigger trigger) {
                 return false;
             }
         }, APP_OPEN {
-            public boolean shouldRun(ConnectionType connection, CloudSpillIntentService.Trigger trigger) {
+            public boolean shouldRun(CloudSpillIntentService.Trigger trigger) {
                 return trigger == CloudSpillIntentService.Trigger.FOREGROUND ||
                         trigger == CloudSpillIntentService.Trigger.MANUAL;
             }
         }, ANYTIME {
-            public boolean shouldRun(ConnectionType connection, CloudSpillIntentService.Trigger trigger) {
+            public boolean shouldRun(CloudSpillIntentService.Trigger trigger) {
                 return true;
             }
         };
 
-        public abstract boolean shouldRun(ConnectionType connection, CloudSpillIntentService.Trigger trigger);
+        public abstract boolean shouldRun(CloudSpillIntentService.Trigger trigger);
     }
     public static PrefMobileUpload getMobileUpload(Context context) {
         return PrefMobileUpload.valueOf(PreferenceManager.getDefaultSharedPreferences(context)

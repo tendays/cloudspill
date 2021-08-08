@@ -71,6 +71,14 @@ public class CloudSpillIntentService extends IntentService {
 
     @Override
     protected void onHandleIntent(@Nullable Intent intent) {
+        try {
+            runBatch(intent);
+        } catch (Throwable t) {
+            listener.updateMessage(StatusReport.Severity.ERROR, t.toString());
+        }
+    }
+
+    private void runBatch(Intent intent) {
         SettingsActivity.PrefMobileUpload mobileUpload = SettingsActivity.getMobileUpload(this);
         Trigger trigger = Trigger.valueOf(intent.getStringExtra(PARAM_TRIGGER));
         Log.i(TAG, "Starting batch after "+ trigger +" Trigger");
@@ -101,7 +109,7 @@ public class CloudSpillIntentService extends IntentService {
         }
 
         if (!full) {
-            if (mobileUpload.shouldRun(checkWifiOnAndConnected(), trigger)) {
+            if (checkWifiOnAndConnected() == SettingsActivity.ConnectionType.WIFI || mobileUpload.shouldRun(trigger)) {
                 Log.i(TAG, "Running DirectoryScanner");
                 /* Second highest: upload pictures so they are backed up and available to other users */
                 final DirectoryScanner ds = new DirectoryScanner(this, domain, server, listener);
