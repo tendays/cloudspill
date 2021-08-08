@@ -45,13 +45,11 @@ public class User implements IsUser {
 	@Override
 	public void verifyPassword(String password) throws InvalidPasswordException {
 		if (this.salt == null || this.pass == null) {
-			Log.error("User "+ this.getName() +" has no password");
-			throw new InvalidPasswordException();
+			throw new InvalidPasswordException("User "+ this.getName() +" has no password");
 		}
 		final String queryHash = BCrypt.hashpw(password, this.getSalt());
 		if (!queryHash.equals(this.getPass())) {
-			Log.error("Invalid credentials for user "+ this.getName());
-			throw new InvalidPasswordException();
+			throw new InvalidPasswordException("Invalid credentials for user "+ this.getName());
 		} else {
 			Log.info("User "+ this.getName() +" authenticated");
 		}
@@ -85,7 +83,7 @@ public class User implements IsUser {
 
 	public void verifyGroup(String group) throws PermissionDeniedException {
 		if (!hasGroup(group)) {
-			throw new PermissionDeniedException();
+			throw new PermissionDeniedException("User '"+ fullName +"' does not have required group '"+ group +"'");
 		}
 	}
 

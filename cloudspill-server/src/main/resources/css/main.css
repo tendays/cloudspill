@@ -103,14 +103,25 @@ a:visited {
 
 .metadata {
     position: fixed;
-    /* Must always be at least as wide as .siblink otherwise it's hard to reach metadata with a mouse. */
-    width: 20vw;
-    min-width: 10em;
     text-align: left;
     top: 4em;
     right: 0;
+}
+
+.metadata input,
+ .metadata textarea {
+     background-color: #0007;
+     border-width: 0;
+     color: white;
+ }
+
+.section {
+    /* Must always be at least as wide as .siblink otherwise it's hard to reach metadata with a mouse. */
+    width: 20vw;
+    min-width: 10em;
     padding: 1em;
     background-color: #2228;
+    margin: 0 0 1px 0;
 }
 
 .siblink {
@@ -172,9 +183,49 @@ a:visited {
     text-decoration: none;
 }
 
-.date::before {
+.date::before,
+ .comment-posted::before {
     /* Note: calendar emoji between quotes */
     content: "📅";
+}
+
+.comments::before {
+    /* Note: speech bubble emoji between quotes */
+    content: "💬"
+}
+
+.comment-section {
+    max-height: 3em;
+    overflow-y: hidden;
+}
+
+/* Reveal comments on hover */
+.comment-section:hover {
+    max-height: 12em;
+    overflow-y: auto;
+}
+
+/* Avoid horizontal scrollbar due to new-comment form. */
+.comments input, .comments textarea {
+    max-width: 90%;
+}
+
+/* Thin black lines between comments */
+.comment ~ .comment {
+    border-top: solid black 1px;
+    padding-top: 0.5em;
+}
+
+.comment-author {
+    font-weight: bold;
+    margin-bottom: 0.5em;
+}
+.comment-posted {
+    color: #bbb;
+    font-size:0.9em;
+}
+.comment-text {
+    margin: 0.5em 0;
 }
 
 .busy::after {
@@ -182,7 +233,7 @@ a:visited {
     content: "⏳";
 }
 
-.metadata div {
+.section > div {
     margin-top: 0.5em;
     margin-bottom:0.5em;
 }

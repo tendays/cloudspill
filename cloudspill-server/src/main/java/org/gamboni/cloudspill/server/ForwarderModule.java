@@ -11,6 +11,7 @@ import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.domain.UserAuthToken;
 import org.gamboni.cloudspill.server.config.ForwarderConfiguration;
 import org.gamboni.cloudspill.server.config.ServerConfiguration;
+import org.gamboni.cloudspill.shared.domain.Comment;
 
 import java.util.List;
 
@@ -39,7 +40,8 @@ public class ForwarderModule extends BackendModule {
         return ImmutableList.of(
                 User.class,
                 RemoteUserAuthToken.class,
-                RemoteItem.class
+                RemoteItem.class,
+                Comment.class
         );
     }
 }

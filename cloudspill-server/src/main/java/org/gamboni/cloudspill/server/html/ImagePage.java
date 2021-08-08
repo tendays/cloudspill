@@ -3,13 +3,12 @@
  */
 package org.gamboni.cloudspill.server.html;
 
-import com.google.common.base.CaseFormat;
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.ImmutableList;
 
 import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
+import org.gamboni.cloudspill.server.html.js.CommentSubmissionJs;
 import org.gamboni.cloudspill.server.html.js.EditorSubmissionJs;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
@@ -17,11 +16,10 @@ import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.shared.domain.Items;
-import org.gamboni.cloudspill.shared.query.QueryRange;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -58,7 +56,9 @@ public class ImagePage extends AbstractRenderer<ImagePage.Model> {
 	protected HtmlFragment scripts() {
 		return HtmlFragment.concatenate(
 				tag("script", "type='text/javascript' src=" + quote(api.editorJS()), ""),
-				tag("script", "type='text/javascript' src=" + quote(api.getUrl(new EditorSubmissionJs(configuration))), ""));
+				tag("script", "type='text/javascript' src=" + quote(api.getUrl(new EditorSubmissionJs(configuration))), ""),
+				tag("script", "type='text/javascript' src=" + quote(api.commentsJS()), ""),
+				tag("script", "type='text/javascript' src=" + quote(api.getUrl(new CommentSubmissionJs(configuration))), ""));
 	}
 
 	@Override
@@ -89,6 +89,7 @@ public class ImagePage extends AbstractRenderer<ImagePage.Model> {
 						tag("video", "controls class='image' src=" + quote(getImageUrl(model)), "") :
 						unclosedTag("img class='image' src=" + quote(getImageUrl(model)))),
 				tag("div", "class='metadata'",
+						tag("div", "class='section'",
 						(model.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN ?
 									button("edit", "edit",
 										"edit(" + model.item.getServerId() + ", '" + api.knownTags() + "', '" + api.getTagUrl(model.item.getServerId()) + "')") :
@@ -104,7 +105,25 @@ public class ImagePage extends AbstractRenderer<ImagePage.Model> {
 						tag("div", "class='tags'",
 								new HtmlFragment(model.item.getTags().stream()
 										.map(tag -> tagElement(tag, model.getAuthStatus()).toString())
-										.collect(Collectors.joining(" "))))));
+										.collect(Collectors.joining(" "))))),
+				tag("div", "class='section comment-section'",
+						tag("div", "id='comments' class='comments'",
+								HtmlFragment.concatenate(
+								model.item.getComments().stream()
+						.map(c -> tag("div", "class='comment'",
+								tag("div", "class='comment-author'", "By: "+ c.getAuthor()),
+								tag("div", "class='comment-posted'", c.getPosted().atZone(ZoneId.systemDefault())
+								.format(DateTimeFormatter.ofPattern(patternForPrecision("s")))),
+								tag("div", "class='comment-text'", HtmlFragment.escape(c.getText()))
+								))),
+								/* 'new-comment' tag indicates where to insert newly created comments */
+								tag("div", "id='new-comment' class='comment'",
+										tag("div", "class='comment-author'",
+												HtmlFragment.escape("By: "), tag("input", "id='new-comment-author'", "")),
+										tag("div", "class='comment-text'",
+												tag("textarea", "id='new-comment-text'", "")),
+								button("new-comment", "Post comment",
+										"newComment("+ model.item.getServerId() +")"))))));
 	}
 
 	private HtmlFragment neighbourLink(Model model, BackendItem item, String linkText, boolean right) {

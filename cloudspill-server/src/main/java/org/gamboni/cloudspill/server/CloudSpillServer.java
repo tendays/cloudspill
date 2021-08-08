@@ -34,6 +34,7 @@ import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.api.ItemMetadata;
 import org.gamboni.cloudspill.shared.api.LoginState;
 import org.gamboni.cloudspill.shared.domain.AccessDeniedException;
+import org.gamboni.cloudspill.shared.domain.Comment;
 import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
 import org.gamboni.cloudspill.shared.domain.IsUser;
 import org.gamboni.cloudspill.shared.domain.ItemType;
@@ -58,6 +59,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -354,13 +356,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	@Override
 	protected OrHttpError<ItemCredentials.UserToken> newToken(String username, String userAgent, String client) {
     	return transactedOrError(session -> {
-			String chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-			final SecureRandom random = new SecureRandom();
-			final String secret = random.ints(255).map(n -> chars.charAt(Math.abs(n) % (chars.length())))
-					.collect(StringBuilder::new, (builder, chr) -> builder.append((char) chr),
-							(a, b) -> {
-								throw new UnsupportedOperationException();
-							}).toString();
+			final String secret = Security.newRandomString(255);
 			UserAuthToken token = new UserAuthToken();
 			token.setValue(secret);
 			token.setValid(false);
@@ -380,7 +376,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 			if (token == null ||
 					!token.getValue().equals(credentials.secret) ||
 					!token.getUser().getName().equals(credentials.user.getName())) {
-				throw new InvalidPasswordException();
+				throw new InvalidPasswordException("Incorrect secret for token #"+ credentials.id);
 			}
 			if (token.getValid()) {
 				return LoginState.LOGGED_IN;
@@ -742,5 +738,10 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	@Override
 	protected ServerDomain createDomain(EntityManager e) {
 		return new ServerDomain(e);
+	}
+
+	@Override
+	protected OrHttpError<Instant> postComment(Comment comment) {
+		return new OrHttpError<>(Instant.now());
 	}
 }

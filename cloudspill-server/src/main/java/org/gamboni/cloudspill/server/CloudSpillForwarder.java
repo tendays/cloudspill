@@ -34,6 +34,7 @@ import org.gamboni.cloudspill.shared.client.ResponseHandler;
 import org.gamboni.cloudspill.shared.client.ResponseHandlers;
 import org.gamboni.cloudspill.shared.domain.AccessDeniedException;
 import org.gamboni.cloudspill.shared.domain.ClientUser;
+import org.gamboni.cloudspill.shared.domain.Comment;
 import org.gamboni.cloudspill.shared.domain.IsUser;
 import org.gamboni.cloudspill.shared.util.Log;
 import org.mindrot.jbcrypt.BCrypt;
@@ -53,6 +54,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -302,6 +304,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
             try {
                 verifyCredentials(credentials, item);
             } catch (AccessDeniedException e) {
+                Log.error("Denied access to local item "+ id +": "+ e.getMessage());
                 return forbidden(false);
             }
             return new OrHttpError<>(item);
@@ -636,5 +639,11 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     @Override
     protected ForwarderDomain createDomain(EntityManager e) {
         return new ForwarderDomain(e);
+    }
+
+    @Override
+    protected OrHttpError<Instant> postComment(Comment comment) {
+        // NOTE: how to handle CSRF?
+        return remoteApi.postComment(comment.getId());
     }
 }

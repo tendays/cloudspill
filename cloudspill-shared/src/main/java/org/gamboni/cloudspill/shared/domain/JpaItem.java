@@ -5,14 +5,18 @@ package org.gamboni.cloudspill.shared.domain;
 
 import java.io.File;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.Set;
 
+import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.ElementCollection;
 import javax.persistence.EnumType;
 import javax.persistence.Enumerated;
 import javax.persistence.FetchType;
+import javax.persistence.JoinColumn;
 import javax.persistence.MappedSuperclass;
+import javax.persistence.OneToMany;
 import javax.persistence.Transient;
 
 import static org.gamboni.cloudspill.shared.util.Files.append;
@@ -30,6 +34,7 @@ public abstract class JpaItem implements IsItem {
 	private LocalDateTime date;
 	private ItemType type;
 	private Set<String> tags;
+	private Set<Comment> comments = new HashSet<>();
 	private String description;
 	private String datePrecision;
 
@@ -88,9 +93,19 @@ public abstract class JpaItem implements IsItem {
 	public Set<String> getTags() {
 		return tags;
 	}
-	
+
 	public void setTags(Set<String> tags) {
 		this.tags = tags;
+	}
+
+	@OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+	@JoinColumn
+	public Set<Comment> getComments() {
+		return comments;
+	}
+
+	public void setComments(Set<Comment> comments) {
+		this.comments = comments;
 	}
 
 	public String getDescription() {

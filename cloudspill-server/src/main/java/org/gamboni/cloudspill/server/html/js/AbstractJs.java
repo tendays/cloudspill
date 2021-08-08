@@ -8,8 +8,11 @@ import org.gamboni.cloudspill.shared.api.StaticResource;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * @author tendays
@@ -57,19 +60,43 @@ public abstract class AbstractJs implements StaticResource {
 
     private JsFunction currentFunction = null;
 
-    protected interface JsCallback {
-        void run(String req);
-        default String getBody() {
+    protected static abstract class JsCallback {
+
+        private final Map<String, String> headers = new LinkedHashMap<>();
+
+        public abstract void run(String req);
+
+        public String getBody() {
             return "";
+        }
+
+        public JsCallback withHeader(String name, String value) {
+            headers.put(name, value);
+            return this;
         }
     }
 
-    /** Send a query with something in request body: api.someCall(params, send(body, request -> {response handler})) */
+    /** Send a query with something in request body: api.someCall(params, send(body, () -> {response handler})) */
     protected JsCallback send(String body, Runnable callback) {
         return new JsCallback() {
             @Override
             public void run(String req) {
                 callback.run();
+            }
+
+            @Override
+            public String getBody() {
+                return body;
+            }
+        };
+    }
+
+    /** Send a query with something in request body: api.someCall(params, send(body, request -> {response handler})) */
+    protected JsCallback send(String body, Consumer<String> callback) {
+        return new JsCallback() {
+            @Override
+            public void run(String req) {
+                callback.accept(req +".responseText");
             }
 
             @Override
@@ -92,6 +119,9 @@ public abstract class AbstractJs implements StaticResource {
             // NOTE: it may contain template expressions and by the time this method is called we don't know
             // if those are real or injected in the server configuration
             appendLine(req + ".open(" + lit(method.name()) + ", `" + url + "`);");
+            consumer.headers.forEach((header, value) -> {
+                appendLine(req +".setRequestHeader("+ lit(header) +","+ value+");");
+            });
             appendLine(req + ".send(" + consumer.getBody() + ");");
         });
     }

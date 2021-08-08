@@ -23,12 +23,12 @@ public class ClientUser implements IsUser {
     @Override
     public void verifyPassword(String password) throws InvalidPasswordException {
         /* This object is used in the forwarder for users which aren't in the database, so we should reject logins using such a user */
-        throw new InvalidPasswordException();
+        throw new InvalidPasswordException("User does not exist");
     }
 
     @Override
     public void verifyGroup(String group) throws PermissionDeniedException {
-        throw new PermissionDeniedException();
+        throw new PermissionDeniedException("User does not exist");
     }
 
     @Override

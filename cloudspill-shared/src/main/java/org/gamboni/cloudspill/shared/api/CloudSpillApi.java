@@ -154,6 +154,14 @@ public class CloudSpillApi<T> {
         matcher.match(ApiElementMatcher.HttpMethod.POST, serverUrl +"item/"+ itemId +"/description", consumer);
     }
 
+    public void postComment(Object itemId, T consumer) {
+        matcher.match(ApiElementMatcher.HttpMethod.POST, serverUrl +"item/"+ itemId +"/comments", consumer);
+    }
+
+    public void getComments(Object itemId, T consumer) {
+        matcher.match(ApiElementMatcher.HttpMethod.GET, serverUrl +"item/"+ itemId +"/comments", consumer);
+    }
+
     public void validateToken(Object name, Object id, T consumer) {
         matcher.match(ApiElementMatcher.HttpMethod.POST, serverUrl + "/user/"+ name +"/tokens/"+ id +"/validate", consumer);
     }
@@ -172,6 +180,10 @@ public class CloudSpillApi<T> {
 
     public String editorJS() {
         return serverUrl +"editor.js";
+    }
+
+    public String commentsJS() {
+        return serverUrl +"comments.js";
     }
 
     public String tokenListJS() {

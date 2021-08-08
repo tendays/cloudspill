@@ -81,6 +81,21 @@ CREATE TABLE `Item_tags` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `Comments`
+--
+
+DROP TABLE IF EXISTS `Comment`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `Comment` (
+  `Item_id` int(11) DEFAULT NULL,
+  `text` varchar(1000) CHARACTER SET utf8mb4 NOT NULL,
+  `author` varchar(100) CHARACTER SET utf8mb4 NOT NULL,
+  `posted` timestamp not null
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `User`
 --
 

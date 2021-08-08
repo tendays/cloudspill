@@ -112,6 +112,7 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 						.get(res));
 	}
 
+	/** Create a page available to logged-in users only. */
 	protected <I, O extends OutputModel> Route securedPage(Function<Request, I> parser, QueryExecutor<I, S, O> executor, Serialiser<O> serialiser, AbstractRenderer<O> formatter) {
 		return secured((req, res, session, user) ->
 				pageBody(parser, executor, serialiser, formatter, req, res, session, user).get(res));
@@ -141,6 +142,7 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 				});
 	}
 
+	/** Require an authenticated user to perform the given task. */
 	protected Route secured(SecuredBody<S> task) {
 		return (req, res) ->
 				transacted(session ->
@@ -176,7 +178,7 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 						public void when(ItemCredentials.UserToken token) throws InvalidPasswordException {
 							final LoginState state = getUserTokenState(token.user, token.id, token.secret);
 							if (state != LoginState.LOGGED_IN) {
-								throw new InvalidPasswordException();
+								throw new InvalidPasswordException("User token #"+ token.id +" has not been validated");
 							}
 						}
 
@@ -277,7 +279,7 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 		return "Gone";
 	}
 
-	private String badRequest(Response res) {
+	protected String badRequest(Response res) {
 		res.status(HttpServletResponse.SC_BAD_REQUEST);
 		return "Bad Request";
 	}

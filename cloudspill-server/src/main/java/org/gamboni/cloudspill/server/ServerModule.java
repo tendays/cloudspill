@@ -9,6 +9,7 @@ import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.domain.UserAuthToken;
 import org.gamboni.cloudspill.server.config.ServerConfiguration;
+import org.gamboni.cloudspill.shared.domain.Comment;
 import org.hibernate.c3p0.internal.C3P0ConnectionProvider;
 import org.hibernate.cfg.AvailableSettings;
 import org.hibernate.dialect.MySQLDialect;
@@ -51,7 +52,8 @@ public class ServerModule extends BackendModule {
                 User.class,
                 UserAuthToken.class,
                 GalleryPart.class,
-                Item.class
+                Item.class,
+                Comment.class
         );
     }
 }

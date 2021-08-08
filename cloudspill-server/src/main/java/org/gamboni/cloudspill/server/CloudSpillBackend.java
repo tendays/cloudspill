@@ -5,6 +5,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
+import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
@@ -20,6 +21,7 @@ import org.gamboni.cloudspill.server.html.ImagePage;
 import org.gamboni.cloudspill.server.html.LoginPage;
 import org.gamboni.cloudspill.server.html.TokenListPage;
 import org.gamboni.cloudspill.server.html.js.AbstractJs;
+import org.gamboni.cloudspill.server.html.js.CommentSubmissionJs;
 import org.gamboni.cloudspill.server.html.js.EditorSubmissionJs;
 import org.gamboni.cloudspill.server.html.js.TokenValidationJs;
 import org.gamboni.cloudspill.server.query.ItemQueryLoader;
@@ -33,7 +35,9 @@ import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.api.ItemMetadata;
 import org.gamboni.cloudspill.shared.api.ItemSecurity;
 import org.gamboni.cloudspill.shared.api.LoginState;
+import org.gamboni.cloudspill.shared.api.NewComment;
 import org.gamboni.cloudspill.shared.domain.AccessDeniedException;
+import org.gamboni.cloudspill.shared.domain.Comment;
 import org.gamboni.cloudspill.shared.domain.InvalidPasswordException;
 import org.gamboni.cloudspill.shared.domain.IsItem;
 import org.gamboni.cloudspill.shared.domain.IsUser;
@@ -45,7 +49,6 @@ import org.gamboni.cloudspill.shared.util.Log;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -82,6 +85,7 @@ import static spark.Spark.put;
 public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain> extends AbstractServer<D> {
     private static final ItemCredentials.PublicAccess publicAccess = new ItemCredentials.PublicAccess();
 
+
     protected final CloudSpillApi<Route> api = new CloudSpillApi<>("", (method, url, route) -> {
         if (method == ApiElementMatcher.HttpMethod.GET) {
             get(url, route);
@@ -108,6 +112,8 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         }
     }
 
+    public static class BadRequestException extends RuntimeException {}
+
     protected final void setupRoutes(BackendConfiguration configuration) {
 
         /* Request Model: just the year as an int */
@@ -125,10 +131,18 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         before((req, res) -> AbstractRenderer.recordRequestStart());
         after((req, res) -> AbstractRenderer.clearRequestStopwatch());
 
+        before((req, res) -> {
+            Csrf.handleRequest(configuration, req, res);
+        });
+
         Spark.exception(Exception.class, (exception, req, res) -> {
-            Log.error("Uncaught exception handling "+ req.requestMethod() +" "+ req.uri(), exception);
-            res.status(500);
-            res.body("500 Internal Server Error");
+            if (exception instanceof BadRequestException) {
+                res.body(badRequest(res));
+            } else {
+                Log.error("Uncaught exception handling " + req.requestMethod() + " " + req.uri(), exception);
+                res.status(500);
+                res.body("500 Internal Server Error");
+            }
         });
 
         api.ping((req, res) -> transacted(session ->
@@ -141,9 +155,11 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
         expose(new EditorSubmissionJs(configuration));
         expose(new TokenValidationJs(configuration));
+        expose(new CommentSubmissionJs(configuration));
 
         exposeResource(api.css(), "css/main.css", "text/css");
         exposeResource(api.lazyLoadJS(), "js/lazy-load.js", "application/javascript");
+        exposeResource(api.commentsJS(), "js/comments.js", "application/javascript");
         exposeResource(api.editorJS(), "js/editor.js", "application/javascript");
         exposeResource(api.loginJS(), "js/login.js", "application/javascript");
         exposeResource(api.uploadJS(), "js/upload.js", "application/javascript");
@@ -376,6 +392,40 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             return true;
         }));
 
+
+        api.postComment(":id", securedItem(ItemCredentials.AuthenticationStatus.LOGGED_IN, (req, res, session, credentials, item) -> {
+            NewComment body = new Gson().fromJson(req.body(), NewComment.class);
+            if (body == null || body.text == null || body.text.length() > 1000 ||
+                    body.author == null || body.author.length() > 100 || !Csrf.isValid()) {
+                return badRequest(res);
+            }
+
+            Comment comment = new Comment();
+            comment.setText(body.text);
+            comment.setAuthor(body.author);
+
+            // Question: how to propagate this securely?
+            // 1. allowing the client to specify the timestamp allows forging past comments
+            // 2. letting the server specify the timestamp means the forwarder and the upstream server will have different values
+
+            // 3. let postComment return the posted timestamp. In the forwarder, either synchronously call upstream, or asynchronously UPDATE
+            // timestamp when upstream responds. <- best
+
+            return postComment(comment).get(res, timestamp -> {
+
+                comment.setPosted(timestamp);
+
+                item.getComments().add(comment);
+
+                session.persist(comment);
+                return comment.getPosted();
+            });
+        }));
+
+        api.getComments(":id", securedItem(ItemCredentials.AuthenticationStatus.LOGGED_IN, (req, res, session, credentials, item) -> {
+            return new Gson().toJson(item.getComments());
+        }));
+
         /* Upload a file */
         put(api.upload(":user", ":folder", "*"), secured((req, res, session, credentials) -> {
         	/*if (req.bodyAsBytes() == null) {
@@ -457,10 +507,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                             (forwarded == null ? req.ip() :
                             (forwarded +" (connecting through "+ req.ip() +")")))
                     .get(res, token -> {
-                        /* "Lax" SameSite to allow people to link to pages. We don't do state changes in GET requests. */
-                        res.header("Set-Cookie", LOGIN_COOKIE_NAME +"="+ token.encodeCookie() +
-                                "; Path=/; Max-Age="+ (int)Duration.ofDays(365).getSeconds() +"; HttpOnly"+
-                                (configuration.insecureAuthentication() ? "" : "; Secure")+"; SameSite=Lax");
+                        Http.setCookie(res, configuration, LOGIN_COOKIE_NAME, token.encodeCookie(), Http.HttpOnlyFlag.SET);
 
                         return token.encodeLoginParam();
                     });
@@ -615,6 +662,8 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
     protected abstract OrHttpError<ItemCredentials.UserToken> newToken(String username, String userAgent, String client);
 
+    protected abstract OrHttpError<Instant> postComment(Comment comment);
+
     protected void verifyCredentials(List<ItemCredentials> credentials, IsItem item) throws AccessDeniedException {
         /* Only require the user to have access to the item if there are no other credentials. */
         boolean checkUserAccess = Iterables.all(credentials, c -> c.getPower() == ItemCredentials.Power.USER);
@@ -637,7 +686,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             public void when(ItemCredentials.UserToken token) throws AccessDeniedException {
                 final LoginState state = getUserTokenState(token.user, token.id, token.secret);
                 if (state != LoginState.LOGGED_IN) {
-                    throw new InvalidPasswordException();
+                    throw new InvalidPasswordException("User token #"+ token.id +"' has not been validated");
                 }
                 authorise(token.user, item);
             }
@@ -645,15 +694,14 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             @Override
             public void when(ItemCredentials.PublicAccess pub) throws InvalidPasswordException {
                 if (!Items.isPublic(item)) {
-                    throw new InvalidPasswordException();
+                    throw new InvalidPasswordException("Item #"+ item.getServerId() +" is not public");
                 }
             }
 
             @Override
             public void when(ItemCredentials.ItemKey key) throws InvalidPasswordException {
                 if (!key.checksum.equals(item.getChecksum())) {
-                    Log.warn("Bad key value. Expected " + item.getChecksum() + ", got " + key.checksum);
-                    throw new InvalidPasswordException();
+                    throw new InvalidPasswordException("Bad key value. Expected " + item.getChecksum() + ", got " + key.checksum);
                 }
             }
         });
@@ -741,6 +789,15 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                 idParam;
     }
 
+    /** Create a Route for an action accessing the item specified in the {@code :id} route parameter.
+     *
+     * @param authStatus {@link org.gamboni.cloudspill.shared.api.ItemCredentials.AuthenticationStatus#LOGGED_IN}
+     *  if the action is restricted to logged-in users (typically to modify the item),
+     *  {@link org.gamboni.cloudspill.shared.api.ItemCredentials.AuthenticationStatus#ANONYMOUS} if the action is
+     *  open to anonymous users (e.g. just to view the Item).
+     * @param task execute the action.
+     * @return a Spark Route.
+     */
     protected Route securedItem(ItemCredentials.AuthenticationStatus authStatus, SecuredItemBody<D> task) {
         return (req, res) -> transacted(session -> {
             String key = restorePluses(req.queryParams("key"));
@@ -766,6 +823,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                 final long id = Long.parseLong(idParam);
 
                 if (credentials.isEmpty()) {
+                    Log.error("Denied access to item "+ id +": no credentials provided");
                     return forbidden(res, true);
                 }
 
