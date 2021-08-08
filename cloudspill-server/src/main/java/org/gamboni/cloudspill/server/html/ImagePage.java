@@ -35,8 +35,10 @@ public class ImagePage extends AbstractRenderer<ImagePage.Model> {
 		final User user;
 		final Java8SearchCriteria<BackendItem> gallery;
 		final List<ItemCredentials> allCredentials;
+		final boolean experimental;
 
-		public Model(BackendItem item, Java8SearchCriteria<BackendItem> gallery , BackendItem prev, BackendItem next, User user, List<ItemCredentials> credentials) {
+		public Model(BackendItem item, Java8SearchCriteria<BackendItem> gallery , BackendItem prev, BackendItem next, User user, List<ItemCredentials> credentials,
+					 boolean experimental) {
 			super(credentials);
 			this.user = user;
 			this.item = item;
@@ -44,6 +46,7 @@ public class ImagePage extends AbstractRenderer<ImagePage.Model> {
 			this.prev = prev;
 			this.next = next;
 			this.allCredentials = credentials;
+			this.experimental = experimental;
 		}
 	}
 
@@ -106,6 +109,7 @@ public class ImagePage extends AbstractRenderer<ImagePage.Model> {
 								new HtmlFragment(model.item.getTags().stream()
 										.map(tag -> tagElement(tag, model.getAuthStatus()).toString())
 										.collect(Collectors.joining(" "))))),
+				model.experimental ?
 				tag("div", "class='section comment-section'",
 						tag("div", "id='comments' class='comments'",
 								HtmlFragment.concatenate(
@@ -123,7 +127,9 @@ public class ImagePage extends AbstractRenderer<ImagePage.Model> {
 										tag("div", "class='comment-text'",
 												tag("textarea", "id='new-comment-text'", "")),
 								button("new-comment", "Post comment",
-										"newComment("+ model.item.getServerId() +")"))))));
+										"newComment("+ model.item.getServerId() +")")))) :
+						// non-experimental
+						HtmlFragment.EMPTY));
 	}
 
 	private HtmlFragment neighbourLink(Model model, BackendItem item, String linkText, boolean right) {

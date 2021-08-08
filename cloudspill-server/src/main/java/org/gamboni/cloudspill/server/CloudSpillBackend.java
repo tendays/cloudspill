@@ -734,12 +734,13 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
     private OrHttpError<?> itemPage(BackendConfiguration configuration, Request req, Response res, D session, List<ItemCredentials> credentials, BackendItem item,
                             Supplier<Java8SearchCriteria<BackendItem>> gallerySupplier) throws IOException {
+        boolean experimental = req.queryParamOrDefault("experimental", "false").equals("true");
         if (req.params("id").endsWith(ID_HTML_SUFFIX)) {
             User user = session.get(User.class, item.getUser());
             ImagePage renderer = new ImagePage(configuration);
             OrHttpError<ImagePage.Model> model;
             if (gallerySupplier == null) {
-                model = new OrHttpError<>(new ImagePage.Model(item, null, null, null, user, credentials));
+                model = new OrHttpError<>(new ImagePage.Model(item, null, null, null, user, credentials, experimental));
             } else {
                 final Java8SearchCriteria<BackendItem> gallery = gallerySupplier.get();
                 model = this.getQueryLoader(session, ItemSecurity.mostPowerful(credentials)).load(gallery
@@ -751,7 +752,8 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                                     gallery,
                                     index > 0 ? neighbours.rows.get(index - 1) : null,
                                     index < neighbours.rows.size() - 1 ? neighbours.rows.get(index + 1) : null,
-                                    user, credentials);
+                                    user, credentials,
+                                    experimental);
                         });
             }
             return model.map(m -> renderer.render(m).toString());
