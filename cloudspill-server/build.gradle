@@ -17,7 +17,7 @@ mainClassName = "org.gamboni.cloudspill.server.CloudSpillServer"
 //}
 
 repositories {
-  jcenter()
+  mavenCentral()
 }
 
 sourceCompatibility = 1.8
