@@ -11,6 +11,7 @@ import com.google.gson.JsonObject;
 
 import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
+import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.domain.UserAuthToken;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
@@ -411,7 +412,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             // 3. let postComment return the posted timestamp. In the forwarder, either synchronously call upstream, or asynchronously UPDATE
             // timestamp when upstream responds. <- best
 
-            return postComment(comment).get(res, timestamp -> {
+            return postComment(credentials, item.getServerId(), comment).get(res, timestamp -> {
 
                 comment.setPosted(timestamp);
 
@@ -662,7 +663,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
     protected abstract OrHttpError<ItemCredentials.UserToken> newToken(String username, String userAgent, String client);
 
-    protected abstract OrHttpError<Instant> postComment(Comment comment);
+    protected abstract OrHttpError<Instant> postComment(List<ItemCredentials> credentials, Long serverId, Comment comment);
 
     protected void verifyCredentials(List<ItemCredentials> credentials, IsItem item) throws AccessDeniedException {
         /* Only require the user to have access to the item if there are no other credentials. */

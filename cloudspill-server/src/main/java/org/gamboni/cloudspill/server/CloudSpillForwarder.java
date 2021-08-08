@@ -1,11 +1,13 @@
 package org.gamboni.cloudspill.server;
 
+import com.google.common.base.Charsets;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CharStreams;
+import com.google.gson.Gson;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 
@@ -55,6 +57,7 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -642,8 +645,22 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
-    protected OrHttpError<Instant> postComment(Comment comment) {
-        // NOTE: how to handle CSRF?
-        return remoteApi.postComment(comment.getId());
+    protected OrHttpError<Instant> postComment(List<ItemCredentials> credentials, Long serverId, Comment comment) {
+        ResponseHandlers.ResponseHandlerWithResult<Instant> handler = new ResponseHandlers.ResponseHandlerWithResult<Instant>(connection -> {
+            connection.setDoOutput(true);
+            String fakeCsrf = "non-web";
+            connection.setRequestProperty("Cookie", Csrf.COOKIE +"="+ fakeCsrf);
+            connection.setRequestProperty(Csrf.HEADER, fakeCsrf);
+            connection.connect();
+
+            try (Writer out = new OutputStreamWriter(connection.getOutputStream(), Charsets.UTF_8)) {
+                new Gson().toJson(comment, out);
+            }
+            try (Reader in = new InputStreamReader(connection.getInputStream(), Charsets.UTF_8)) {
+                return Instant.from(DateTimeFormatter.ISO_INSTANT.parse(CharStreams.toString(in)));
+            }
+        });
+        remoteApi.postComment(serverId, ResponseHandlers.withCredentials(credentials, BASE_64_ENCODER, handler));
+        return new OrHttpError<>(handler.getResult());
     }
 }

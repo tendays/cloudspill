@@ -3,7 +3,6 @@
  */
 package org.gamboni.cloudspill.server;
 
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
 import com.google.inject.Guice;
@@ -58,7 +57,6 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -741,7 +739,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	}
 
 	@Override
-	protected OrHttpError<Instant> postComment(Comment comment) {
+	protected OrHttpError<Instant> postComment(List<ItemCredentials> credentials, Long serverId, Comment comment) {
 		return new OrHttpError<>(Instant.now());
 	}
 }
