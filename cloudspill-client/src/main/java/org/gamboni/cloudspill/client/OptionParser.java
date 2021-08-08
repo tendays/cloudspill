@@ -12,7 +12,7 @@ class OptionParser {
     String next = null;
     final Iterator<String> iterator;
 
-    OptionParser(String[] args) {
+    OptionParser(String... args) {
         this.iterator = Iterators.forArray(args);
     }
 
