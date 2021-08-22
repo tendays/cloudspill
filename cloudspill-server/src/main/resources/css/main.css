@@ -76,9 +76,20 @@ a:visited {
 
 .thumb {
     image-orientation: from-image;
-    float: left;
     width: 300px;
     height: 300px;
+}
+
+.itemLink {
+    float: left;
+    position: relative;
+}
+
+.itemLink input {
+    position: absolute;
+    left: 1em;
+    top: 1em;
+    transform: scale(2);
 }
 
 .image {
@@ -91,6 +102,8 @@ a:visited {
     display: block;
 }
 
+/** GALLERY **/
+
 .pagerLink {
     clear: left;
     display: block;
@@ -100,6 +113,8 @@ a:visited {
     text-decoration: none;
     font-size: 3em;
 }
+
+/* Gallery selection mode */
 
 .metadata {
     position: fixed;
@@ -181,6 +196,11 @@ a:visited {
     background-color:#666;
     color: #fba;
     text-decoration: none;
+}
+
+.tag.partial {
+    border-style: dashed;
+    background-color:#444;
 }
 
 .date::before,

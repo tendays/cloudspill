@@ -54,8 +54,8 @@ public class GalleryPage extends AbstractRenderer<GalleryPage.Model> {
     protected String onLoad(Model model) {
         if (model.itemSet.totalCount > PAGE_SIZE && model.criteria.getRange().offset == 0) {
             return "createPlaceholders('"+ model.criteria.withRange(QueryRange.ALL).getUrl(api) +"', '"+
-                    api.getThumbnailUrl("%d", new ItemCredentials.ItemKey("%s"), CloudSpillApi.Size.IMAGE_THUMBNAIL.pixels) +"', '"+
-                    api.getImagePageUrl("%d", model.criteria, new ItemCredentials.ItemKey("%s")) +"', "+
+                    api.getThumbnailUrl("%d", new ItemCredentials.PublicAccess(), CloudSpillApi.Size.IMAGE_THUMBNAIL.pixels) +"', '"+
+                    api.getImagePageUrl("%d", model.criteria, new ItemCredentials.PublicAccess()) +"', "+
                     PAGE_SIZE +", "+ model.itemSet.totalCount +")";
         } else {
             return super.onLoad(model);
@@ -66,16 +66,25 @@ public class GalleryPage extends AbstractRenderer<GalleryPage.Model> {
     protected HtmlFragment getBody(Model model) {
         int pageNumber = model.criteria.getRange().offset / PAGE_SIZE;
         return HtmlFragment.concatenate(
+                (model.experimental ?
+                tag("div", "class='toolbar'",
+                        tag("div", "class='button' onclick='selectionMode()'", "Select"),
+                        tag("div", "class='tags' style='display:none'", "Tags of selected photos:")
+                )
+        : HtmlFragment.EMPTY),
                 tag("div", "class='description'", model.itemSet.description),
+                tag("div", "id='items'",
                 pageLink(model, pageNumber - 1, "<", model.itemSet.totalCount),
                 HtmlFragment.concatenate(
                         model.itemSet.rows.stream().map(item ->
-                                tag("a", "href=" + quote(
+                                tag("a", "data-id="+ quote(String.valueOf(item.getServerId())) +" " +
+                                                "data-tags="+ quote(String.join(",", item.getTags())) +" " +
+                                                "class='itemLink' href=" + quote(
                                                         api.getImagePageUrl(item.getServerId(), model.criteria, model.getAuthStatus().credentialsFor(item))),
                                         unclosedTag("img class='thumb' src=" +
                                                 quote(api.getThumbnailUrl(item, CloudSpillApi.Size.IMAGE_THUMBNAIL))))
                         ).toArray(HtmlFragment[]::new)),
-                pageLink(model, pageNumber + 1, ">", model.itemSet.totalCount));
+                pageLink(model, pageNumber + 1, ">", model.itemSet.totalCount)));
     }
 
     private HtmlFragment pageLink(Model model, int pageNumber, String label, long totalCount) {

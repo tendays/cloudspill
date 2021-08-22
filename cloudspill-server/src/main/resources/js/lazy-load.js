@@ -39,7 +39,7 @@ function createPlaceholders(dataUrl, imageUrlPattern, hrefPattern, pageSize, cou
         for (let n=offset; n<offset+pageSize && n<count; n++) {
             /* create */
             let placeholder = document.createElement("a");
-            placeholder.setAttribute("class", "thumb loading");
+            placeholder.setAttribute("class", "itemLink loading");
 
             /* insert */
             pointer.parentNode.insertBefore(placeholder, pointer.nextSibling);
@@ -51,4 +51,136 @@ function createPlaceholders(dataUrl, imageUrlPattern, hrefPattern, pageSize, cou
         }
     }
     marker.remove();
+}
+
+function tagState(itemCount, tagCount) {
+    if (tagCount === 0) {
+        return 'hidden';
+    } else if (tagCount < itemCount) {
+        return 'partial';
+    } else {
+        return 'shown';
+    }
+}
+
+function updateTag(container, tag, oldState, newState) {
+    for (let tagElt of container.children) {
+        if (tagElt.textContent === tag) {
+            if (newState === 'hidden') {
+                tagElt.parentElement.removeChild(tagElt);
+            } else if (newState === 'partial') {
+                tagElt.classList.add('partial');
+            } else {
+                tagElt.classList.remove('partial');
+            }
+            break;
+        }
+    }
+}
+
+let selectionModeActive = false;
+let selectionListenerRemoval = [];
+function selectionMode() {
+    selectionModeActive = !selectionModeActive;
+
+    if (!selectionModeActive) {
+        selectionListenerRemoval.forEach(e => e());
+        selectionListenerRemoval = [];
+        return;
+    }
+
+    let set = [];
+    /* "tags" Element */
+    let container = document.getElementsByClassName("tags")[0];
+    container.style.display='block';
+
+    selectionListenerRemoval.push(() => {
+        // Remove any displayed tags, but not the "Selected item tags" text node...
+        while (container.children.length) {
+            container.removeChild(container.children[0]);
+        }
+        container.style.display='none';
+    });
+
+    /* Maps tag names to the number of occurrences in the selection. */
+    let tagCounts = {};
+
+
+    for (let item of document.getElementById('items').children) {
+        let img = item.children[0];
+        let check = document.createElement('input');
+        check.setAttribute('type', 'checkbox');
+        item.insertBefore(check, img);
+        //  img.classList.add('selectable');
+
+        let changehandler = () => {
+            // console.log(item.dataset.id +" → "+ check.checked);
+            let thisItemTags = item.dataset.tags.split(',');
+            let oldItemCount = set.length;
+            if (check.checked) {
+                set.push(item.dataset.id);
+            } else {
+                set.splice(set.indexOf(item.dataset.id), 1);
+            }
+            let newItemCount = set.length;
+            /* See if tags of other items (NOT tags of the [de]selected item) may switch between full and partial */
+            for (let tag in tagCounts) {
+                // Object prototype needed in case someone puts tag "hasOwnProperty" on an image... (For photos of people who own a house??)
+                if (Object.prototype.hasOwnProperty.call(tagCounts, tag) && thisItemTags.indexOf(tag === -1)) {
+                    let oldState = tagState(oldItemCount, tagCounts[tag]);
+                    let newState = tagState(newItemCount, tagCounts[tag]);
+                    updateTag(container, tag, oldState, newState);
+                }
+            }
+            thisItemTags.forEach(thisTag => {
+                let oldCount = tagCounts[thisTag] || 0;
+                let oldState = tagState(newItemCount, oldCount);
+                let newCount = oldCount + (check.checked ? +1 : -1);
+                let newState = tagState(newItemCount, newCount);
+
+                tagCounts[thisTag] = newCount;
+                if (oldState !== newState) {
+                    if (oldState === 'hidden') {
+                        /* hidden -> !hidden: create element */
+                        let newTag = document.createElement('span');
+                        newTag.textContent = thisTag;
+                        newTag.className = 'tag';
+                        if (newState === 'partial') {
+                            newTag.classList.add('partial');
+                        }
+                        container.appendChild(newTag);
+                    } else {
+                        updateTag(container, thisTag, oldState, newState);
+                    }
+                }
+            });
+
+            // console.log(set);
+            // console.log(tagCounts);
+        };
+
+        check.addEventListener('click', e => {
+            let newState = check.checked;
+
+            changehandler();
+
+            e.preventDefault(); // don't navigate link
+            e.stopPropagation(); // also prevent propagation to parent <a>...
+            /* Something is reversing the checkbox after this event handler. The setTimeout() is there
+            * to really keep the new state. */
+            setTimeout(() => check.checked = newState);
+        });
+
+        let itemClicked = e => {
+                                      /* Programmatically change checkbox state when clicking on the image. */
+                                      check.checked = !check.checked;
+                                      e.preventDefault(); // don't navigate link
+                                      changehandler();
+                                  };
+        item.addEventListener('click', itemClicked);
+        selectionListenerRemoval.push(() => {
+            item.removeChild(check);
+            item.removeEventListener('click', itemClicked);
+        });
+    }
 }
