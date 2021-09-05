@@ -80,7 +80,7 @@ function updateTag(container, tag, oldState, newState) {
 
 let selectionModeActive = false;
 let selectionListenerRemoval = [];
-function selectionMode() {
+function selectionMode(knownTagUrl) {
     selectionModeActive = !selectionModeActive;
 
     if (!selectionModeActive) {
@@ -102,9 +102,14 @@ function selectionMode() {
         container.style.display='none';
     });
 
+    container.addEventListener('click', e => {
+        createTagWidget(container, knownTagUrl, spec => {
+            console.log(spec);
+        });
+    });
+
     /* Maps tag names to the number of occurrences in the selection. */
     let tagCounts = {};
-
 
     for (let item of document.getElementById('items').children) {
         let img = item.children[0];

@@ -150,6 +150,10 @@ public class CloudSpillApi<T> {
         matcher.match(ApiElementMatcher.HttpMethod.PUT, getTagUrl(itemId), consumer);
     }
 
+    public void putTags(T consumer) {
+        matcher.match(ApiElementMatcher.HttpMethod.PUT, serverUrl +"tags", consumer);
+    }
+
     public void setItemDescription(Object itemId, T consumer) {
         matcher.match(ApiElementMatcher.HttpMethod.POST, serverUrl +"item/"+ itemId +"/description", consumer);
     }
@@ -180,6 +184,10 @@ public class CloudSpillApi<T> {
 
     public String editorJS() {
         return serverUrl +"editor.js";
+    }
+
+    public String tagwidgetJS() {
+        return serverUrl +"tagwidget.js";
     }
 
     public String commentsJS() {

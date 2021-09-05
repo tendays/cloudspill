@@ -7,7 +7,7 @@ function login(newUsername, tokenUrlPattern, loginUrl) {
     tokenQuery.onreadystatechange = () => {
         if (tokenQuery.readyState != 4) return;
         let token = tokenQuery.responseText;
-        console.log('Received token '+ token);
+        //console.log('Received token '+ token);
 
         let tokenId = token.substring(0, token.indexOf(':'));
         document.getElementsByName('name').forEach(elt => elt.innerText = username);

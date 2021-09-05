@@ -32,6 +32,7 @@ import org.gamboni.cloudspill.shared.api.CsvEncoding;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.api.ItemMetadata;
 import org.gamboni.cloudspill.shared.api.LoginState;
+import org.gamboni.cloudspill.shared.api.MassTagging;
 import org.gamboni.cloudspill.shared.client.ResponseHandler;
 import org.gamboni.cloudspill.shared.client.ResponseHandlers;
 import org.gamboni.cloudspill.shared.domain.AccessDeniedException;
@@ -451,14 +452,14 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
-    protected void putTags(ForwarderDomain session, long id, String tags, ItemCredentials credentials) throws IOException {
-        remoteApi.putTags(id, ResponseHandlers.withCredentials(credentials, BASE_64_ENCODER, connection -> {
+    protected void putTags(ForwarderDomain session, MassTagging dto, ItemCredentials credentials) throws IOException {
+        remoteApi.putTags(ResponseHandlers.withCredentials(credentials, BASE_64_ENCODER, connection -> {
             connection.setDoOutput(true);
             try (Writer w = new OutputStreamWriter(connection.getOutputStream(), StandardCharsets.UTF_8)) {
-                w.write(tags);
+                new Gson().toJson(dto, w);
             }
             if (connection.getResponseCode() >= 200 && connection.getResponseCode() <= 299) {
-                super.putTags(session, id, tags, credentials);
+                super.putTags(session, dto, credentials);
             }
         }));
     }

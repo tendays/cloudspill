@@ -181,6 +181,15 @@ a:visited {
     color: #ff9;
 }
 
+.editable {
+    cursor: pointer;
+}
+
+.editable::after {
+    /* Note: pencil emoji between quotes */
+    content: "✍️";
+}
+
 .tag::before {
     /* Note: tag emoji between quotes */
     content: "🏷️";
@@ -212,10 +221,13 @@ a:visited {
 .comments::before {
     /* Note: speech bubble emoji between quotes */
     content: "💬"
+    display: inline-block;
+    /* So we only see the speech bubble when not hovering on the comment section. */
+    height: 1.5em;
 }
 
 .comment-section {
-    max-height: 3em;
+    max-height: 1em;
     overflow-y: hidden;
 }
 
@@ -365,6 +377,12 @@ a:visited {
 
 .stub {
     position: relative;
+    display: inline-block;
+    margin-left: 3px;
+    min-width: 0.5em;
+}
+.stub:focus {
+    outline: none;
 }
 
 .pop-up-holder {
@@ -373,6 +391,8 @@ a:visited {
     height: 0;
     position: relative;
     vertical-align: bottom;
+    /* Important in gallery mode to go on top of photos */
+    z-index: 1;
 }
 
 .pop-up {

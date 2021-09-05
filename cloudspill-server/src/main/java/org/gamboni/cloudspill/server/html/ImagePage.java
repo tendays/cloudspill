@@ -58,6 +58,7 @@ public class ImagePage extends AbstractRenderer<ImagePage.Model> {
 	@Override
 	protected HtmlFragment scripts() {
 		return HtmlFragment.concatenate(
+				tag("script", "type='text/javascript' src=" + quote(api.tagwidgetJS()), ""),
 				tag("script", "type='text/javascript' src=" + quote(api.editorJS()), ""),
 				tag("script", "type='text/javascript' src=" + quote(api.getUrl(new EditorSubmissionJs(configuration))), ""),
 				tag("script", "type='text/javascript' src=" + quote(api.commentsJS()), ""),

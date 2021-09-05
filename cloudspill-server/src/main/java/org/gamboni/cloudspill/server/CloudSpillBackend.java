@@ -2,6 +2,7 @@ package org.gamboni.cloudspill.server;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
@@ -36,6 +37,7 @@ import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.api.ItemMetadata;
 import org.gamboni.cloudspill.shared.api.ItemSecurity;
 import org.gamboni.cloudspill.shared.api.LoginState;
+import org.gamboni.cloudspill.shared.api.MassTagging;
 import org.gamboni.cloudspill.shared.api.NewComment;
 import org.gamboni.cloudspill.shared.domain.AccessDeniedException;
 import org.gamboni.cloudspill.shared.domain.Comment;
@@ -161,6 +163,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         exposeResource(api.css(), "css/main.css", "text/css");
         exposeResource(api.lazyLoadJS(), "js/lazy-load.js", "application/javascript");
         exposeResource(api.commentsJS(), "js/comments.js", "application/javascript");
+        exposeResource(api.tagwidgetJS(), "js/tagwidget.js", "application/javascript");
         exposeResource(api.editorJS(), "js/editor.js", "application/javascript");
         exposeResource(api.loginJS(), "js/login.js", "application/javascript");
         exposeResource(api.uploadJS(), "js/upload.js", "application/javascript");
@@ -384,7 +387,17 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         /* Add the tags specified in body to the given item. */
         api.putTags(":id", secured((req, res, session, user) -> {
             Log.debug("Tag query for item "+ req.params("id") +": '"+ req.body() +"'");
-            putTags(session, Long.parseLong(req.params("id")), req.body(), user);
+            MassTagging dto = new MassTagging();
+            dto.ids = ImmutableList.of(Long.parseLong(req.params("id")));
+            dto.tags = req.body();
+            putTags(session, dto, user);
+            return true;
+        }));
+
+        /* Mass-tagging. */
+        api.putTags(secured((req, res, session, user) -> {
+            MassTagging dto = new Gson().fromJson(req.body(), MassTagging.class);
+            putTags(session, dto, user);
             return true;
         }));
 
@@ -862,16 +875,18 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
      * <p>
      * NOTE: anybody can change tags of anybody's item.
      */
-    protected void putTags(D session, long id, String tags, ItemCredentials credentials) throws IOException {
-        final BackendItem item = itemForUpdate(session, id);
+    protected void putTags(D session, MassTagging dto, ItemCredentials credentials) throws IOException {
+        dto.ids.forEach(id -> {
+            final BackendItem item = itemForUpdate(session, id);
 
-        final Set<String> existingTags = item.getTags();
-        Splitter.on(',').split(tags).forEach(t -> {
-            if (t.startsWith("-")) {
-                existingTags.remove(t.substring(1).trim());
-            } else {
-                existingTags.add(t.trim());
-            }
+            final Set<String> existingTags = item.getTags();
+            Splitter.on(',').split(dto.tags).forEach(t -> {
+                if (t.startsWith("-")) {
+                    existingTags.remove(t.substring(1).trim());
+                } else {
+                    existingTags.add(t.trim());
+                }
+            });
         });
     }
 

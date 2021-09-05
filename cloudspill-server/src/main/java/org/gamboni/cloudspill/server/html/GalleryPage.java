@@ -47,7 +47,9 @@ public class GalleryPage extends AbstractRenderer<GalleryPage.Model> {
 
     @Override
     protected HtmlFragment scripts() {
-        return tag("script", "type='text/javascript' src="+ quote(api.lazyLoadJS()), "");
+        return HtmlFragment.concatenate(
+                tag("script", "type='text/javascript' src=" + quote(api.tagwidgetJS()), ""),
+                tag("script", "type='text/javascript' src="+ quote(api.lazyLoadJS()), ""));
     }
 
     @Override
@@ -68,8 +70,10 @@ public class GalleryPage extends AbstractRenderer<GalleryPage.Model> {
         return HtmlFragment.concatenate(
                 (model.experimental ?
                 tag("div", "class='toolbar'",
-                        tag("div", "class='button' onclick='selectionMode()'", "Select"),
-                        tag("div", "class='tags' style='display:none'", "Tags of selected photos:")
+                        tag("div", "class='button' onclick="+ quote("selectionMode('"+
+                                api.knownTags()
+                                +"')"), "Select"),
+                        tag("div", "class='tags editable' style='display:none'", "Tags of selected photos:")
                 )
         : HtmlFragment.EMPTY),
                 tag("div", "class='description'", model.itemSet.description),
