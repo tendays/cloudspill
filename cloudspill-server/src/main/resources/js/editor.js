@@ -23,7 +23,7 @@ function edit(itemId, knownTagUrl, submitTagUrl) {
         descriptionDirty = false;
     };
 
-    function submitTag(spec /*: string*/, callback) {
+    createTagWidget(container, knownTagUrl, (spec /*: string*/, callback) => {
         let req = new XMLHttpRequest();
         req.onreadystatechange = () => {
             if (req.readyState === 4) {
@@ -32,9 +32,7 @@ function edit(itemId, knownTagUrl, submitTagUrl) {
         };
         req.open("PUT", submitTagUrl);
         req.send(spec);
-    }
-
-    createTagWidget(container, knownTagUrl, submitTag);
+    });
 
     event.preventDefault();
 }

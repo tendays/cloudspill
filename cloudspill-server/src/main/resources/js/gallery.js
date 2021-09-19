@@ -53,6 +53,12 @@ function createPlaceholders(dataUrl, imageUrlPattern, hrefPattern, pageSize, cou
     marker.remove();
 }
 
+/** Convert a comma-separated string into a list. The empty string returns the empty array,
+ * and a non-empty string without comma returns an array containing just that string. */
+function splitTags(spec /*:string*/) /*:string[]*/ {
+    return spec.length ? spec.split(',') : [];
+}
+
 function tagState(itemCount, tagCount) {
     if (tagCount === 0) {
         return 'hidden';
@@ -65,7 +71,7 @@ function tagState(itemCount, tagCount) {
 
 function updateTag(container, tag, oldState, newState) {
     for (let tagElt of container.children) {
-        if (tagElt.textContent === tag) {
+        if (tagElt.dataset.tag === tag) {
             if (newState === 'hidden') {
                 tagElt.parentElement.removeChild(tagElt);
             } else if (newState === 'partial') {
@@ -89,6 +95,7 @@ function selectionMode(knownTagUrl) {
         return;
     }
 
+    /** Selected item elements */
     let set = [];
     /* "tags" Element */
     let container = document.getElementsByClassName("tags")[0];
@@ -102,14 +109,41 @@ function selectionMode(knownTagUrl) {
         container.style.display='none';
     });
 
-    container.addEventListener('click', e => {
-        createTagWidget(container, knownTagUrl, spec => {
-            console.log(spec);
-        });
-    });
-
     /* Maps tag names to the number of occurrences in the selection. */
     let tagCounts = {};
+
+    container.addEventListener('click', e => {
+        createTagWidget(container, knownTagUrl, (spec /*: string*/, callback) => {
+            /* Local bookkeeping */
+            splitTags(spec).forEach(action => {
+                /* Synchronise local tagCounts */
+                if (action.startsWith('-')) {
+                    tagCounts[action.substring(1)] = 0;
+                } else {
+                    tagCounts[action] = set.length;
+                }
+
+                /* Update metadata of selected items */
+                set.forEach(element => {
+                    let array = splitTags(element.dataset.tags);
+                    if (action.startsWith('-')) {
+                        let index = array.indexOf(action.substring(1));
+                        if (index !== -1) { array.splice(index, 1); }
+                    } else {
+                        if (array.indexOf(action) === -1) {
+                            array.push(action);
+                        }
+                    }
+                    element.dataset.tags = array.join(',');
+                });
+            });
+            /* Actual server query (defined in EditorSubmissionJs.java) */
+            submitMassTagging(
+                set.map(elt => elt.dataset.id),
+                spec,
+                callback);
+        });
+    });
 
     for (let item of document.getElementById('items').children) {
         let img = item.children[0];
@@ -120,14 +154,16 @@ function selectionMode(knownTagUrl) {
 
         let changehandler = () => {
             // console.log(item.dataset.id +" → "+ check.checked);
-            let thisItemTags = item.dataset.tags.split(',');
+
             let oldItemCount = set.length;
             if (check.checked) {
-                set.push(item.dataset.id);
+                set.push(item);
             } else {
-                set.splice(set.indexOf(item.dataset.id), 1);
+                set.splice(set.indexOf(item), 1);
             }
             let newItemCount = set.length;
+
+            let thisItemTags = splitTags(item.dataset.tags);
             /* See if tags of other items (NOT tags of the [de]selected item) may switch between full and partial */
             for (let tag in tagCounts) {
                 // Object prototype needed in case someone puts tag "hasOwnProperty" on an image... (For photos of people who own a house??)
@@ -149,6 +185,7 @@ function selectionMode(knownTagUrl) {
                         /* hidden -> !hidden: create element */
                         let newTag = document.createElement('span');
                         newTag.textContent = thisTag;
+                        newTag.dataset.tag = thisTag;
                         newTag.className = 'tag';
                         if (newState === 'partial') {
                             newTag.classList.add('partial');
@@ -177,11 +214,11 @@ function selectionMode(knownTagUrl) {
         });
 
         let itemClicked = e => {
-                                      /* Programmatically change checkbox state when clicking on the image. */
-                                      check.checked = !check.checked;
-                                      e.preventDefault(); // don't navigate link
-                                      changehandler();
-                                  };
+            /* Programmatically change checkbox state when clicking on the image. */
+            check.checked = !check.checked;
+            e.preventDefault(); // don't navigate link
+            changehandler();
+        };
         item.addEventListener('click', itemClicked);
         selectionListenerRemoval.push(() => {
             item.removeChild(check);

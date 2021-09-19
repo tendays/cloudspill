@@ -178,8 +178,8 @@ public class CloudSpillApi<T> {
         return serverUrl +"main.css";
     }
 
-    public String lazyLoadJS() {
-        return serverUrl +"lazy-load.js";
+    public String galleryJS() {
+        return serverUrl +"gallery.js";
     }
 
     public String editorJS() {

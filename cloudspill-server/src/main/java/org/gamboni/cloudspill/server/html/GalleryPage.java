@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableList;
 
 import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
+import org.gamboni.cloudspill.server.html.js.EditorSubmissionJs;
 import org.gamboni.cloudspill.server.query.ItemSet;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
@@ -49,15 +50,20 @@ public class GalleryPage extends AbstractRenderer<GalleryPage.Model> {
     protected HtmlFragment scripts() {
         return HtmlFragment.concatenate(
                 tag("script", "type='text/javascript' src=" + quote(api.tagwidgetJS()), ""),
-                tag("script", "type='text/javascript' src="+ quote(api.lazyLoadJS()), ""));
+                tag("script", "type='text/javascript' src="+ quote(api.galleryJS()), ""),
+                tag("script", "type='text/javascript' src="+ quote(api.getUrl(new EditorSubmissionJs(configuration))), ""));
     }
 
     @Override
     protected String onLoad(Model model) {
         if (model.itemSet.totalCount > PAGE_SIZE && model.criteria.getRange().offset == 0) {
+            final ItemCredentials credentials = (model.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN) ?
+                    new ItemCredentials.UserPassword() :
+                    new ItemCredentials.PublicAccess();
             return "createPlaceholders('"+ model.criteria.withRange(QueryRange.ALL).getUrl(api) +"', '"+
-                    api.getThumbnailUrl("%d", new ItemCredentials.PublicAccess(), CloudSpillApi.Size.IMAGE_THUMBNAIL.pixels) +"', '"+
-                    api.getImagePageUrl("%d", model.criteria, new ItemCredentials.PublicAccess()) +"', "+
+                    api.getThumbnailUrl("%d",
+                            credentials, CloudSpillApi.Size.IMAGE_THUMBNAIL.pixels) +"', '"+
+                    api.getImagePageUrl("%d", model.criteria, credentials) +"', "+
                     PAGE_SIZE +", "+ model.itemSet.totalCount +")";
         } else {
             return super.onLoad(model);
@@ -68,7 +74,7 @@ public class GalleryPage extends AbstractRenderer<GalleryPage.Model> {
     protected HtmlFragment getBody(Model model) {
         int pageNumber = model.criteria.getRange().offset / PAGE_SIZE;
         return HtmlFragment.concatenate(
-                (model.experimental ?
+                (model.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN ?
                 tag("div", "class='toolbar'",
                         tag("div", "class='button' onclick="+ quote("selectionMode('"+
                                 api.knownTags()

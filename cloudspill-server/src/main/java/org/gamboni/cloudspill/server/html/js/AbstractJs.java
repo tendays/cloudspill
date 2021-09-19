@@ -1,5 +1,6 @@
 package org.gamboni.cloudspill.server.html.js;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
@@ -13,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 /**
  * @author tendays
@@ -76,6 +78,28 @@ public abstract class AbstractJs implements StaticResource {
         }
     }
 
+    public AbstractJs(BackendConfiguration configuration) {
+        this.remoteApi = new CloudSpillApi<>(configuration.getPublicUrl(), (method, url, consumer) -> {
+            String req = let("req", "new XMLHttpRequest()");
+            appendLine(req + ".onreadystatechange = () => {");
+            indented(() -> {
+                appendLine("if (" + req + ".readyState !== 4) return;");
+                consumer.run(req);
+            });
+            appendLine("};");
+            // TODO how to properly escape the url? (Normally should not be needed).
+            // NOTE: it may contain template expressions and by the time this method is called we don't know
+            // if those are real or injected in the server configuration
+            appendLine(req + ".open(" + lit(method.name()) + ", `" + url + "`);");
+            consumer.headers.forEach((header, value) -> {
+                appendLine(req +".setRequestHeader("+ lit(header) +","+ value+");");
+            });
+            appendLine(req + ".send(" + consumer.getBody() + ");");
+        });
+    }
+
+    protected abstract void build();
+
     /** Send a query with something in request body: api.someCall(params, send(body, () -> {response handler})) */
     protected JsCallback send(String body, Runnable callback) {
         return new JsCallback() {
@@ -106,24 +130,13 @@ public abstract class AbstractJs implements StaticResource {
         };
     }
 
-    public AbstractJs(BackendConfiguration configuration) {
-        this.remoteApi = new CloudSpillApi<>(configuration.getPublicUrl(), (method, url, consumer) -> {
-            String req = let("req", "new XMLHttpRequest()");
-            appendLine(req + ".onreadystatechange = () => {");
-            indented(() -> {
-                appendLine("if (" + req + ".readyState != 4) return;");
-                consumer.run(req);
-            });
-            appendLine("};");
-            // TODO how to properly escape the url? (Normally should not be needed).
-            // NOTE: it may contain template expressions and by the time this method is called we don't know
-            // if those are real or injected in the server configuration
-            appendLine(req + ".open(" + lit(method.name()) + ", `" + url + "`);");
-            consumer.headers.forEach((header, value) -> {
-                appendLine(req +".setRequestHeader("+ lit(header) +","+ value+");");
-            });
-            appendLine(req + ".send(" + consumer.getBody() + ");");
-        });
+    protected String stringify(Map<String, String> object) {
+        return "JSON.stringify({" +
+                object.entrySet().stream()
+                .map(e -> lit(e.getKey()) +":"+ e.getValue())
+                .collect(Collectors.joining(","))
+                +"})";
+
     }
 
     protected String lit(String string) {
@@ -138,8 +151,6 @@ public abstract class AbstractJs implements StaticResource {
         appendLine("let "+ name +"="+ value +";");
         return name;
     }
-
-    protected abstract void build();
 
     private static class JsFunction {
         final String name;

@@ -116,6 +116,14 @@ a:visited {
 
 /* Gallery selection mode */
 
+.toolbar {
+    position: fixed;
+    z-index: 1;
+    background-color: #000a;
+    padding: 0.5em;
+    right: 0;
+}
+
 .metadata {
     position: fixed;
     text-align: left;

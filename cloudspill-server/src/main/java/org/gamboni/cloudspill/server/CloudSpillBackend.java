@@ -12,7 +12,6 @@ import com.google.gson.JsonObject;
 
 import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
-import org.gamboni.cloudspill.domain.Item;
 import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.domain.UserAuthToken;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
@@ -161,7 +160,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         expose(new CommentSubmissionJs(configuration));
 
         exposeResource(api.css(), "css/main.css", "text/css");
-        exposeResource(api.lazyLoadJS(), "js/lazy-load.js", "application/javascript");
+        exposeResource(api.galleryJS(), "js/gallery.js", "application/javascript");
         exposeResource(api.commentsJS(), "js/comments.js", "application/javascript");
         exposeResource(api.tagwidgetJS(), "js/tagwidget.js", "application/javascript");
         exposeResource(api.editorJS(), "js/editor.js", "application/javascript");
@@ -211,7 +210,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                                     new GalleryPage.Model(credentials, offset, itemSet, model.experimental));
                 },
                 /* serialiser */
-                (data, ct) -> dump(data, ct, DumpFormat.WITH_TOTAL),
+                (data, ct) -> dump(data, ct, DumpFormat.GALLERY_DATA),
                 /* renderer */
                 new GalleryPage(configuration)));
         get("/tag/:tag/:id", securedItem(ItemCredentials.AuthenticationStatus.LOGGED_IN, (req, res, session, credentials, item) -> {
@@ -254,7 +253,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                                     new GalleryPage.Model(credentials, offset, itemSet, model.experimental));
                 },
                 /* serialiser */
-                (data, ct) -> dump(data, ct, DumpFormat.WITH_TOTAL),
+                (data, ct) -> dump(data, ct, DumpFormat.GALLERY_DATA),
                 /* renderer */
                 new GalleryPage(configuration)));
         get("/day/:day/:id", securedItem(ItemCredentials.AuthenticationStatus.LOGGED_IN, (req, res, session, credentials, item) -> {
