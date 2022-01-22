@@ -15,9 +15,11 @@ function createPlaceholders(dataUrl, imageUrlPattern, hrefPattern, pageSize, cou
                     let data = response.data;
                     for (let i=0; i<data.length; i++) {
                         placeholders[i+offset].href = hrefPattern.replace("%d", data[i].id).replace("%s", data[i].checksum)
-                        placeholders[i+offset].innerHTML =
-                            "<img class='thumb', src='" +
-                            imageUrlPattern.replace("%d", data[i].id).replace("%s", data[i].checksum) +"'>";
+                        let imgElement = document.createElement('img');
+                        imgElement.classList.add('thumb');
+                        imgElement.dataset.tags = data.tags;
+                        imgElement.setAttribute('src', imageUrlPattern.replace("%d", data[i].id).replace("%s", data[i].checksum));
+                        placeholders[i+offset].appendChild(imgElement);
                         placeholders[i+offset] = undefined;
                     }
                 };
@@ -149,8 +151,13 @@ function selectionMode(knownTagUrl) {
         let img = item.children[0];
         let check = document.createElement('input');
         check.setAttribute('type', 'checkbox');
-        item.insertBefore(check, img);
-        //  img.classList.add('selectable');
+        if (img) {
+            item.insertBefore(check, img);
+            //  img.classList.add('selectable');
+        } else {
+            // in case 'item' is a placeholder
+            item.appendChild(check);
+        }
 
         let changehandler = () => {
             // console.log(item.dataset.id +" → "+ check.checked);
