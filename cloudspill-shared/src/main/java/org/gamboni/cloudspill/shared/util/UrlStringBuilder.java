@@ -1,5 +1,9 @@
 package org.gamboni.cloudspill.shared.util;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+
 /**
  * @author tendays
  */
@@ -18,8 +22,13 @@ public class UrlStringBuilder {
     }
 
     public UrlStringBuilder appendQueryParam(String key, Object value) {
-        queryParams.append((queryParams.length() == 0) ? '?' : '&').append(key +"="+value);
-        return this;
+        try {
+            queryParams.append((queryParams.length() == 0) ? '?' : '&').append(key + "=" +
+                    URLEncoder.encode(value.toString(), StandardCharsets.UTF_8.name()));
+            return this;
+        } catch (UnsupportedEncodingException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public String toString() {
