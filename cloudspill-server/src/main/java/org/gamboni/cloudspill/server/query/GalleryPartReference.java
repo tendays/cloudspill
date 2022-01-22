@@ -12,22 +12,24 @@ import java.util.Set;
  */
 public class GalleryPartReference implements Java8SearchCriteria<BackendItem> {
     public final long id;
+    public final String key;
     private final Long relativeTo;
     private final QueryRange range;
 
-    public GalleryPartReference(long id) {
-        this(id, null, QueryRange.ALL);
+    public GalleryPartReference(long id, String key) {
+        this(id, key, null, QueryRange.ALL);
     }
 
-    private GalleryPartReference(long id, Long relativeTo, QueryRange range) {
+    private GalleryPartReference(long id, String key, Long relativeTo, QueryRange range) {
         this.id = id;
+        this.key = key;
         this.relativeTo = relativeTo;
         this.range = range;
     }
 
     @Override
     public String getUrl(CloudSpillApi api) {
-        return api.galleryPart(id, relativeTo, range);
+        return api.galleryPart(id, key, relativeTo, range);
     }
 
     @Override
@@ -43,12 +45,12 @@ public class GalleryPartReference implements Java8SearchCriteria<BackendItem> {
 
     @Override
     public GalleryPartReference relativeTo(Long itemId) {
-        return new GalleryPartReference(id, itemId, range);
+        return new GalleryPartReference(id, key, itemId, range);
     }
 
     @Override
     public Java8SearchCriteria<BackendItem> withRange(QueryRange newRange) {
-        return new GalleryPartReference(id, relativeTo, newRange);
+        return new GalleryPartReference(id, key, relativeTo, newRange);
     }
 
     @Override

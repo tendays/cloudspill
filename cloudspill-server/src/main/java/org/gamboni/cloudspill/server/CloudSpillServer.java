@@ -547,7 +547,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
     }
 
     @Override
-	protected Java8SearchCriteria<BackendItem> loadGallery(ServerDomain session, long partId) {
+	protected Java8SearchCriteria<BackendItem> loadGallery(ServerDomain session, long partId, String key) {
 		return session.get(GalleryPart.class, partId);
 	}
 

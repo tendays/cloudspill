@@ -6,6 +6,7 @@ import org.gamboni.cloudspill.shared.domain.IsItem;
 import org.gamboni.cloudspill.shared.domain.Items;
 import org.gamboni.cloudspill.shared.query.GalleryRequest;
 import org.gamboni.cloudspill.shared.query.QueryRange;
+import org.gamboni.cloudspill.shared.util.UrlStringBuilder;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -230,12 +231,16 @@ public class CloudSpillApi<T> {
         matcher.match(ApiElementMatcher.HttpMethod.GET, serverUrl +"year/"+ year, consumer);
     }
 
-    public String galleryPart(Object id, Long relativeTo, QueryRange range) {
-        return sliceParameters(new StringBuilder(serverUrl + "public/gallery/"+ id), relativeTo, range);
+    public String galleryPart(Object id, String key, Long relativeTo, QueryRange range) {
+        final UrlStringBuilder url = new UrlStringBuilder(serverUrl + "public/gallery/" + id);
+        if (key != null) {
+            url.appendQueryParam("key", key);
+        }
+        return sliceParameters(url, relativeTo, range);
     }
 
-    public void galleryPart(Object id, Long relativeTo, QueryRange range, T consumer) {
-        matcher.match(ApiElementMatcher.HttpMethod.GET, galleryPart(id, relativeTo, range), consumer);
+    public void galleryPart(Object id, String key, Long relativeTo, QueryRange range, T consumer) {
+        matcher.match(ApiElementMatcher.HttpMethod.GET, galleryPart(id, key, relativeTo, range), consumer);
     }
 
     public String login() {
@@ -358,7 +363,7 @@ public class CloudSpillApi<T> {
             }
         }
 
-        StringBuilder builder = new StringBuilder(serverUrl);
+        UrlStringBuilder builder = new UrlStringBuilder(serverUrl);
         if (isPublic) {
             builder.append("public/");
         }
@@ -372,19 +377,15 @@ public class CloudSpillApi<T> {
         return sliceParameters(builder, relativeTo, range);
     }
 
-    private String sliceParameters(StringBuilder builder, Long relativeTo, QueryRange range) {
-        String parameterSeparator = "?";
+    private String sliceParameters(UrlStringBuilder builder, Long relativeTo, QueryRange range) {
         if (relativeTo != null) {
-            builder.append(parameterSeparator + "relativeTo="+ relativeTo);
-            parameterSeparator = "&";
+            builder.appendQueryParam("relativeTo", relativeTo);
         }
         if (range.offset != 0) {
-            builder.append(parameterSeparator + "offset="+ range.offset);
-            parameterSeparator = "&";
+            builder.appendQueryParam("offset", range.offset);
         }
         if (range.limit != null) {
-            builder.append(parameterSeparator + "limit="+ range.limit);
-            parameterSeparator = "&";
+            builder.appendQueryParam("limit", range.limit);
         }
         return builder.toString();
     }

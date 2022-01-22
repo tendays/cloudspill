@@ -594,8 +594,8 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
     }
 
     @Override
-    protected Java8SearchCriteria<BackendItem> loadGallery(ForwarderDomain session, long partId) {
-        return new GalleryPartReference(partId);
+    protected Java8SearchCriteria<BackendItem> loadGallery(ForwarderDomain session, long partId, String key) {
+        return new GalleryPartReference(partId, key);
     }
 
     @Override

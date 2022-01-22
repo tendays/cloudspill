@@ -11,6 +11,7 @@ import org.gamboni.cloudspill.shared.query.QueryRange;
 
 import java.time.LocalDate;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
 import javax.persistence.ElementCollection;
@@ -48,6 +49,7 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
     private LocalDate to;
     private String description;
     private String title;
+    private String key;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -104,6 +106,14 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
         this.description = description;
     }
 
+    public String getKey() {
+        return key;
+    }
+
+    public void setKey(String key) {
+        this.key = key;
+    }
+
     @Override
     public LocalDate getFrom() {
         return from;
@@ -136,7 +146,7 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
     }
 
     @Override @Transient public String getUrl(CloudSpillApi api) {
-        return api.galleryPart(id, null, QueryRange.ALL);
+        return api.galleryPart(id, null, null, QueryRange.ALL);
     }
 
     /** Stored galleries sort from old to new. */
@@ -144,30 +154,37 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
         return CloudSpillEntityManagerDomain.Ordering.asc(JpaItem_.date);
     }
 
+    public Java8SearchCriteria<BackendItem> withKey(String key) {
+        return new Slice(key, null, QueryRange.ALL);
+    }
+
     public Java8SearchCriteria<BackendItem> relativeTo(Long relativeTo) {
-        return new Slice(relativeTo, QueryRange.ALL);
+        return new Slice(null, relativeTo, QueryRange.ALL);
     }
 
     @Override
     public Java8SearchCriteria<BackendItem> withRange(QueryRange range) {
-        return new Slice(null, range);
+        return new Slice(null, null, range);
     }
 
     private class Slice implements Java8SearchCriteria<BackendItem> {
+        final String key;
         final Long relativeTo;
         final QueryRange range;
-        Slice(Long relativeTo, QueryRange range) {
+        Slice(String key, Long relativeTo, QueryRange range) {
+            this.key = key;
             this.relativeTo = relativeTo;
             this.range = range;
         }
 
+        @Override
         public Java8SearchCriteria<BackendItem> relativeTo(Long relativeTo) {
-            return new Slice(relativeTo, range);
+            return new Slice(key, relativeTo, range);
         }
 
         @Override
         public Java8SearchCriteria<BackendItem> withRange(QueryRange newRange) {
-            return new Slice(relativeTo, newRange);
+            return new Slice(key, relativeTo, newRange);
         }
 
         @Override
@@ -187,7 +204,12 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
 
         @Override
         public Set<String> getEffectiveTags() {
-            return GalleryPart.this.getEffectiveTags();
+            // Don't restrict to public items if the part has a key and the provided one matches.
+            if (GalleryPart.this.key != null && !GalleryPart.this.key.isEmpty() && GalleryPart.this.key.equals(this.key)) {
+                return this.getTags();
+            } else {
+                return GalleryPart.this.getEffectiveTags();
+            }
         }
 
         @Override
@@ -215,7 +237,7 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
 
         @Override
         public String getUrl(CloudSpillApi api) {
-            return api.galleryPart(getId(), relativeTo, range);
+            return api.galleryPart(getId(), key, relativeTo, range);
         }
     }
 }

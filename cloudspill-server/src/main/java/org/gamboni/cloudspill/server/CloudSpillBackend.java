@@ -276,17 +276,20 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
         class GalleryRequestModel extends AbstractGalleryRequestModel {
             final long partId;
-            GalleryRequestModel(long partId, QueryRange range, Long relativeTo, boolean experimental) {
+            final String key;
+            GalleryRequestModel(long partId, String key, QueryRange range, Long relativeTo, boolean experimental) {
                 super(range, relativeTo, experimental);
                 this.partId = partId;
+                this.key = key;
             }
         }
-        api.galleryPart(":part", null, QueryRange.ALL, page(
+        api.galleryPart(":part", null, null, QueryRange.ALL, page(
                 /* request parser */
                 req -> {
                     final QueryRange range = requestedRange(req);
                     return new GalleryRequestModel(
                             Long.parseLong(req.params("part")),
+                            req.queryParams("key"),
                             (isCsvRequested(req) || isJsonRequested(req)) ?
                                     range : range.withLimit(GalleryPage.PAGE_SIZE),
                             nullableLong(req.queryParams("relativeTo")),
@@ -294,7 +297,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                 },
                 /* executor */
                 (model, credentials, domain) -> {
-                    Java8SearchCriteria<BackendItem> offset = loadGallery(domain, model.partId)
+                    Java8SearchCriteria<BackendItem> offset = loadGallery(domain, model.partId, model.key)
                             .relativeTo(model.relativeTo)
                             .withRange(model.range);
 
@@ -311,7 +314,8 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
         get("/public/gallery/:part/:id", securedItem(ItemCredentials.AuthenticationStatus.ANONYMOUS, (req, res, session, credentials, item) -> {
             final long partId = Long.parseLong(req.params("part"));
-            return itemPage(configuration, req, res, session, credentials, item, () -> loadGallery(session, partId))
+            final String key = req.queryParams("key");
+            return itemPage(configuration, req, res, session, credentials, item, () -> loadGallery(session, partId, key))
                     .get(res).toString();
         }));
 
@@ -1064,7 +1068,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
     /** @param credentials current user credentials (permissions have already been checked so this can be ignored) */
     protected abstract ItemQueryLoader getQueryLoader(D session, ItemCredentials credentials);
 
-    protected abstract Java8SearchCriteria<BackendItem> loadGallery(D session, long partId);
+    protected abstract Java8SearchCriteria<BackendItem> loadGallery(D session, long partId, String key);
 
     protected interface SecuredItemBody<D extends CloudSpillEntityManagerDomain> {
         Object handle(Request request, Response response, D session, List<ItemCredentials> credentials, BackendItem item) throws Exception;
