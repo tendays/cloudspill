@@ -503,7 +503,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
                     return badRequest();
                 }
                 try {
-                    verifyCredentials(credentials, relativeTo);
+                    verifyCredentials(criteria.getItemCredentials(), relativeTo);
                 } catch (AccessDeniedException e) {
                     return forbidden(false);
                 }
