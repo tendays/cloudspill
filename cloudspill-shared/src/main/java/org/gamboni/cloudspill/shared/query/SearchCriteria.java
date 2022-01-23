@@ -1,6 +1,7 @@
 package org.gamboni.cloudspill.shared.query;
 
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
+import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.util.UrlStringBuilder;
 
 import java.util.Set;
@@ -28,6 +29,9 @@ public interface SearchCriteria {
      * results (but don't actually return the specified item).
      */
     Long getRelativeTo();
+
+    ItemCredentials getItemCredentials();
+
 
     UrlStringBuilder getUrl(CloudSpillApi api);
 

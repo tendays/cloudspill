@@ -231,16 +231,16 @@ public class CloudSpillApi<T> {
         matcher.match(ApiElementMatcher.HttpMethod.GET, serverUrl +"year/"+ year, consumer);
     }
 
-    public UrlStringBuilder galleryPart(Object id, String key, Long relativeTo, QueryRange range) {
+    public UrlStringBuilder galleryPart(Object id, String key, Long relativeTo, ItemCredentials itemCredentials, QueryRange range) {
         final UrlStringBuilder url = new UrlStringBuilder(serverUrl + "public/gallery/" + id);
         if (key != null) {
             url.appendQueryParam("gkey", key);
         }
-        return sliceParameters(url, relativeTo, range);
+        return sliceParameters(url, relativeTo, itemCredentials, range);
     }
 
-    public void galleryPart(Object id, String key, Long relativeTo, QueryRange range, T consumer) {
-        matcher.match(ApiElementMatcher.HttpMethod.GET, galleryPart(id, key, relativeTo, range).toString(), consumer);
+    public void galleryPart(Object id, String key, Long relativeTo, ItemCredentials itemCredentials, QueryRange range, T consumer) {
+        matcher.match(ApiElementMatcher.HttpMethod.GET, galleryPart(id, key, relativeTo, itemCredentials, range).toString(), consumer);
     }
 
     public String login() {
@@ -311,7 +311,7 @@ public class CloudSpillApi<T> {
 
     private void appendQueryStrings(List<ItemCredentials> credentials, UrlStringBuilder url) {
         for (ItemCredentials c : credentials) {
-            c.getQueryString(url);
+            c.setQueryParams(url);
         }
     }
 
@@ -352,7 +352,7 @@ public class CloudSpillApi<T> {
         return url.toString();
     }
 
-    public UrlStringBuilder getGalleryUrl(Set<String> tags, String stringFrom, String stringTo, Long relativeTo, QueryRange range) {
+    public UrlStringBuilder getGalleryUrl(Set<String> tags, String stringFrom, String stringTo, Long relativeTo, ItemCredentials itemCredentials, QueryRange range) {
         Set<String> otherTags = new HashSet<>();
         boolean isPublic = false;
         for (String tag : tags) {
@@ -374,12 +374,16 @@ public class CloudSpillApi<T> {
         } else {
             // TODO
         }
-        return sliceParameters(builder, relativeTo, range);
+        return sliceParameters(builder, relativeTo, itemCredentials, range);
     }
 
-    private UrlStringBuilder sliceParameters(UrlStringBuilder builder, Long relativeTo, QueryRange range) {
+    private UrlStringBuilder sliceParameters(UrlStringBuilder builder, Long relativeTo, ItemCredentials itemCredentials, QueryRange range) {
         if (relativeTo != null) {
             builder.appendQueryParam("relativeTo", relativeTo);
+            if (itemCredentials != null) {
+                // only required for relativeTo
+                itemCredentials.setQueryParams(builder);
+            }
         }
         if (range.offset != 0) {
             builder.appendQueryParam("offset", range.offset);

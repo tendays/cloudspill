@@ -76,6 +76,10 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
     @Transient
     public Long getRelativeTo() { return null; }
 
+    @Override
+    @Transient
+    public ItemCredentials getItemCredentials() { return null; }
+
     public void setUser(String user) {
         this.user = user;
     }
@@ -153,7 +157,7 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
     }
 
     @Override @Transient public UrlStringBuilder getUrl(CloudSpillApi api) {
-        return api.galleryPart(id, null, null, QueryRange.ALL);
+        return api.galleryPart(id, null, null, null, QueryRange.ALL);
     }
 
     /** Stored galleries sort from old to new. */
@@ -161,37 +165,40 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
         return CloudSpillEntityManagerDomain.Ordering.asc(JpaItem_.date);
     }
 
-    public Java8SearchCriteria<BackendItem> withKey(String key) {
-        return new Slice(key, null, QueryRange.ALL);
+    public Java8SearchCriteria<BackendItem> withKey(String providedKey) {
+        return new Slice(providedKey, null, null, QueryRange.ALL);
     }
 
-    public Java8SearchCriteria<BackendItem> relativeTo(Long relativeTo) {
-        return new Slice(null, relativeTo, QueryRange.ALL);
+    @Override
+    public Java8SearchCriteria<BackendItem> relativeTo(Long relativeTo, ItemCredentials itemCredentials) {
+        return new Slice(null, relativeTo, itemCredentials, QueryRange.ALL);
     }
 
     @Override
     public Java8SearchCriteria<BackendItem> withRange(QueryRange range) {
-        return new Slice(null, null, range);
+        return new Slice(null, null, null, range);
     }
 
     private class Slice implements Java8SearchCriteria<BackendItem> {
         final String providedKey;
         final Long relativeTo;
+        final ItemCredentials itemCredentials;
         final QueryRange range;
-        Slice(String providedKey, Long relativeTo, QueryRange range) {
+        Slice(String providedKey, Long relativeTo, ItemCredentials itemCredentials, QueryRange range) {
             this.providedKey = providedKey;
             this.relativeTo = relativeTo;
+            this.itemCredentials = itemCredentials;
             this.range = range;
         }
 
         @Override
-        public Java8SearchCriteria<BackendItem> relativeTo(Long relativeTo) {
-            return new Slice(providedKey, relativeTo, range);
+        public Java8SearchCriteria<BackendItem> relativeTo(Long relativeTo, ItemCredentials itemCredentials) {
+            return new Slice(providedKey, relativeTo, itemCredentials, range);
         }
 
         @Override
         public Java8SearchCriteria<BackendItem> withRange(QueryRange newRange) {
-            return new Slice(providedKey, relativeTo, newRange);
+            return new Slice(providedKey, relativeTo, itemCredentials, newRange);
         }
 
         @Override
@@ -253,13 +260,16 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
         public Long getRelativeTo() { return relativeTo; }
 
         @Override
+        public ItemCredentials getItemCredentials() { return itemCredentials; }
+
+        @Override
         public QueryRange getRange() {
             return range;
         }
 
         @Override
         public UrlStringBuilder getUrl(CloudSpillApi api) {
-            return api.galleryPart(getId(), providedKey, relativeTo, range);
+            return api.galleryPart(getId(), providedKey, relativeTo, itemCredentials, range);
         }
     }
 }

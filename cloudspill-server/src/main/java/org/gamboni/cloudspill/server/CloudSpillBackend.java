@@ -1,5 +1,6 @@
 package org.gamboni.cloudspill.server;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -105,11 +106,13 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
     protected static class AbstractGalleryRequestModel {
         final QueryRange range;
         final Long relativeTo;
+        final ItemCredentials itemCredentials;
         final boolean experimental;
 
-        public AbstractGalleryRequestModel(QueryRange range, Long relativeTo, boolean experimental) {
+        public AbstractGalleryRequestModel(QueryRange range, Long relativeTo, ItemCredentials itemCredentials, boolean experimental) {
             this.range = range;
             this.relativeTo = relativeTo;
+            this.itemCredentials = itemCredentials;
             this.experimental = experimental;
         }
     }
@@ -180,8 +183,8 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         class TagGalleryRequestModel extends AbstractGalleryRequestModel {
             final String tag;
 
-            TagGalleryRequestModel(String tag, Long relativeTo, QueryRange range, boolean experimental) {
-                super(range, relativeTo, experimental);
+            TagGalleryRequestModel(String tag, Long relativeTo, ItemCredentials itemCredentials, QueryRange range, boolean experimental) {
+                super(range, relativeTo, itemCredentials, experimental);
                 this.tag = tag;
             }
         }
@@ -195,13 +198,14 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                     final QueryRange range = requestedRange(req);
                     return new TagGalleryRequestModel(req.params("tag"),
                             nullableLong(req.queryParams("relativeTo")),
+                            itemKeyFromRequest(req),
                             (isCsvRequested(req) || isJsonRequested(req)) ?
                                     range : range.withLimit(GalleryPage.PAGE_SIZE),
                             req.queryParamOrDefault("experimental", "").equals("true"));
                 },
                 (model, credentials, domain) -> {
                     Java8SearchCriteria<BackendItem> offset = ServerSearchCriteria.ALL.withTag(model.tag)
-                            .relativeTo(model.relativeTo)
+                            .relativeTo(model.relativeTo, MoreObjects.firstNonNull(model.itemCredentials, credentials))
                             .withRange(model.range);
 
                     return getQueryLoader(domain, credentials)
@@ -228,8 +232,8 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         class DayGalleryRequestModel extends AbstractGalleryRequestModel {
             final LocalDate day;
 
-            DayGalleryRequestModel(LocalDate day, QueryRange range, Long relativeTo, boolean experimental) {
-                super(range, relativeTo, experimental);
+            DayGalleryRequestModel(LocalDate day, QueryRange range, Long relativeTo, ItemCredentials itemCredentials, boolean experimental) {
+                super(range, relativeTo, itemCredentials, experimental);
                 this.day = day;
             }
         }
@@ -240,11 +244,12 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                             (isCsvRequested(req) || isJsonRequested(req)) ?
                                                         range : range.withLimit(GalleryPage.PAGE_SIZE),
                             nullableLong(req.queryParams("relativeTo")),
+                                                itemKeyFromRequest(req),
                                                 req.queryParamOrDefault("experimental", "").equals("true"));
                 },
                 (model, credentials, domain) -> {
                     Java8SearchCriteria<BackendItem> offset = ServerSearchCriteria.ALL.at(model.day)
-                            .relativeTo(model.relativeTo)
+                            .relativeTo(model.relativeTo, MoreObjects.firstNonNull(model.itemCredentials, credentials))
                             .withRange(model.range);
 
                     return getQueryLoader(domain, credentials)
@@ -277,13 +282,13 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
         class GalleryRequestModel extends AbstractGalleryRequestModel {
             final long partId;
             final String key;
-            GalleryRequestModel(long partId, String key, QueryRange range, Long relativeTo, boolean experimental) {
-                super(range, relativeTo, experimental);
+            GalleryRequestModel(long partId, String key, QueryRange range, Long relativeTo, ItemCredentials itemCredentials, boolean experimental) {
+                super(range, relativeTo, itemCredentials, experimental);
                 this.partId = partId;
                 this.key = key;
             }
         }
-        api.galleryPart(":part", null, null, QueryRange.ALL, page(
+        api.galleryPart(":part", null, null, null, QueryRange.ALL, page(
                 /* request parser */
                 req -> {
                     final QueryRange range = requestedRange(req);
@@ -293,12 +298,13 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                             (isCsvRequested(req) || isJsonRequested(req)) ?
                                     range : range.withLimit(GalleryPage.PAGE_SIZE),
                             nullableLong(req.queryParams("relativeTo")),
+                            itemKeyFromRequest(req),
                             req.queryParamOrDefault("experimental", "").equals("true"));
                 },
                 /* executor */
                 (model, credentials, domain) -> {
                     Java8SearchCriteria<BackendItem> offset = loadGallery(domain, model.partId, model.key)
-                            .relativeTo(model.relativeTo)
+                            .relativeTo(model.relativeTo, MoreObjects.firstNonNull(model.itemCredentials, credentials))
                             .withRange(model.range);
 
                     return getQueryLoader(domain, credentials)
@@ -314,7 +320,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
 
         get("/public/gallery/:part/:id", securedItem(ItemCredentials.AuthenticationStatus.ANONYMOUS, (req, res, session, credentials, item) -> {
             final long partId = Long.parseLong(req.params("part"));
-            final String key = req.queryParams("key");
+            final String key = req.queryParams("gkey");
             return itemPage(configuration, req, res, session, credentials, item, () -> loadGallery(session, partId, key))
                     .get(res).toString();
         }));
@@ -326,11 +332,12 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                             (isCsvRequested(req) || isJsonRequested(req)) ?
                                     range : range.withLimit(GalleryPage.PAGE_SIZE),
                             nullableLong(req.queryParams("relativeTo")),
+                            itemKeyFromRequest(req),
                             req.queryParamOrDefault("experimental", "").equals("true"));
                 },
                 (model, credentials, domain) -> {
                     Java8SearchCriteria<BackendItem> offset = ServerSearchCriteria.ALL.withTag("public")
-                            .relativeTo(model.relativeTo)
+                            .relativeTo(model.relativeTo, MoreObjects.firstNonNull(model.itemCredentials, credentials))
                             .withRange(model.range);
 
                     return getQueryLoader(domain, credentials)
@@ -751,6 +758,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
     private OrHttpError<?> itemPage(BackendConfiguration configuration, Request req, Response res, D session, List<ItemCredentials> credentials, BackendItem item,
                             Supplier<Java8SearchCriteria<BackendItem>> gallerySupplier) throws IOException {
         boolean experimental = req.queryParamOrDefault("experimental", "false").equals("true");
+        final ItemCredentials mostPowerful = ItemSecurity.mostPowerful(credentials);
         if (req.params("id").endsWith(ID_HTML_SUFFIX)) {
             User user = session.get(User.class, item.getUser());
             ImagePage renderer = new ImagePage(configuration);
@@ -759,9 +767,9 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                 model = new OrHttpError<>(new ImagePage.Model(item, null, null, null, user, credentials, experimental));
             } else {
                 final Java8SearchCriteria<BackendItem> gallery = gallerySupplier.get();
-                model = this.getQueryLoader(session, ItemSecurity.mostPowerful(credentials)).load(gallery
+                model = this.getQueryLoader(session, mostPowerful).load(gallery
                         .withRange(new QueryRange(-1, 3))
-                        .relativeTo(item.getServerId()))
+                        .relativeTo(item.getServerId(), mostPowerful))
                         .map(neighbours -> {
                             int index = Iterables.indexOf(neighbours.rows, n -> n.getServerId().equals(item.getServerId()));
                             return new ImagePage.Model(item,
@@ -775,12 +783,12 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             return model.map(m -> renderer.render(m).toString());
         } else {
             if (isCsvRequested(req) || isJsonRequested(req)) {
-                GalleryPage.Model model = new GalleryPage.Model(ItemSecurity.mostPowerful(credentials), null, ItemSet.of(item), false);
+                GalleryPage.Model model = new GalleryPage.Model(mostPowerful, null, ItemSet.of(item), false);
                 ContentType ct = isCsvRequested(req) ? ContentType.CSV : ContentType.JSON;
                 res.type(ct.mime);
                 return new OrHttpError<>(dump(model, ct, DumpFormat.WITH_TOTAL));
             } else {
-                download(res, session, ItemSecurity.mostPowerful(credentials), item);
+                download(res, session, mostPowerful, item);
                 return new OrHttpError<>(String.valueOf(res.status()));
             }
         }
@@ -819,7 +827,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
      */
     protected Route securedItem(ItemCredentials.AuthenticationStatus authStatus, SecuredItemBody<D> task) {
         return (req, res) -> transacted(session -> {
-            String key = restorePluses(req.queryParams("key"));
+            ItemCredentials key = itemKeyFromRequest(req);
             String idParam = dropHtmlSuffix(req.params("id"));
             OrHttpError<List<ItemCredentials>> credentialsOrError =
             optionalAuthenticate(req, session)
@@ -829,7 +837,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                             credentials.add(login);
                         }
                         if (key != null) {
-                            credentials.add(new ItemCredentials.ItemKey(key));
+                            credentials.add(key);
                         }
                         // don't put PublicAccess when there's a key or user is logged in to allow seeing password-protected gallery elements
                         if (credentials.isEmpty() && authStatus == ItemCredentials.AuthenticationStatus.ANONYMOUS) {
@@ -851,6 +859,11 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                         .get(res, item -> task.handle(req, res, session, credentials, item));
             });
         });
+    }
+
+    private ItemCredentials itemKeyFromRequest(Request req) {
+        final String keyString = restorePluses(req.queryParams("key"));
+        return (keyString == null) ? null : new ItemCredentials.ItemKey(keyString);
     }
 
     /** Acquire the item with the given id. If multiple credentials are provided, they must all be valid. If no credentials

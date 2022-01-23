@@ -89,7 +89,7 @@ public interface ItemCredentials {
         protected abstract ItemCredentials credentialsForNonPublicItem(IsItem item);
     }
 
-    void getQueryString(UrlStringBuilder url);
+    void setQueryParams(UrlStringBuilder url);
 
     /** String to put after the server url and before the api paths ("public/" or "") */
     String getUrlPrefix();
@@ -221,7 +221,7 @@ public interface ItemCredentials {
         }
 
         @Override
-        public void getQueryString(UrlStringBuilder url) { }
+        public void setQueryParams(UrlStringBuilder url) { }
 
         @Override
         public String getUrlPrefix() {
@@ -284,7 +284,7 @@ public interface ItemCredentials {
         }
 
         @Override
-        public void getQueryString(UrlStringBuilder url) {
+        public void setQueryParams(UrlStringBuilder url) {
             url.appendQueryParam("key", checksum);
         }
 
@@ -331,7 +331,7 @@ public interface ItemCredentials {
         }
 
         @Override
-        public void getQueryString(UrlStringBuilder url) { }
+        public void setQueryParams(UrlStringBuilder url) { }
 
         @Override
         public String getUrlPrefix() {

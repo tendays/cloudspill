@@ -48,7 +48,7 @@ public interface Java8SearchCriteria<T extends JpaItem> extends GalleryRequest {
         return (getTo() == null) ? null : getTo().toString();
     }
 
-    Java8SearchCriteria<T> relativeTo(Long itemId);
+    Java8SearchCriteria<T> relativeTo(Long itemId, ItemCredentials credentials);
 
     Java8SearchCriteria<T> withRange(QueryRange newRange);
 
@@ -72,7 +72,7 @@ public interface Java8SearchCriteria<T extends JpaItem> extends GalleryRequest {
     }
 
     default UrlStringBuilder getUrl(CloudSpillApi api) {
-        return api.getGalleryUrl(getTags(), getStringFrom(), getStringTo(), getRelativeTo(), getRange());
+        return api.getGalleryUrl(getTags(), getStringFrom(), getStringTo(), getRelativeTo(), getItemCredentials(), getRange());
     }
 
     default CloudSpillEntityManagerDomain.Ordering<? super T> getOrder() {

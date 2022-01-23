@@ -20,18 +20,19 @@ import javax.persistence.criteria.CriteriaBuilder;
  */
 public class ServerSearchCriteria implements Java8SearchCriteria<BackendItem> {
     public static final ServerSearchCriteria ALL =
-            new ServerSearchCriteria(null, null, null, ImmutableSet.of(), null, null, null, QueryRange.ALL);
+            new ServerSearchCriteria(null, null, null, ImmutableSet.of(), null, null, null, null, QueryRange.ALL);
 
     private final LocalDate from, to;
     private final String user;
     private final ImmutableSet<String> tags;
     private final Long relativeTo;
+    private final ItemCredentials itemCredentials;
     private final QueryRange range;
     private final Long minId;
     private final Instant minModDate;
 
     private ServerSearchCriteria(LocalDate from, LocalDate to, String user, Set<String> tags, Long minId, Instant minModDate,
-                                 Long relativeTo, QueryRange range) {
+                                 Long relativeTo, ItemCredentials itemCredentials, QueryRange range) {
         this.tags = ImmutableSet.copyOf(tags);
         this.from = from;
         this.to = to;
@@ -39,6 +40,7 @@ public class ServerSearchCriteria implements Java8SearchCriteria<BackendItem> {
         this.minId = minId;
         this.minModDate = minModDate;
         this.relativeTo = relativeTo;
+        this.itemCredentials = itemCredentials;
         this.range = range;
     }
 
@@ -81,31 +83,34 @@ public class ServerSearchCriteria implements Java8SearchCriteria<BackendItem> {
     public Long getRelativeTo() { return relativeTo; }
 
     @Override
-    public ServerSearchCriteria relativeTo(Long itemId) {
-        return new ServerSearchCriteria(from, to, user, tags, minId, minModDate, itemId, range);
+    public ItemCredentials getItemCredentials() { return itemCredentials; }
+
+    @Override
+    public ServerSearchCriteria relativeTo(Long itemId, ItemCredentials itemCredentials) {
+        return new ServerSearchCriteria(from, to, user, tags, minId, minModDate, itemId, itemCredentials, range);
     }
 
     @Override
     public Java8SearchCriteria<BackendItem> withRange(QueryRange newRange) {
-        return new ServerSearchCriteria(from, to, user, tags, minId, minModDate, relativeTo, newRange);
+        return new ServerSearchCriteria(from, to, user, tags, minId, minModDate, relativeTo, itemCredentials, newRange);
     }
 
     public ServerSearchCriteria withIdAtLeast(long minId) {
-        return new ServerSearchCriteria(from, to, user, tags, minId, minModDate, relativeTo, range);
+        return new ServerSearchCriteria(from, to, user, tags, minId, minModDate, relativeTo, itemCredentials, range);
     }
 
     public ServerSearchCriteria withTag(String tag) {
         return new ServerSearchCriteria(from, to, user,
                 ImmutableSet.<String>builder().addAll(tags).add(tag).build(),
-                minId, minModDate, relativeTo, range);
+                minId, minModDate, relativeTo, itemCredentials, range);
     }
 
     public ServerSearchCriteria at(LocalDate day) {
-        return new ServerSearchCriteria(day, day, user, tags, minId, minModDate, relativeTo, range);
+        return new ServerSearchCriteria(day, day, user, tags, minId, minModDate, relativeTo, itemCredentials, range);
     }
 
     public ServerSearchCriteria modifiedSince(Instant minModDate) {
-        return new ServerSearchCriteria(from, to, user, tags, minId, minModDate, relativeTo, range);
+        return new ServerSearchCriteria(from, to, user, tags, minId, minModDate, relativeTo, itemCredentials, range);
     }
 
     @Override

@@ -5,6 +5,7 @@ import android.os.Parcelable;
 import android.support.annotation.NonNull;
 
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
+import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.query.QueryRange;
 import org.gamboni.cloudspill.shared.query.SearchCriteria;
 import org.gamboni.cloudspill.shared.util.UrlStringBuilder;
@@ -122,6 +123,9 @@ public class FilterSpecification implements SearchCriteria, Parcelable {
         return null;
     }
 
+    @Override
+    public ItemCredentials getItemCredentials() { return null; }
+
     private long asLong(Date date) {
         return (date == null) ? NULL_DATE : date.getTime();
     }
@@ -131,7 +135,7 @@ public class FilterSpecification implements SearchCriteria, Parcelable {
     }
 
     public UrlStringBuilder getUrl(CloudSpillApi api) {
-        return api.getGalleryUrl(getTags(), getStringFrom(), getStringTo(), getRelativeTo(), getRange());
+        return api.getGalleryUrl(getTags(), getStringFrom(), getStringTo(), getRelativeTo(), getItemCredentials(), getRange());
     }
 
     public String toString() {
