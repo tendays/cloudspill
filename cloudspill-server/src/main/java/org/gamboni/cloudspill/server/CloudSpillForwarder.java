@@ -590,7 +590,7 @@ public class CloudSpillForwarder extends CloudSpillBackend<ForwarderDomain> {
 
     @Override
     protected ItemQueryLoader getQueryLoader(ForwarderDomain session, ItemCredentials credentials) {
-        return criteria -> deserialiseStream(criteria.getUrl(remoteApi), ImmutableList.of(credentials));
+        return criteria -> deserialiseStream(criteria.getUrl(remoteApi).toString(), ImmutableList.of(credentials));
     }
 
     @Override

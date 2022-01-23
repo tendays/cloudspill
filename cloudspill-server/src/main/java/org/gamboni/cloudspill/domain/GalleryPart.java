@@ -9,6 +9,7 @@ import org.gamboni.cloudspill.shared.api.Csv;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.domain.JpaItem_;
 import org.gamboni.cloudspill.shared.query.QueryRange;
+import org.gamboni.cloudspill.shared.util.UrlStringBuilder;
 
 import java.time.LocalDate;
 import java.util.HashSet;
@@ -151,7 +152,7 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
         this.title = title;
     }
 
-    @Override @Transient public String getUrl(CloudSpillApi api) {
+    @Override @Transient public UrlStringBuilder getUrl(CloudSpillApi api) {
         return api.galleryPart(id, null, null, QueryRange.ALL);
     }
 
@@ -234,6 +235,11 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
         }
 
         @Override
+        public CloudSpillEntityManagerDomain.Ordering<? super BackendItem> getOrder() {
+            return GalleryPart.this.getOrder();
+        }
+
+        @Override
         public String buildTitle() {
             return GalleryPart.this.buildTitle();
         }
@@ -252,7 +258,7 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
         }
 
         @Override
-        public String getUrl(CloudSpillApi api) {
+        public UrlStringBuilder getUrl(CloudSpillApi api) {
             return api.galleryPart(getId(), providedKey, relativeTo, range);
         }
     }

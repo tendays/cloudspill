@@ -49,7 +49,7 @@ public class GalleryListPage extends AbstractRenderer<GalleryListPage.Model> {
         public Element() {}
 
         public Element(Java8SearchCriteria<?> gallery, Long sample, String sampleKey) {
-            this.relativeUrl = gallery.getUrl(new CloudSpillApi("")).substring(1);
+            this.relativeUrl = gallery.getUrl(new CloudSpillApi("")).toString().substring(1);
             this.title = gallery.buildTitle();
             this.sample = sample;
             this.sampleKey = sampleKey;

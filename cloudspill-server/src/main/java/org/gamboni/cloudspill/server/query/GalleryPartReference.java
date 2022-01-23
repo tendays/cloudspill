@@ -3,6 +3,7 @@ package org.gamboni.cloudspill.server.query;
 import org.gamboni.cloudspill.domain.BackendItem;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.query.QueryRange;
+import org.gamboni.cloudspill.shared.util.UrlStringBuilder;
 
 import java.time.LocalDate;
 import java.util.Set;
@@ -28,7 +29,7 @@ public class GalleryPartReference implements Java8SearchCriteria<BackendItem> {
     }
 
     @Override
-    public String getUrl(CloudSpillApi api) {
+    public UrlStringBuilder getUrl(CloudSpillApi api) {
         return api.galleryPart(id, key, relativeTo, range);
     }
 

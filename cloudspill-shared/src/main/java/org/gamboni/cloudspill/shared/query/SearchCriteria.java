@@ -1,6 +1,7 @@
 package org.gamboni.cloudspill.shared.query;
 
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
+import org.gamboni.cloudspill.shared.util.UrlStringBuilder;
 
 import java.util.Set;
 
@@ -28,6 +29,6 @@ public interface SearchCriteria {
      */
     Long getRelativeTo();
 
-    String getUrl(CloudSpillApi api);
+    UrlStringBuilder getUrl(CloudSpillApi api);
 
 }

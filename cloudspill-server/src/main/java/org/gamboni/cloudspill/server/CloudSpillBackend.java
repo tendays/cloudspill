@@ -831,7 +831,8 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                         if (key != null) {
                             credentials.add(new ItemCredentials.ItemKey(key));
                         }
-                        if (authStatus == ItemCredentials.AuthenticationStatus.ANONYMOUS) {
+                        // don't put PublicAccess when there's a key or user is logged in to allow seeing password-protected gallery elements
+                        if (credentials.isEmpty() && authStatus == ItemCredentials.AuthenticationStatus.ANONYMOUS) {
                             credentials.add(new ItemCredentials.PublicAccess());
                         }
                         return credentials;

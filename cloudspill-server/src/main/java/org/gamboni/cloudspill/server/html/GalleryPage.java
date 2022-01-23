@@ -43,7 +43,7 @@ public class GalleryPage extends AbstractRenderer<GalleryPage.Model> {
 
     @Override
     protected String getPageUrl(Model model) {
-        return model.criteria.getUrl(api);
+        return model.criteria.getUrl(api).toString();
     }
 
     @Override
@@ -86,15 +86,26 @@ public class GalleryPage extends AbstractRenderer<GalleryPage.Model> {
                 tag("div", "id='items'",
                 pageLink(model, pageNumber - 1, "<", model.itemSet.totalCount),
                 HtmlFragment.concatenate(
-                        model.itemSet.rows.stream().map(item ->
-                                tag("a", "data-id="+ quote(String.valueOf(item.getServerId())) +" " +
-                                                "data-tags="+ quote(String.join(",", item.getTags())) +" " +
-                                                "class='itemLink' href=" + quote(
-                                                        api.getImagePageUrl(item.getServerId(), model.criteria, model.getAuthStatus().credentialsFor(item))),
-                                        unclosedTag("img class='thumb' src=" +
-                                                quote(api.getThumbnailUrl(item, CloudSpillApi.Size.IMAGE_THUMBNAIL))))
+                        model.itemSet.rows.stream().map(item -> renderItem(model, item)
                         ).toArray(HtmlFragment[]::new)),
                 pageLink(model, pageNumber + 1, ">", model.itemSet.totalCount)));
+    }
+
+    private HtmlFragment renderItem(Model model, BackendItem item) {
+        ItemCredentials credentials;
+        if (item.isPublic()) {
+            credentials = new ItemCredentials.PublicAccess();
+        } else if (model.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN) {
+            credentials = new ItemCredentials.UserPassword();
+        } else {
+            credentials = new ItemCredentials.ItemKey(item.getChecksum());
+        }
+        return tag("a", "data-id="+ quote(String.valueOf(item.getServerId())) +" " +
+                        "data-tags="+ quote(String.join(",", item.getTags())) +" " +
+                        "class='itemLink' href=" + quote(
+                                api.getImagePageUrl(item.getServerId(), model.criteria, credentials)),
+                unclosedTag("img class='thumb' src=" +
+                        quote(api.getThumbnailUrl(item.getServerId(), credentials, CloudSpillApi.Size.IMAGE_THUMBNAIL))));
     }
 
     private HtmlFragment pageLink(Model model, int pageNumber, String label, long totalCount) {

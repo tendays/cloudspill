@@ -15,6 +15,7 @@ import org.gamboni.cloudspill.shared.domain.JpaItem_;
 import org.gamboni.cloudspill.shared.query.GalleryRequest;
 import org.gamboni.cloudspill.shared.query.QueryRange;
 import org.gamboni.cloudspill.shared.query.SearchCriteria;
+import org.gamboni.cloudspill.shared.util.UrlStringBuilder;
 
 import java.time.LocalDate;
 import java.util.HashSet;
@@ -70,7 +71,7 @@ public interface Java8SearchCriteria<T extends JpaItem> extends GalleryRequest {
         return "";
     }
 
-    default String getUrl(CloudSpillApi api) {
+    default UrlStringBuilder getUrl(CloudSpillApi api) {
         return api.getGalleryUrl(getTags(), getStringFrom(), getStringTo(), getRelativeTo(), getRange());
     }
 

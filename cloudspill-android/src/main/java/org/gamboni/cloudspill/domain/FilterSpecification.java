@@ -7,6 +7,7 @@ import android.support.annotation.NonNull;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.query.QueryRange;
 import org.gamboni.cloudspill.shared.query.SearchCriteria;
+import org.gamboni.cloudspill.shared.util.UrlStringBuilder;
 
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
@@ -129,7 +130,7 @@ public class FilterSpecification implements SearchCriteria, Parcelable {
         return (string == null) ? NULL_STRING : string;
     }
 
-    public String getUrl(CloudSpillApi api) {
+    public UrlStringBuilder getUrl(CloudSpillApi api) {
         return api.getGalleryUrl(getTags(), getStringFrom(), getStringTo(), getRelativeTo(), getRange());
     }
 

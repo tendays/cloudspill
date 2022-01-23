@@ -135,7 +135,8 @@ public class ImagePage extends AbstractRenderer<ImagePage.Model> {
 
 	private HtmlFragment neighbourLink(Model model, BackendItem item, String linkText, boolean right) {
 		return item == null ? HtmlFragment.EMPTY : tag("a",
-				"class="+ quote("siblink"+ (right? " right" : "")) +" href=" + quote(model.gallery.getUrl(api) + "/" + item.getServerId() + api.ID_HTML_SUFFIX),
+				"class="+ quote("siblink"+ (right? " right" : "")) +" href=" + quote(
+						model.gallery.getUrl(api).append("/" + item.getServerId() + api.ID_HTML_SUFFIX)),
 				tag("div", linkText));
 	}
 

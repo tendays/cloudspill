@@ -5,6 +5,7 @@ import com.google.common.base.Stopwatch;
 import org.gamboni.cloudspill.server.config.BackendConfiguration;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.util.UrlStringBuilder;
 
 import java.util.Optional;
 
@@ -50,6 +51,10 @@ public abstract class AbstractRenderer<T extends OutputModel> implements Rendere
 
     protected static HtmlFragment meta(String property, String content) {
         return slashedTag("meta property=" + quote(property) + " content=" + quote(content));
+    }
+
+    protected static String quote(UrlStringBuilder url) {
+        return quote(url.toString());
     }
 
     protected static String quote(String text) {
