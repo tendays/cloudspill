@@ -118,8 +118,8 @@ public class ServerSearchCriteria implements Java8SearchCriteria<BackendItem> {
     }
 
     @Override
-    public <E extends BackendItem, Q extends ServerDomain.Query<E>> Q applyTo(Q itemQuery, ItemCredentials.AuthenticationStatus authStatus) {
-        Java8SearchCriteria.super.applyTo(itemQuery, authStatus);
+    public <E extends BackendItem, Q extends ServerDomain.Query<E>> Q applyTo(Q itemQuery, ItemCredentials credentials) {
+        Java8SearchCriteria.super.applyTo(itemQuery, credentials);
         CriteriaBuilder criteriaBuilder = itemQuery.getCriteriaBuilder();
         if (minId != null) {
             itemQuery.add(root -> criteriaBuilder.gt(root.get("id"), minId));

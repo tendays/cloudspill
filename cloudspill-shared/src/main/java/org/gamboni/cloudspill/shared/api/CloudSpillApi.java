@@ -234,7 +234,7 @@ public class CloudSpillApi<T> {
     public String galleryPart(Object id, String key, Long relativeTo, QueryRange range) {
         final UrlStringBuilder url = new UrlStringBuilder(serverUrl + "public/gallery/" + id);
         if (key != null) {
-            url.appendQueryParam("key", key);
+            url.appendQueryParam("gkey", key);
         }
         return sliceParameters(url, relativeTo, range);
     }
@@ -294,7 +294,7 @@ public class CloudSpillApi<T> {
     }
 
     public String getThumbnailUrl(Object id, List<ItemCredentials> credentials, Object pixels) {
-        StringBuilder url = getBaseUrl(credentials).append("thumbs/")
+        UrlStringBuilder url = getBaseUrl(credentials).append("thumbs/")
                 .append(pixels)
                 .append("/")
                 .append(id);
@@ -303,20 +303,20 @@ public class CloudSpillApi<T> {
     }
 
     public String getImageUrl(long id, List<ItemCredentials> credentials) {
-        StringBuilder url = getBaseUrl(credentials);
+        UrlStringBuilder url = getBaseUrl(credentials);
         url.append("item/").append(id);
         appendQueryStrings(credentials, url);
         return url.toString();
     }
 
-    private void appendQueryStrings(List<ItemCredentials> credentials, StringBuilder url) {
+    private void appendQueryStrings(List<ItemCredentials> credentials, UrlStringBuilder url) {
         for (ItemCredentials c : credentials) {
-            url.append(c.getQueryString());
+            c.getQueryString(url);
         }
     }
 
-    private StringBuilder getBaseUrl(List<ItemCredentials> credentials) {
-        StringBuilder url = new StringBuilder(serverUrl);
+    private UrlStringBuilder getBaseUrl(List<ItemCredentials> credentials) {
+        UrlStringBuilder url = new UrlStringBuilder(serverUrl);
         for (ItemCredentials c : credentials) {
             url.append(c.getUrlPrefix());
         }
@@ -340,11 +340,11 @@ public class CloudSpillApi<T> {
     }
 
     public String getImagePageUrl(Object serverId, GalleryRequest criteria, List<ItemCredentials> credentials) {
-        StringBuilder url;
+        UrlStringBuilder url;
         if (criteria == null) {
             url = getBaseUrl(credentials).append("item/");
         } else {
-            url = new StringBuilder(criteria.withRange(QueryRange.ALL).getUrl(this)).append("/");
+            url = new UrlStringBuilder(criteria.withRange(QueryRange.ALL).getUrl(this)).append("/");
         }
         url.append(serverId)
            .append(ID_HTML_SUFFIX);

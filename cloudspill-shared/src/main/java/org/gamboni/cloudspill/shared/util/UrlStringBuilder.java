@@ -16,7 +16,7 @@ public class UrlStringBuilder {
         this.queryParams = new StringBuilder();
     }
 
-    public UrlStringBuilder append(String part) {
+    public UrlStringBuilder append(Object part) {
         base.append(part);
         return this;
     }

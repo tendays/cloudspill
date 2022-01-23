@@ -6,12 +6,12 @@ import com.google.common.base.Strings;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.Csv;
+import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.domain.JpaItem_;
 import org.gamboni.cloudspill.shared.query.QueryRange;
 
 import java.time.LocalDate;
 import java.util.HashSet;
-import java.util.Objects;
 import java.util.Set;
 
 import javax.persistence.ElementCollection;
@@ -87,9 +87,11 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
     @Override
     @Transient
     public Set<String> getEffectiveTags() {
-        /* Force galleries to only show public items */
+        /* Force keyless galleries to only show public items, even for logged in users */
         Set<String> result = new HashSet<>(this.getTags());
-        result.add("public");
+        if (!hasKeyProtection()) {
+            result.add("public");
+        }
         return result;
     }
 
@@ -112,6 +114,10 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
 
     public void setKey(String key) {
         this.key = key;
+    }
+
+    private boolean hasKeyProtection() {
+        return this.key != null && !this.key.isEmpty();
     }
 
     @Override
@@ -168,23 +174,23 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
     }
 
     private class Slice implements Java8SearchCriteria<BackendItem> {
-        final String key;
+        final String providedKey;
         final Long relativeTo;
         final QueryRange range;
-        Slice(String key, Long relativeTo, QueryRange range) {
-            this.key = key;
+        Slice(String providedKey, Long relativeTo, QueryRange range) {
+            this.providedKey = providedKey;
             this.relativeTo = relativeTo;
             this.range = range;
         }
 
         @Override
         public Java8SearchCriteria<BackendItem> relativeTo(Long relativeTo) {
-            return new Slice(key, relativeTo, range);
+            return new Slice(providedKey, relativeTo, range);
         }
 
         @Override
         public Java8SearchCriteria<BackendItem> withRange(QueryRange newRange) {
-            return new Slice(key, relativeTo, newRange);
+            return new Slice(providedKey, relativeTo, newRange);
         }
 
         @Override
@@ -204,12 +210,22 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
 
         @Override
         public Set<String> getEffectiveTags() {
-            // Don't restrict to public items if the part has a key and the provided one matches.
-            if (GalleryPart.this.key != null && !GalleryPart.this.key.isEmpty() && GalleryPart.this.key.equals(this.key)) {
-                return this.getTags();
-            } else {
-                return GalleryPart.this.getEffectiveTags();
+            return GalleryPart.this.getEffectiveTags();
+        }
+
+        @Override
+        public <E extends BackendItem, Q extends ServerDomain.Query<E>> void applyGeneralSecurity(Q itemQuery, ItemCredentials credentials) {
+            // Disable general security checks if the part has a key and the provided one matches,
+            // or if the user is logged in.
+
+            // Assumption here is that if all pictures in a gallery are accessible to some people with a password,
+            // those pictures can also safely be shared with all pictures who have an account.
+            if (hasKeyProtection() &&
+                    (GalleryPart.this.key.equals(this.providedKey) || credentials.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN)) {
+                return;
             }
+
+            GalleryPart.this.applyGeneralSecurity(itemQuery, credentials);
         }
 
         @Override
@@ -237,7 +253,7 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
 
         @Override
         public String getUrl(CloudSpillApi api) {
-            return api.galleryPart(getId(), key, relativeTo, range);
+            return api.galleryPart(getId(), providedKey, relativeTo, range);
         }
     }
 }

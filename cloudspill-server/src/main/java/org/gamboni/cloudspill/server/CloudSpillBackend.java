@@ -289,7 +289,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
                     final QueryRange range = requestedRange(req);
                     return new GalleryRequestModel(
                             Long.parseLong(req.params("part")),
-                            req.queryParams("key"),
+                            req.queryParams("gkey"),
                             (isCsvRequested(req) || isJsonRequested(req)) ?
                                     range : range.withLimit(GalleryPage.PAGE_SIZE),
                             nullableLong(req.queryParams("relativeTo")),

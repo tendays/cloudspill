@@ -8,6 +8,7 @@ import org.gamboni.cloudspill.shared.domain.Items;
 import org.gamboni.cloudspill.shared.util.Func;
 import org.gamboni.cloudspill.shared.util.Log;
 import org.gamboni.cloudspill.shared.util.Splitter;
+import org.gamboni.cloudspill.shared.util.UrlStringBuilder;
 
 import java.net.URLConnection;
 import java.util.Comparator;
@@ -88,7 +89,7 @@ public interface ItemCredentials {
         protected abstract ItemCredentials credentialsForNonPublicItem(IsItem item);
     }
 
-    String getQueryString();
+    void getQueryString(UrlStringBuilder url);
 
     /** String to put after the server url and before the api paths ("public/" or "") */
     String getUrlPrefix();
@@ -220,9 +221,7 @@ public interface ItemCredentials {
         }
 
         @Override
-        public String getQueryString() {
-            return "";
-        }
+        public void getQueryString(UrlStringBuilder url) { }
 
         @Override
         public String getUrlPrefix() {
@@ -285,8 +284,8 @@ public interface ItemCredentials {
         }
 
         @Override
-        public String getQueryString() {
-            return "?key="+ checksum.replace("+", "%2B");
+        public void getQueryString(UrlStringBuilder url) {
+            url.appendQueryParam("key", checksum);
         }
 
         @Override
@@ -332,9 +331,7 @@ public interface ItemCredentials {
         }
 
         @Override
-        public String getQueryString() {
-            return "";
-        }
+        public void getQueryString(UrlStringBuilder url) { }
 
         @Override
         public String getUrlPrefix() {

@@ -4,7 +4,9 @@ import com.google.common.base.CaseFormat;
 import com.google.common.collect.Streams;
 
 import org.gamboni.cloudspill.domain.CloudSpillEntityManagerDomain;
+import org.gamboni.cloudspill.domain.Item_;
 import org.gamboni.cloudspill.domain.ServerDomain;
+import org.gamboni.cloudspill.domain.User;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
 import org.gamboni.cloudspill.shared.domain.Items;
@@ -15,6 +17,7 @@ import org.gamboni.cloudspill.shared.query.QueryRange;
 import org.gamboni.cloudspill.shared.query.SearchCriteria;
 
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -60,7 +63,7 @@ public interface Java8SearchCriteria<T extends JpaItem> extends GalleryRequest {
     }
 
     default Set<String> getEffectiveTags() {
-        return this.getTags();
+        return getTags();
     }
 
     default String getDescription() {
@@ -75,7 +78,7 @@ public interface Java8SearchCriteria<T extends JpaItem> extends GalleryRequest {
         return CloudSpillEntityManagerDomain.Ordering.desc(JpaItem_.date);
     }
 
-    default <E extends T, Q extends ServerDomain.Query<E>> Q applyTo(Q itemQuery, ItemCredentials.AuthenticationStatus authStatus) {
+    default <E extends T, Q extends ServerDomain.Query<E>> Q applyTo(Q itemQuery, ItemCredentials credentials) {
         CriteriaBuilder criteriaBuilder = itemQuery.getCriteriaBuilder();
         itemQuery.addOrder(getOrder());
 
@@ -83,9 +86,8 @@ public interface Java8SearchCriteria<T extends JpaItem> extends GalleryRequest {
         for (String tag : effectiveTags) {
             itemQuery.add(root -> tagQuery(criteriaBuilder, tag, root));
         }
-        if (authStatus != ItemCredentials.AuthenticationStatus.LOGGED_IN && !Items.isPublic(effectiveTags)) {
-            itemQuery.add(root -> tagQuery(criteriaBuilder, "public", root));
-        }
+        applyGeneralSecurity(itemQuery, credentials);
+
         if (getFrom() != null) {
             itemQuery.add(root -> criteriaBuilder.greaterThanOrEqualTo(root.get(JpaItem_.date),
                     getFrom().atStartOfDay()));
@@ -94,7 +96,33 @@ public interface Java8SearchCriteria<T extends JpaItem> extends GalleryRequest {
             itemQuery.add(root -> criteriaBuilder.lessThanOrEqualTo(root.get(JpaItem_.date),
                     getTo().plusDays(1).atStartOfDay()));
         }
+
         return itemQuery;
+    }
+
+    default <E extends T, Q extends ServerDomain.Query<E>> void applyGeneralSecurity(Q itemQuery, ItemCredentials credentials) {
+        final Set<String> effectiveTags = getEffectiveTags();
+        CriteriaBuilder criteriaBuilder = itemQuery.getCriteriaBuilder();
+
+        // query already restricts to public items: no need for extra security.
+        if (Items.isPublic(effectiveTags)) { return; }
+
+        if (credentials instanceof ItemCredentials.UserCredentials &&
+                !((ItemCredentials.UserCredentials)credentials).user.hasGroup(User.ADMIN_GROUP)) {
+            // logged in users can see own items, those addressed to all users, and public ones
+            itemQuery.add(root ->
+                    criteriaBuilder.or(
+                            tagQuery(criteriaBuilder, "public", root),
+                            tagQuery(criteriaBuilder, "@users", root),
+                            criteriaBuilder.equal(
+                                    root.get(Item_.user),
+                                    ((ItemCredentials.UserCredentials)credentials).user.getName())
+                    )
+            );
+        } else if (credentials.getAuthStatus() != ItemCredentials.AuthenticationStatus.LOGGED_IN) {
+            // anonymous users can only see public items
+            itemQuery.add(root -> tagQuery(criteriaBuilder, "public", root));
+        }
     }
 
     default <E extends T> Predicate tagQuery(CriteriaBuilder criteriaBuilder, String tag, Root<E> root) {

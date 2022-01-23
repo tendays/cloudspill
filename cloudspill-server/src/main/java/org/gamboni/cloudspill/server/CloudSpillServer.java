@@ -528,19 +528,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 	}
 
     private CloudSpillEntityManagerDomain.Query<Item> criteriaToQuery(ServerDomain session, ItemCredentials credentials, Java8SearchCriteria<BackendItem> criteria) {
-        final CloudSpillEntityManagerDomain.Query<Item> query = criteria.applyTo(session.selectItem(), credentials.getAuthStatus());
-        if (credentials instanceof ItemCredentials.UserCredentials &&
-                !((ItemCredentials.UserCredentials)credentials).user.hasGroup(User.ADMIN_GROUP) &&
-                !Items.isPublic(criteria)) {
-            query.add(root ->
-                    session.criteriaBuilder.or(
-                    criteria.tagQuery(session.criteriaBuilder, "public", root),
-                            session.criteriaBuilder.equal(
-                                    root.get(Item_.user),
-                                    ((ItemCredentials.UserCredentials)credentials).user.getName())
-                            )
-            );
-        }
+        final CloudSpillEntityManagerDomain.Query<Item> query = criteria.applyTo(session.selectItem(), credentials);
         // relativeTo calculation requires fully defined ordering, so we order by id after all other orderings
         query.addOrder(CloudSpillEntityManagerDomain.Ordering.asc(Item_.id));
         return query;
@@ -557,7 +545,7 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 		return new OrHttpError<>(new GalleryListPage.Model(credentials, configuration.getRepositoryName(), Lists.transform(
 				query.addOrder(CloudSpillEntityManagerDomain.Ordering.desc(GalleryPart_.from)).list(),
 				gp -> {
-					final List<Item> sample = gp.applyTo(domain.selectItem(), credentials.getAuthStatus())
+					final List<Item> sample = gp.applyTo(domain.selectItem(), credentials)
                             .range(QueryRange.limit(1)).list();
 					return sample.isEmpty() ? new GalleryListPage.Element(gp, null, null) :
 							new GalleryListPage.Element(gp, sample.get(0).getId(), sample.get(0).getChecksum());
