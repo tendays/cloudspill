@@ -1,5 +1,8 @@
 package org.gamboni.cloudspill.shared.api;
 
+import org.gamboni.cloudspill.shared.domain.IsItem;
+import org.gamboni.cloudspill.shared.domain.Items;
+
 import java.util.List;
 
 /** Companion class to ItemCredentials (Needed because Android does not allow static methods in interfaces).
@@ -16,5 +19,19 @@ public abstract class ItemSecurity {
             }
         }
         return mostPowerful;
+    }
+
+    public static ItemCredentials getItemCredentials(IsItem item, ItemCredentials.AuthenticationStatus authStatus) {
+        ItemCredentials credentials;
+        if (Items.isPublic(item)) {
+            credentials = new ItemCredentials.PublicAccess();
+        } else {
+            if (authStatus == ItemCredentials.AuthenticationStatus.LOGGED_IN) {
+                credentials = new ItemCredentials.UserPassword();
+            } else {
+                credentials = new ItemCredentials.ItemKey(item.getChecksum());
+            }
+        }
+        return credentials;
     }
 }

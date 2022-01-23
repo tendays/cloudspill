@@ -237,6 +237,15 @@ public class GalleryPart implements Java8SearchCriteria<BackendItem> {
         }
 
         @Override
+        public ItemCredentials getCredentialForPattern(String itemKey) {
+            if (providedKey != null) {
+                return new ItemCredentials.ItemKey(itemKey);
+            } else {
+                return new ItemCredentials.PublicAccess();
+            }
+        }
+
+        @Override
         public String getUser() {
             return user;
         }

@@ -132,4 +132,8 @@ public interface Java8SearchCriteria<T extends JpaItem> extends GalleryRequest {
                 (SetAttribute<E, String>)(SetAttribute) JpaItem_.tags);
         return criteriaBuilder.isMember(tag, tagPath);
     }
+
+    default ItemCredentials getCredentialForPattern(String itemKey) {
+        return new ItemCredentials.PublicAccess();
+    }
 }

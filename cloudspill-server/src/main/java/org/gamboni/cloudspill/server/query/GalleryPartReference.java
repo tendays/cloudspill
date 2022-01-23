@@ -14,18 +14,18 @@ import java.util.Set;
  */
 public class GalleryPartReference implements Java8SearchCriteria<BackendItem> {
     public final long id;
-    public final String key;
+    public final String providedKey;
     private final Long relativeTo;
     private final ItemCredentials itemCredentials;
     private final QueryRange range;
 
-    public GalleryPartReference(long id, String key) {
-        this(id, key, null, null, QueryRange.ALL);
+    public GalleryPartReference(long id, String providedKey) {
+        this(id, providedKey, null, null, QueryRange.ALL);
     }
 
-    private GalleryPartReference(long id, String key, Long relativeTo, ItemCredentials itemCredentials, QueryRange range) {
+    private GalleryPartReference(long id, String providedKey, Long relativeTo, ItemCredentials itemCredentials, QueryRange range) {
         this.id = id;
-        this.key = key;
+        this.providedKey = providedKey;
         this.relativeTo = relativeTo;
         this.itemCredentials = itemCredentials;
         this.range = range;
@@ -33,7 +33,7 @@ public class GalleryPartReference implements Java8SearchCriteria<BackendItem> {
 
     @Override
     public UrlStringBuilder getUrl(CloudSpillApi api) {
-        return api.galleryPart(id, key, relativeTo, itemCredentials, range);
+        return api.galleryPart(id, providedKey, relativeTo, itemCredentials, range);
     }
 
     @Override
@@ -49,12 +49,12 @@ public class GalleryPartReference implements Java8SearchCriteria<BackendItem> {
 
     @Override
     public GalleryPartReference relativeTo(Long itemId, ItemCredentials itemCredentials) {
-        return new GalleryPartReference(id, key, itemId, itemCredentials, range);
+        return new GalleryPartReference(id, providedKey, itemId, itemCredentials, range);
     }
 
     @Override
     public Java8SearchCriteria<BackendItem> withRange(QueryRange newRange) {
-        return new GalleryPartReference(id, key, relativeTo, itemCredentials, newRange);
+        return new GalleryPartReference(id, providedKey, relativeTo, itemCredentials, newRange);
     }
 
     @Override
@@ -72,6 +72,15 @@ public class GalleryPartReference implements Java8SearchCriteria<BackendItem> {
 
     @Override
     public ItemCredentials getItemCredentials() { return itemCredentials; }
+
+    @Override
+    public ItemCredentials getCredentialForPattern(String itemKey) {
+        if (providedKey != null) {
+            return new ItemCredentials.ItemKey(itemKey);
+        } else {
+            return new ItemCredentials.PublicAccess();
+        }
+    }
 
     @Override
     public QueryRange getRange() {

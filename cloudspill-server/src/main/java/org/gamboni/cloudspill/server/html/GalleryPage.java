@@ -9,6 +9,7 @@ import org.gamboni.cloudspill.server.query.ItemSet;
 import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.api.ItemSecurity;
 import org.gamboni.cloudspill.shared.query.QueryRange;
 
 /**
@@ -56,14 +57,19 @@ public class GalleryPage extends AbstractRenderer<GalleryPage.Model> {
 
     @Override
     protected String onLoad(Model model) {
+        // Don't directly pass %s because it would get escaped as %25s
+        String fakePlaceholder = "__ITEM_KEY__";
         if (model.itemSet.totalCount > PAGE_SIZE && model.criteria.getRange().offset == 0) {
-            final ItemCredentials credentials = (model.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN) ?
-                    new ItemCredentials.UserPassword() :
-                    new ItemCredentials.PublicAccess();
+            final ItemCredentials credentials;
+            if (model.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN) {
+                credentials = new ItemCredentials.UserPassword();
+            } else {
+                credentials = model.criteria.getCredentialForPattern(fakePlaceholder);
+            }
             return "createPlaceholders('"+ model.criteria.withRange(QueryRange.ALL).getUrl(api) +"', '"+
                     api.getThumbnailUrl("%d",
-                            credentials, CloudSpillApi.Size.IMAGE_THUMBNAIL.pixels) +"', '"+
-                    api.getImagePageUrl("%d", model.criteria, credentials) +"', "+
+                            credentials, CloudSpillApi.Size.IMAGE_THUMBNAIL.pixels).replace(fakePlaceholder, "%s") +"', '"+
+                    api.getImagePageUrl("%d", model.criteria, credentials).replace(fakePlaceholder, "%s") +"', "+
                     PAGE_SIZE +", "+ model.itemSet.totalCount +")";
         } else {
             return super.onLoad(model);
@@ -92,14 +98,7 @@ public class GalleryPage extends AbstractRenderer<GalleryPage.Model> {
     }
 
     private HtmlFragment renderItem(Model model, BackendItem item) {
-        ItemCredentials credentials;
-        if (item.isPublic()) {
-            credentials = new ItemCredentials.PublicAccess();
-        } else if (model.getAuthStatus() == ItemCredentials.AuthenticationStatus.LOGGED_IN) {
-            credentials = new ItemCredentials.UserPassword();
-        } else {
-            credentials = new ItemCredentials.ItemKey(item.getChecksum());
-        }
+        ItemCredentials credentials = ItemSecurity.getItemCredentials(item, model.getAuthStatus());
         return tag("a", "data-id="+ quote(String.valueOf(item.getServerId())) +" " +
                         "data-tags="+ quote(String.join(",", item.getTags())) +" " +
                         "class='itemLink' href=" + quote(

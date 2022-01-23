@@ -627,7 +627,7 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             return validateToken(user, session, username, tokenId).get(res);
         }));
 
-        /* Authorise an authentication token */
+        /* Delete an authentication token */
         api.deleteToken(":name", ":id", secured((req, res, session, user) -> {
             final String username = req.params("name");
             if (!user.user.getName().equals(username)) {
@@ -951,8 +951,8 @@ public abstract class CloudSpillBackend<D extends CloudSpillEntityManagerDomain>
             @Override
             MetadataRepresentation dumpMetadata(Java8SearchCriteria<? extends BackendItem> criteria, ItemSet itemSet, Instant timestamp, MetadataRepresentation representation) {
                 return WITH_TOTAL.dumpMetadata(criteria, itemSet, timestamp, representation)
-                        .put("Title", criteria.buildTitle())
-                        .put("Description", criteria.getDescription());
+                        .put("Title", itemSet.title)
+                        .put("Description", itemSet.description);
             }
         };
 

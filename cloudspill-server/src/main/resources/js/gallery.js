@@ -23,7 +23,7 @@ function createPlaceholders(dataUrl, imageUrlPattern, hrefPattern, pageSize, cou
                         placeholders[i+offset] = undefined;
                     }
                 };
-                req.open("GET", dataUrl +"?offset="+ offset +"&limit="+ pageSize);
+                req.open("GET", dataUrl + (dataUrl.includes('?') ? '&' : '?') + "offset="+ offset +"&limit="+ pageSize);
                 req.setRequestHeader("Accept", "application/json");
                 req.send();
                 for (let n=offset; n < offset+pageSize; n++) {

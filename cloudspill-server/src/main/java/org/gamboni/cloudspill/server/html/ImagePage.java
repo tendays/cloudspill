@@ -14,6 +14,7 @@ import org.gamboni.cloudspill.server.query.Java8SearchCriteria;
 import org.gamboni.cloudspill.server.query.ServerSearchCriteria;
 import org.gamboni.cloudspill.shared.api.CloudSpillApi;
 import org.gamboni.cloudspill.shared.api.ItemCredentials;
+import org.gamboni.cloudspill.shared.api.ItemSecurity;
 import org.gamboni.cloudspill.shared.domain.ItemType;
 import org.gamboni.cloudspill.shared.domain.Items;
 
@@ -37,7 +38,7 @@ public class ImagePage extends AbstractRenderer<ImagePage.Model> {
 		final List<ItemCredentials> allCredentials;
 		final boolean experimental;
 
-		public Model(BackendItem item, Java8SearchCriteria<BackendItem> gallery , BackendItem prev, BackendItem next, User user, List<ItemCredentials> credentials,
+		public Model(BackendItem item, Java8SearchCriteria<BackendItem> gallery, BackendItem prev, BackendItem next, User user, List<ItemCredentials> credentials,
 					 boolean experimental) {
 			super(credentials);
 			this.user = user;
@@ -134,9 +135,9 @@ public class ImagePage extends AbstractRenderer<ImagePage.Model> {
 	}
 
 	private HtmlFragment neighbourLink(Model model, BackendItem item, String linkText, boolean right) {
-		return item == null ? HtmlFragment.EMPTY : tag("a",
+		return (item == null) ? HtmlFragment.EMPTY : tag("a",
 				"class="+ quote("siblink"+ (right? " right" : "")) +" href=" + quote(
-						model.gallery.getUrl(api).append("/" + item.getServerId() + api.ID_HTML_SUFFIX)),
+						api.getImagePageUrl(item.getServerId(), model.gallery, ItemSecurity.getItemCredentials(item, model.getAuthStatus()))),
 				tag("div", linkText));
 	}
 
