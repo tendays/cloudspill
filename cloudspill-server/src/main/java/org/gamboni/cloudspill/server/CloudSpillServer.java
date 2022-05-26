@@ -64,6 +64,7 @@ import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
 import java.util.function.BiFunction;
@@ -353,12 +354,14 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 
 	@Override
 	protected OrHttpError<ItemCredentials.UserToken> newToken(String username, String userAgent, String client) {
+    	username = username.toLowerCase(Locale.ROOT);
+    	String normalisedUsername = username;
     	return transactedOrError(session -> {
 			final String secret = Security.newRandomString(255);
 			UserAuthToken token = new UserAuthToken();
 			token.setValue(secret);
 			token.setValid(false);
-			final User user = session.get(User.class, username);
+			final User user = session.get(User.class, normalisedUsername);
 			token.setUser(user);
 			token.setDescription(client +" "+ userAgent +" at "+ LocalDateTime.now());
 			session.persist(token);
