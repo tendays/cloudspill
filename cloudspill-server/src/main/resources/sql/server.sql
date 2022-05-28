@@ -55,8 +55,8 @@ DROP TABLE IF EXISTS `Item`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `Item` (
-  `path` varchar(1024) DEFAULT NULL,
   `id` int(11) NOT NULL AUTO_INCREMENT,
+  `path` varchar(1024) DEFAULT NULL,
   `user` varchar(100) DEFAULT NULL,
   `folder` varchar(100) DEFAULT NULL,
   `date` datetime DEFAULT NULL,
@@ -89,10 +89,12 @@ DROP TABLE IF EXISTS `Comment`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `Comment` (
-  `Item_id` int(11) DEFAULT NULL,
-  `text` varchar(1000) CHARACTER SET utf8mb4 NOT NULL,
+  `id` int(11) not NULL auto_increment,
   `author` varchar(100) CHARACTER SET utf8mb4 NOT NULL,
-  `posted` timestamp not null
+  `posted` timestamp not null default current_timestamp(),
+  `text` varchar(1000) CHARACTER SET utf8mb4 NOT NULL,
+  `comments_id` int(11),
+  primary key (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -105,11 +107,26 @@ DROP TABLE IF EXISTS `User`;
 /*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `User` (
   `name` varchar(100) NOT NULL,
-  `salt` varchar(32) NOT NULL,
+  `fullName` varchar(255),
   `pass` varchar(62) NOT NULL,
+  `salt` varchar(32) NOT NULL,
+  `userGroup` varchar(255)
   PRIMARY KEY (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+
+create table UserAuthToken (
+    `id` bigint not null auto_increment,
+    `creationDate` timestamp not null default current_timestamp(),
+    `description` varchar(1024),
+    `ip` varchar(255),
+    `lastLogin` timestamp null,
+    `valid` bit not null,
+    `value` varchar(255) not null,
+    `user_name` varchar(255) not null,
+    primary key (id)
+);
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;

@@ -16,8 +16,11 @@ import org.hibernate.dialect.MySQLDialect;
 import org.hibernate.jpa.HibernatePersistenceProvider;
 import org.hibernate.jpa.boot.internal.EntityManagerFactoryBuilderImpl;
 import org.hibernate.jpa.boot.internal.PersistenceUnitInfoDescriptor;
+import org.hibernate.tool.hbm2ddl.SchemaExport;
+import org.hibernate.tool.schema.TargetType;
 
 import java.net.URL;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Properties;
 
@@ -156,11 +159,16 @@ abstract class BackendModule extends AbstractModule {
             }
         };
 
-
-        new HibernatePersistenceProvider().createContainerEntityManagerFactory(pui, prop);
-
         ImmutableMap<Object, Object> configuration = ImmutableMap.of(); // ?
-        return new EntityManagerFactoryBuilderImpl(new PersistenceUnitInfoDescriptor(pui), configuration).build();
+
+        EntityManagerFactoryBuilderImpl emfBuilder = new EntityManagerFactoryBuilderImpl(new PersistenceUnitInfoDescriptor(pui), configuration);
+        EntityManagerFactory emf = emfBuilder.build();
+
+        SchemaExport exp = new SchemaExport();
+        exp.setOutputFile("/tmp/t");
+        exp.execute(EnumSet.of(TargetType.STDOUT), SchemaExport.Action.CREATE, emfBuilder.getMetadata());
+
+        return emf;
     }
 
     protected abstract List<Class<?>> getManagedClasses();
