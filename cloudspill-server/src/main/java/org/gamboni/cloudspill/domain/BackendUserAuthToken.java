@@ -40,7 +40,7 @@ class BackendUserAuthToken {
     private Boolean valid;
     private String description;
     private String ip;
-    /** (OS + browser) */
+    /** (userAgent) */
     private String machine;
     private Instant lastLogin;
     private Instant creationDate;

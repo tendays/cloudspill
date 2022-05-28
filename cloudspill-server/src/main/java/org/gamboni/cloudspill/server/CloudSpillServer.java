@@ -364,6 +364,9 @@ public class CloudSpillServer extends CloudSpillBackend<ServerDomain> {
 			final User user = session.get(User.class, normalisedUsername);
 			token.setUser(user);
 			token.setDescription(client +" "+ userAgent +" at "+ LocalDateTime.now());
+			token.setMachine(userAgent);
+			token.setCreationDate(Instant.now());
+			token.setIp(client);
 			session.persist(token);
 
 			return new ItemCredentials.UserToken(user, token.getId(), secret);

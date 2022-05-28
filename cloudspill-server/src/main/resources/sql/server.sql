@@ -120,6 +120,7 @@ create table UserAuthToken (
     `id` bigint not null auto_increment,
     `creationDate` timestamp not null default current_timestamp(),
     `description` varchar(1024),
+    `machine` varchar(255),
     `ip` varchar(255),
     `lastLogin` timestamp null,
     `valid` bit not null,

@@ -369,25 +369,22 @@ public abstract class AbstractServer<S extends CloudSpillEntityManagerDomain> {
 	}
 
 	protected AbstractServer() {
-		/* Experimental: starting work on setting up Jetty server. Ultimate purpose is to disable getRemoteAddr() checking X-Forwarded-For.
+		/* Experimental: starting work on setting up Jetty server. Ultimate purpose is to disable getRemoteAddr() checking X-Forwarded-For. */
 		EmbeddedServers.add(EmbeddedServers.Identifiers.JETTY,
 				(Routes routeMatcher, StaticFilesConfiguration staticFilesConfiguration, boolean hasMultipleHandler) -> {
 			MatcherFilter matcherFilter = new MatcherFilter(routeMatcher, staticFilesConfiguration, false, hasMultipleHandler);
 			matcherFilter.init(null);
 			JettyHandler handler = new JettyHandler(matcherFilter);
 			return new EmbeddedJettyServer((int maxThreads, int minThreads, int threadTimeoutMillis) -> {
-						Server server;
 						if (maxThreads > 0 || minThreads > 0 || threadTimeoutMillis > 0) {
 							int max = maxThreads > 0 ? maxThreads : 200;
 							int min = minThreads > 0 ? minThreads : 8;
 							int idleTimeout = threadTimeoutMillis > 0 ? threadTimeoutMillis : '\uea60';
-							server = new Server(new QueuedThreadPool(max, min, idleTimeout));
+							return new Server(new QueuedThreadPool(max, min, idleTimeout));
 						} else {
-							server = new Server();
+							return new Server();
 						}
-
-						return server;
 					}, handler);
-		}); */
+		});
 	}
 }
