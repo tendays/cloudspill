@@ -6,9 +6,20 @@
  * user guide available at https://docs.gradle.org/3.5/userguide/java_library_plugin.html
  */
 
+plugins {
+    id 'idea'
+}
+
 apply plugin: "java"
 apply plugin: 'application'
 mainClassName = "org.gamboni.cloudspill.server.CloudSpillServer"
+
+/* https://stackoverflow.com/questions/24486883/automatically-download-sources-in-gradle-project */
+idea {
+    module {
+        downloadSources = true
+    }
+}
 
 //jar {
   //  manifest {
